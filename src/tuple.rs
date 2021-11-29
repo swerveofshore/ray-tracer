@@ -1,19 +1,38 @@
 use std::ops::{ Add, Sub, Neg, Mul };
 
+use crate::feq;
+
 #[allow(unused)]
-#[derive(Debug, Default, Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Default, Copy, Clone, PartialOrd)]
 pub struct Tuple3D {
     pub x: f64,
     pub y: f64,
     pub z: f64
 }
 
-#[derive(Debug, Default, Copy, Clone, PartialEq, PartialOrd)]
+impl PartialEq for Tuple3D {
+    fn eq(&self, other: &Tuple3D) -> bool {
+        feq(self.x, other.x) &&
+            feq(self.y, other.y) &&
+            feq(self.z, other.z)
+    }
+}
+
+#[derive(Debug, Default, Copy, Clone, PartialOrd)]
 pub struct Tuple4D {
     pub x: f64,
     pub y: f64,
     pub z: f64,
     pub w: f64
+}
+
+impl PartialEq for Tuple4D {
+    fn eq(&self, other: &Tuple4D) -> bool {
+        feq(self.x, other.x) &&
+            feq(self.y, other.y) &&
+            feq(self.z, other.z) &&
+            feq(self.w, other.w)
+    }
 }
 
 impl Tuple4D {
