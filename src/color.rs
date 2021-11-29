@@ -1,10 +1,20 @@
 use std::ops::{ Add, Sub, Mul };
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd)]
+use crate::feq;
+
+#[derive(Copy, Clone, Debug, Default, PartialOrd)]
 pub struct Color {
     pub r: f64,
     pub g: f64,
     pub b: f64,
+}
+
+impl PartialEq for Color {
+    fn eq(&self, other: &Color) -> bool {
+        feq(self.r, other.r) &&
+            feq(self.g, other.g) &&
+            feq(self.b, other.b)
+    }
 }
 
 impl Color {

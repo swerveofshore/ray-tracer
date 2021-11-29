@@ -2,6 +2,7 @@ use std::fmt;
 use std::ops::{ Index, IndexMut, Mul };
 use std::convert::From;
 
+use crate::feq;
 use crate::tuple::*;
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd)]
@@ -14,9 +15,16 @@ pub struct Matrix3D {
     data: [f64; 9],
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, Default, PartialOrd)]
 pub struct Matrix4D {
     data: [f64; 16],
+}
+
+impl PartialEq for Matrix4D {
+    fn eq(&self, other: &Matrix4D) -> bool {
+        self.data.iter().zip(other.data.iter())
+                        .all(|(x, y)| feq(*x, *y))
+    }
 }
 
 impl Matrix2D {
