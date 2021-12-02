@@ -1,6 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 
+use crate::FEQ_EPSILON;
 use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
 use crate::ray::Ray4D;
@@ -154,6 +155,7 @@ pub struct IntersectionComputation {
     pub obj: Rc<RefCell<dyn IntersectableDebug>>,
 
     pub point: Tuple4D,
+    pub over_point: Tuple4D,
     pub eyev: Tuple4D,
     pub normalv: Tuple4D,
 
@@ -167,6 +169,7 @@ impl IntersectionComputation {
         let point = r.position(t);
         let eyev = -r.direction;
         let mut normalv = obj.borrow().normal(point);
+        let over_point = point + normalv * FEQ_EPSILON;
 
         let inside = if normalv.dot(&eyev) < 0.0 {
             normalv = -normalv;
@@ -175,7 +178,11 @@ impl IntersectionComputation {
             false
         };
 
-        IntersectionComputation { t, obj, point, eyev, normalv, inside }
+        IntersectionComputation {
+            t, obj,
+            point, over_point, eyev, normalv,
+            inside
+        }
     }
 }
 
@@ -412,4 +419,21 @@ fn precompute_inside_intersection() {
     assert_eq!(comps.point, Tuple4D::point(0.0, 0.0, 1.0));
     assert_eq!(comps.eyev, Tuple4D::vector(0.0, 0.0, -1.0));
     assert_eq!(comps.normalv, Tuple4D::vector(0.0, 0.0, -1.0));
+}
+
+#[test]
+fn hit_should_offset_point() {
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, -5.0),
+        Tuple4D::vector(0.0, 0.0, 1.0),
+    );
+
+    let mut shape = Sphere::unit();
+    shape.transform = Matrix4D::translation(0.0, 0.0, 1.0);
+
+    let i = Intersection { t: 5.0, what: Rc::new(RefCell::new(shape)) };
+    let comps = IntersectionComputation::new(&r, &i);
+
+    assert!(comps.over_point.z < -FEQ_EPSILON / 2.0);
+    assert!(comps.point.z > comps.over_point.z);
 }
