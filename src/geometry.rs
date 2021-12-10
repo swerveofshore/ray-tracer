@@ -179,6 +179,9 @@ impl Intersectable for Sphere {
     /// To compute the normal, `at` is first converted to object space.
     /// Afterwards, the normal is converted by taking a vector which points from
     /// the sphere's origin. Then, the vector is converted back to world space.
+    ///
+    /// The transposition of the transform inverse is taken to preserve the
+    /// angle between the normal and the surface.
     fn normal(&self, at: Tuple4D) -> Tuple4D {
         let trans_inv = self.transform.inverse().expect(
             "Transformation matrix on sphere should be invertible."
