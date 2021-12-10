@@ -92,6 +92,7 @@ impl Tuple4D {
         }
     }
 
+    /// Reflects a vector across a normal.
     pub fn reflect(&self, normal: &Tuple4D) -> Tuple4D {
         *self - (*normal * 2.0 * self.dot(normal))
     }

@@ -1,6 +1,10 @@
 use crate::color::Color;
 use crate::tuple::Tuple4D;
 
+/// A point light.
+///
+/// A very simple light source. Provides a color and a position where light is
+/// produced from.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct PointLight {
     pub intensity: Color,
@@ -8,6 +12,9 @@ pub struct PointLight {
 }
 
 impl PointLight {
+    /// Creates a point light.
+    ///
+    /// If `position` isn't a point, it is converted to a point automatically.
     pub fn new(intensity: Color, mut position: Tuple4D) -> PointLight {
         if !position.is_point() {
             position.w = 1.0;
@@ -17,6 +24,10 @@ impl PointLight {
     }
 }
 
+/// A material record.
+///
+/// Materials use attributes from the Phong reflection model; ambient, diffuse,
+/// specular and shininess.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Material {
     pub color: Color,
@@ -38,6 +49,17 @@ impl Default for Material {
     }
 }
 
+/// Calculate the lighting of a pixel in an environment.
+///
+/// Inline comments are provided in the source for this function. I believe they
+/// best explain how this function operates.
+///
+/// Effectively, this function takes a material, a single light, a point, the
+/// eye vector and the normal vector, and calculates how the light looks from
+/// the eye. Position is irrelevant, bar the angle around `point`.
+///
+/// If this point is in a shadow (parameter `in_shadow`), only ambient light is
+/// used.
 pub fn lighting(m: Material, light: PointLight, point: Tuple4D,
     eyev: Tuple4D, normalv: Tuple4D, in_shadow: bool) -> Color {
     // Combine surface color with light's color
@@ -55,8 +77,8 @@ pub fn lighting(m: Material, light: PointLight, point: Tuple4D,
     }
 
     // Default to black for locations without light
-    let mut diffuse = Color::rgb(0.0, 0.0, 0.0);
-    let mut specular = Color::rgb(0.0, 0.0, 0.0);
+    let mut diffuse = Color::black();
+    let mut specular = Color::black();
 
     // Find which side of the surface the light is on, act accordingly
     let light_dot_normal = lightv.dot(&normalv);
@@ -68,7 +90,7 @@ pub fn lighting(m: Material, light: PointLight, point: Tuple4D,
 
         // If no specular reflection, set the specular light to black 
         if reflect_dot_eye <= 0.0 {
-            specular = Color::rgb(0.0, 0.0, 0.0);
+            specular = Color::black();
         } else {
             // Otherwise, calculate the shininess factor and apply
             let factor = reflect_dot_eye.powf(m.shininess);
