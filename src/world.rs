@@ -8,6 +8,12 @@ use crate::light::{ PointLight, Material, lighting };
 use crate::geometry::{ IntersectableDebug, Intersections,
     IntersectionComputation, Sphere };
 
+/// A world with objects and light.
+///
+/// Objects are all `IntersectableDebug` items, and the light is a `PointLight`.
+///
+/// Worlds collect all objects as well as light for rendering. Most logic is
+/// performed within worlds for the ray tracer.
 pub struct World {
     pub objects: Vec<Rc<RefCell<dyn IntersectableDebug>>>,
     pub light_source: PointLight,
@@ -38,14 +44,17 @@ impl Default for World {
 }
 
 impl World {
+    /// Creates a default world with two spheres.
     pub fn new() -> World {
         Default::default()
     }
 
+    /// Creates an empty world with no objects and the default light source.
     pub fn empty() -> World {
         World { objects: Vec::new(), light_source: Default::default() }
     }
 
+    /// Gets the first object in a world.
     pub fn first(&self) -> Option<Rc<RefCell<dyn IntersectableDebug>>> {
         if self.objects.len() > 0 {
             Some(Rc::clone(&self.objects[0]))
@@ -54,6 +63,7 @@ impl World {
         }
     }
 
+    /// Gets the second object in a world.
     pub fn second(&self) -> Option<Rc<RefCell<dyn IntersectableDebug>>> {
         if self.objects.len() > 1 {
             Some(Rc::clone(&self.objects[1]))
@@ -62,6 +72,7 @@ impl World {
         }
     }
 
+    /// Intersects a ray against all objects in a world.
     pub fn intersect(&self, r: Ray4D) -> Intersections {
         let mut intersections: Intersections  = Intersections::new();
         for obj in self.objects.iter() {
@@ -73,6 +84,7 @@ impl World {
         intersections
     }
 
+    /// Determines whether a point is shadowed.
     pub fn is_shadowed(&self, p: Tuple4D) -> bool {
         let v = self.light_source.position - p;
         let distance = v.magnitude();
@@ -89,12 +101,14 @@ impl World {
         }
     }
 
+    /// Calculates the color for a hit, based on shadows and light.
     pub fn shade_hit(&self, comps: &IntersectionComputation) -> Color {
         lighting(*comps.obj.borrow().material(),
             self.light_source, comps.point, comps.eyev, comps.normalv,
             self.is_shadowed(comps.over_point))
     }
 
+    /// Determines a color based on the intersection of a ray and the objects.
     pub fn color_at(&self, r: Ray4D) -> Color {
         let mut is = self.intersect(r);
 
