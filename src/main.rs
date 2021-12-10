@@ -16,9 +16,10 @@ fn main() {
     let mut floor = Sphere::unit();
     floor.transform = Matrix4D::scaling(10.0, 0.01, 10.0);
     floor.material = Default::default();
-    floor.material.color = Color::rgb(1.0, 0.9, 0.9);
+    floor.material.color = Color::rgb(0.5, 0.5, 0.5);
     floor.material.specular = 0.0;
 
+    /*
     let mut left_wall = Sphere::unit();
     left_wall.transform =
         Matrix4D::translation(0.0, 0.0, 5.0) *
@@ -34,9 +35,10 @@ fn main() {
         Matrix4D::rotation_x(std::f64::consts::PI / 2.0) *
         Matrix4D::scaling(10.0, 0.01, 10.0);
     right_wall.material = floor.material;
+    */
 
     let mut middle = Sphere::unit();
-    middle.transform = Matrix4D::translation(-0.5, 1.0, 0.5);
+    middle.transform = Matrix4D::translation(-0.5, 1.0, 2.0);
     middle.material = Default::default();
     middle.material.color = Color::rgb(1.0, 0.4666, 0.2666);
     middle.material.diffuse = 0.7;
@@ -65,8 +67,6 @@ fn main() {
     );
     world.objects = vec![
         Rc::new(RefCell::new(floor)),
-        Rc::new(RefCell::new(left_wall)),
-        Rc::new(RefCell::new(right_wall)),
         Rc::new(RefCell::new(middle)),
         Rc::new(RefCell::new(right)),
         Rc::new(RefCell::new(left)),
