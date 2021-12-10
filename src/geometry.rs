@@ -18,7 +18,7 @@ use crate::light::Material;
 #[derive(Clone, Debug)]
 pub struct Intersection {
     pub t: f64,
-    pub what: Rc<RefCell<dyn IntersectableDebug>>,
+    pub what: Rc<RefCell<dyn ShapeDebug>>,
 }
 
 /// Implements partial equality on an Intersection.
@@ -81,17 +81,22 @@ impl Intersections {
 }
 
 /// A combination of the Intersectable and the std::fmt::Debug trait.
-pub trait IntersectableDebug : Intersectable + std::fmt::Debug { }
+pub trait ShapeDebug : Shape + std::fmt::Debug { }
 
 /// Includes properties that all intersectable objects should have.
 ///
 /// All intersectable objects should be able to be intersected by a ray.
 /// Similarly, all intersectable objects should have normals on their surface.
-pub trait Intersectable {
+pub trait Shape {
     fn intersect(&self, ray: Ray4D) -> Intersections;
+
     fn normal(&self, at: Tuple4D) -> Tuple4D;
+
     fn material(&self) -> &Material;
     fn material_mut(&mut self) -> &mut Material;
+
+    fn transform(&self) -> &Matrix4D;
+    fn transform_mut(&mut self) -> &mut Matrix4D;
 }
 
 /// A sphere.
@@ -135,7 +140,7 @@ impl Sphere {
     }
 }
 
-impl Intersectable for Sphere {
+impl Shape for Sphere {
     /// Checks whether a ray intersects a sphere.
     ///
     /// Can return two values: either an empty vector (in the case of zero
@@ -204,10 +209,20 @@ impl Intersectable for Sphere {
     fn material_mut(&mut self) -> &mut Material {
         &mut self.material
     }
+
+    /// Returns a reference to the transform associated with a sphere.
+    fn transform(&self) -> &Matrix4D {
+        &self.transform
+    }
+
+    /// Returns a mutable reference to the transform associated with a sphere.
+    fn transform_mut(&mut self) -> &mut Matrix4D {
+        &mut self.transform
+    }
 }
 
 /// Empty trait implementation for Sphere.
-impl IntersectableDebug for Sphere { }
+impl ShapeDebug for Sphere { }
 
 /// A record for computations associated with an `Intersection`.
 ///
@@ -218,7 +233,7 @@ pub struct IntersectionComputation {
     pub t: f64,
 
     /// The object being intersected.
-    pub obj: Rc<RefCell<dyn IntersectableDebug>>,
+    pub obj: Rc<RefCell<dyn ShapeDebug>>,
 
     /// The point where the intersection occurs.
     pub point: Tuple4D,

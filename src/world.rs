@@ -5,7 +5,7 @@ use crate::tuple::Tuple4D;
 use crate::color::Color;
 use crate::matrix::Matrix4D;
 use crate::light::{ PointLight, Material, lighting };
-use crate::geometry::{ IntersectableDebug, Intersections,
+use crate::geometry::{ ShapeDebug, Intersections,
     IntersectionComputation, Sphere };
 
 /// A world with objects and light.
@@ -15,7 +15,7 @@ use crate::geometry::{ IntersectableDebug, Intersections,
 /// Worlds collect all objects as well as light for rendering. Most logic is
 /// performed within worlds for the ray tracer.
 pub struct World {
-    pub objects: Vec<Rc<RefCell<dyn IntersectableDebug>>>,
+    pub objects: Vec<Rc<RefCell<dyn ShapeDebug>>>,
     pub light_source: PointLight,
 }
 
@@ -55,7 +55,7 @@ impl World {
     }
 
     /// Gets the first object in a world.
-    pub fn first(&self) -> Option<Rc<RefCell<dyn IntersectableDebug>>> {
+    pub fn first(&self) -> Option<Rc<RefCell<dyn ShapeDebug>>> {
         if self.objects.len() > 0 {
             Some(Rc::clone(&self.objects[0]))
         } else {
@@ -64,7 +64,7 @@ impl World {
     }
 
     /// Gets the second object in a world.
-    pub fn second(&self) -> Option<Rc<RefCell<dyn IntersectableDebug>>> {
+    pub fn second(&self) -> Option<Rc<RefCell<dyn ShapeDebug>>> {
         if self.objects.len() > 1 {
             Some(Rc::clone(&self.objects[1]))
         } else {
