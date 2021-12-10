@@ -7,30 +7,61 @@ use crate::matrix::Matrix4D;
 use crate::ray::Ray4D;
 use crate::light::Material;
 
+/// An intersection.
+///
+/// This structure assumes that some ray produced an intersection. Parameter `t`
+/// is analogous to `t` for a ray (the offset from the ray origin).
+///
+/// The `what` parameter is a reference to an `IntersectableDebug` trait object.
+/// A trait object is used because there can be many unique objects (sphere,
+/// cube, plane, etc.) which are intersectable.
 #[derive(Clone, Debug)]
 pub struct Intersection {
     pub t: f64,
     pub what: Rc<RefCell<dyn IntersectableDebug>>,
 }
 
+/// Implements partial equality on an Intersection.
+///
+/// Two Intersection structures are equal if the offsets `t` of the
+/// intersections are equivalent, and if the underlying *pointers* of the
+/// intersections are equivalent.
 impl PartialEq for Intersection {
     fn eq(&self, other: &Intersection) -> bool {
         self.t == other.t && Rc::ptr_eq(&self.what, &other.what)
     }
 }
 
+/// Implements total equality on an Intersection. Empty implementation.
+impl Eq for Intersection { }
+
+/// A collection of intersections.
+///
+/// Mostly a wrapper for a vector of `Intersection` objects. See the
+/// `Intersection` documentation for more information.
 pub struct Intersections {
     pub intersections: Vec<Intersection>,
 }
 
 impl Intersections {
+    /// Creates a new list of intersections.
     pub fn new() -> Intersections {
         Intersections { intersections: Vec::new() }
     }
 
+    /// Checks if any Intersectable object has been hit.
+    ///
+    /// If no hit is registered, this function returns `None`.
+    ///
+    /// Effectively, a hit occurs if at least one `Intersection` in this
+    /// `Intersections` is finite and is greater than or equal to 0.
+    ///
+    /// As a note, this function sorts the `intersections` field on every call.
+    /// This is because the `Intersection` with the lowest `t` is chosen. A more
+    /// optimal implementation is likely possible.
     pub fn hit<'a>(&'a mut self) -> Option<&'a Intersection> {
         self.intersections.retain(|i| i.t.is_finite());
-        self.intersections.sort_by(|a, b| a.t.partial_cmp(&b.t).unwrap());
+        self.sort();
 
         for i in self.intersections.iter() {
             if i.t >= 0.0 {
@@ -41,6 +72,7 @@ impl Intersections {
         None
     }
 
+    /// Sorts the intersections by `t`, ignoring `f64` semantics.
     pub fn sort(&mut self) {
         self.intersections.sort_by(|a, b|
             a.t.partial_cmp(&b.t).unwrap_or(std::cmp::Ordering::Equal)
@@ -48,8 +80,13 @@ impl Intersections {
     }
 }
 
+/// A combination of the Intersectable and the std::fmt::Debug trait.
 pub trait IntersectableDebug : Intersectable + std::fmt::Debug { }
 
+/// Includes properties that all intersectable objects should have.
+///
+/// All intersectable objects should be able to be intersected by a ray.
+/// Similarly, all intersectable objects should have normals on their surface.
 pub trait Intersectable {
     fn intersect(&self, ray: Ray4D) -> Intersections;
     fn normal(&self, at: Tuple4D) -> Tuple4D;
@@ -57,16 +94,23 @@ pub trait Intersectable {
     fn material_mut(&mut self) -> &mut Material;
 }
 
+/// A sphere.
+///
+/// A sphere is defined by its position, radius and transform. The `pos` field 
+/// defines where a sphere is in *object* space, and the `transform` field moves
+/// the sphere to *world* space.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Sphere {
     pub pos: Tuple4D,
     pub radius: f64,
-
     pub transform: Matrix4D,
     pub material: Material,
 }
 
 impl Sphere {
+    /// Creates a new sphere with `radius` at `pos`.
+    ///
+    /// If `pos` is a vector, it is automatically converted to a point.
     pub fn new(mut pos: Tuple4D, radius: f64) -> Sphere {
         if !pos.is_point() {
             pos.w = 1.0;
@@ -80,6 +124,7 @@ impl Sphere {
         }
     }
 
+    /// Creates a unit sphere with default transform and material.
     pub fn unit() -> Sphere {
         Sphere {
             pos: Tuple4D::point(0.0, 0.0, 0.0),
@@ -125,6 +170,15 @@ impl Intersectable for Sphere {
         Intersections { intersections: vec![i1, i2] }
     }
 
+    /// Returns the normal vector at point `at`.
+    ///
+    /// Note that a sphere specifies a transformation matrix. This matrix
+    /// specifies the location of the sphere in world space, as well as any
+    /// augmentations (scale, shearing, etc.) applied to the sphere.
+    ///
+    /// To compute the normal, `at` is first converted to object space.
+    /// Afterwards, the normal is converted by taking a vector which points from
+    /// the sphere's origin. Then, the vector is converted back to world space.
     fn normal(&self, at: Tuple4D) -> Tuple4D {
         let trans_inv = self.transform.inverse().expect(
             "Transformation matrix on sphere should be invertible."
@@ -138,31 +192,49 @@ impl Intersectable for Sphere {
         world_normal.normalize()
     }
 
+    /// Returns a reference to the material associated with a sphere.
     fn material(&self) -> &Material {
         &self.material
     }
 
+    /// Returns a mutable reference to the material associated with a sphere.
     fn material_mut(&mut self) -> &mut Material {
         &mut self.material
     }
 }
 
+/// Empty trait implementation for Sphere.
 impl IntersectableDebug for Sphere { }
 
+/// A record for computations associated with an `Intersection`.
+///
+/// Mostly a superset of an `Intersection`.
 #[derive(Clone, Debug)]
 pub struct IntersectionComputation {
+    /// The "time" of the ray intersection.
     pub t: f64,
+
+    /// The object being intersected.
     pub obj: Rc<RefCell<dyn IntersectableDebug>>,
 
+    /// The point where the intersection occurs.
     pub point: Tuple4D,
+
+    /// An error-corrected point of the intersection.
     pub over_point: Tuple4D,
+
+    /// The eye vector for the intersection.
     pub eyev: Tuple4D,
+
+    /// The normal vector of the object being intersected.
     pub normalv: Tuple4D,
 
+    /// Whether the intersection occurs within the object or not.
     pub inside: bool,
 }
 
 impl IntersectionComputation {
+    /// Creates a new intersection computation, given a ray and intersection.
     pub fn new(r: &Ray4D, i: &Intersection) -> IntersectionComputation {
         let t = i.t;
         let obj = Rc::clone(&i.what);
