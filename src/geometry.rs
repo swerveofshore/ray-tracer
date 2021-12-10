@@ -224,6 +224,39 @@ impl Shape for Sphere {
 /// Empty trait implementation for Sphere.
 impl ShapeDebug for Sphere { }
 
+pub struct Plane {
+    pub normal: Tuple4D,
+    pub material: Material,
+    pub transform: Matrix4D,
+}
+
+impl Shape for Plane {
+    fn normal(&self, _at: Tuple4D) -> Tuple4D {
+        self.normal
+    }
+
+    fn intersect(&self, ray: Ray4D) -> Intersections {
+        // TODO implement
+        Intersections::new()
+    }
+
+    fn material(&self) -> &Material {
+        &self.material
+    }
+
+    fn material_mut(&mut self) -> &mut Material {
+        &mut self.material
+    }
+
+    fn transform(&self) -> &Matrix4D {
+        &self.transform
+    }
+
+    fn transform_mut(&mut self) -> &mut Matrix4D {
+        &mut self.transform
+    }
+}
+
 /// A record for computations associated with an `Intersection`.
 ///
 /// Mostly a superset of an `Intersection`.
