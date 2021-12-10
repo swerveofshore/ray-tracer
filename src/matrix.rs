@@ -164,6 +164,18 @@ impl Matrix4D {
         shear
     }
 
+    /// Generates a view transformation.
+    ///
+    /// The view transform manipulates the world from the perspective of an eye,
+    /// The `from` parameter is where the eye is, the `to` parameter is where
+    /// the eye is looking, and the `up` parameter indicates where "up" is in
+    /// the world.
+    ///
+    /// A "default" orientation fixes the eye at the origin, looking at a screen
+    /// one unit "deep." The `up` vector points conventionally up, with `y=1`.
+    ///
+    /// Note that the view transformation moves the *world* with respect to the
+    /// eye, not the other way around. 
     pub fn view_transform(from: Tuple4D, to: Tuple4D, up: Tuple4D) -> Matrix4D {
         let forward = (to - from).normalize(); 
         let left = forward.cross(&up.normalize());

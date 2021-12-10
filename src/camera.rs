@@ -4,16 +4,27 @@ use crate::matrix::Matrix4D;
 use crate::world::World;
 use crate::canvas::Canvas;
 
+/// A camera record for generating a canvas.
+///
+/// This record gives a "frame" of the world. Based on camera parameters,
+/// different perspectives can be produced.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Camera {
+    /// The horizontal size of the resultant canvas.
     pub hsize: usize,
+
+    /// The vertical size of the resultant canvas.
     pub vsize: usize,
 
     pub half_width: f64,
     pub half_height: f64,
     pub pixel_size: f64,
  
+    /// The angle describing "how much" the camera can see.
     pub field_of_view: f64,
+
+    /// A matrix describing how the world should be oriented relative to the
+    /// camera (typically a view transformation).
     pub transform: Matrix4D,
 }
 
