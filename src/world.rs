@@ -6,7 +6,7 @@ use crate::color::Color;
 use crate::matrix::Matrix4D;
 use crate::light::{ PointLight, Material, lighting };
 use crate::geometry::{ ShapeDebug, Intersections,
-    IntersectionComputation, Sphere };
+    IntersectionComputation, Sphere, intersect };
 
 /// A world with objects and light.
 ///
@@ -76,7 +76,7 @@ impl World {
     pub fn intersect(&self, r: Ray4D) -> Intersections {
         let mut intersections: Intersections  = Intersections::new();
         for obj in self.objects.iter() {
-            let mut is: Intersections = obj.borrow().intersect(r);
+            let mut is: Intersections = intersect(&mut *(obj.borrow_mut()), r);
             intersections.intersections.append(&mut is.intersections);
         }
 
