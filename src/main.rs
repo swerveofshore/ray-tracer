@@ -9,8 +9,8 @@ use ray_tracer_challenge::light::PointLight;
 use ray_tracer_challenge::world::World;
 use ray_tracer_challenge::camera::Camera;
 
-const CANVAS_WIDTH: usize = 1920;
-const CANVAS_HEIGHT: usize = 1080;
+const CANVAS_WIDTH: usize = 3840;
+const CANVAS_HEIGHT: usize = 2160;
 
 fn main() {
     let mut floor = Sphere::unit();
