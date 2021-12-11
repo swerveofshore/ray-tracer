@@ -42,6 +42,30 @@ impl Color {
         }
     }
 
+    pub fn red() -> Color {
+        Color {
+            r: 1.0,
+            g: 0.0,
+            b: 0.0
+        }
+    }
+
+    pub fn green() -> Color {
+        Color {
+            r: 0.0,
+            g: 1.0,
+            b: 0.0
+        }
+    }
+
+    pub fn blue() -> Color {
+        Color {
+            r: 0.0,
+            g: 0.0,
+            b: 1.0
+        }
+    }
+
     pub fn hadamard(c1: &Color, c2: &Color) -> Color {
         let r = c1.r * c2.r;
         let g = c1.g * c2.g;
