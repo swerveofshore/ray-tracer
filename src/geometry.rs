@@ -334,7 +334,7 @@ impl IntersectionComputation {
         let obj = Rc::clone(&i.what);
         let point = r.position(t);
         let eyev = -r.direction;
-        let mut normalv = normal_at(&mut *(obj.borrow_mut()), point);
+        let mut normalv = normal_at(&*(obj.borrow()), point);
         let over_point = point + normalv * FEQ_EPSILON;
 
         let inside = if normalv.dot(&eyev) < 0.0 {

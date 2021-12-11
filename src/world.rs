@@ -74,7 +74,7 @@ impl World {
 
     /// Intersects a ray against all objects in a world.
     pub fn intersect(&self, r: Ray4D) -> Intersections {
-        let mut intersections: Intersections  = Intersections::new();
+        let mut intersections: Intersections = Intersections::new();
         for obj in self.objects.iter() {
             let mut is: Intersections = intersect(&mut *(obj.borrow_mut()), r);
             intersections.intersections.append(&mut is.intersections);
