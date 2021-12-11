@@ -243,7 +243,7 @@ pub struct Plane {
 }
 
 impl Plane {
-    fn new() -> Plane {
+    pub fn new() -> Plane {
         Plane {
             normal: Tuple4D::vector(0.0, 1.0, 0.0),
             material: Default::default(),

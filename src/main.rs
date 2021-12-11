@@ -3,7 +3,7 @@ use std::cell::RefCell;
 
 use ray_tracer_challenge::tuple::Tuple4D;
 use ray_tracer_challenge::matrix::Matrix4D;
-use ray_tracer_challenge::geometry::Sphere;
+use ray_tracer_challenge::geometry::{ Sphere, Plane };
 use ray_tracer_challenge::color::Color;
 use ray_tracer_challenge::light::PointLight;
 use ray_tracer_challenge::world::World;
@@ -13,7 +13,7 @@ const CANVAS_WIDTH: usize = 3840;
 const CANVAS_HEIGHT: usize = 2160;
 
 fn main() {
-    let mut floor = Sphere::unit();
+    let mut floor = Plane::new();
     floor.transform = Matrix4D::scaling(10.0, 0.01, 10.0);
     floor.material = Default::default();
     floor.material.color = Color::rgb(0.5, 0.5, 0.5);
