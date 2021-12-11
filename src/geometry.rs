@@ -157,15 +157,10 @@ impl Shape for Sphere {
     /// If the sphere is only intersected at one point, the elements of the
     /// size-two vector should be equal.
     fn local_intersect(&self, ray: Ray4D) -> Intersections {
-        let inverse_transform = self.transform.inverse().expect(
-            "Transformation matrix on sphere should be invertible."
-        );
+        let sphere_to_ray = ray.origin - self.pos; 
 
-        let transformed_ray = ray.transform(inverse_transform);
-        let sphere_to_ray = transformed_ray.origin - self.pos; 
-
-        let a = transformed_ray.direction.dot(&transformed_ray.direction);
-        let b = 2.0 * transformed_ray.direction.dot(&sphere_to_ray);
+        let a = ray.direction.dot(&ray.direction);
+        let b = 2.0 * ray.direction.dot(&sphere_to_ray);
         let c = sphere_to_ray.dot(&sphere_to_ray) - 1.0;
 
         let discriminant = b.powf(2.0) - (4.0 * a * c);
@@ -237,7 +232,7 @@ impl ShapeDebug for Sphere { }
 ///
 /// Defines a plane which stretches indefinitely. The orientation of the plane
 /// is defined by a normal vector.
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Plane {
     pub normal: Tuple4D,
 
@@ -247,10 +242,31 @@ pub struct Plane {
     pub saved_ray: Option<Ray4D>,
 }
 
+impl Plane {
+    fn new() -> Plane {
+        Plane {
+            normal: Tuple4D::vector(0.0, 1.0, 0.0),
+            material: Default::default(),
+            transform: Default::default(),
+            saved_ray: None,
+        }
+    }
+}
+
 impl Shape for Plane {
     fn local_intersect(&self, ray: Ray4D) -> Intersections {
-        // TODO implement
-        Intersections::new()
+        // In local space, plane stretches across XZ axis; if the ray doesn't
+        // point in the Y direction whatsoever, it won't intersect the plane.
+        if ray.direction.y.abs() <= FEQ_EPSILON {
+            return Intersections::new();
+        }
+        
+        // In local space, we can deduce the offset of the ray by checking
+        // the Y component. If a ray points down, it intersects with positive t.
+        let t = -ray.origin.y / ray.direction.y;
+        let i = Intersection { t, what: Rc::new(RefCell::new(*self)) };
+
+        Intersections { intersections: vec![i] }
     }
 
     fn local_normal_at(&self, _at: Tuple4D) -> Tuple4D {
@@ -499,6 +515,47 @@ fn compute_normal_on_transformed_sphere() {
     let n = normal_at(&s, p);
 
     assert_eq!(n, Tuple4D::vector(0.0, 0.97014, -0.24254));
+}
+
+#[test]
+fn normal_on_plane() {
+    let mut p = Plane::new();
+
+    let n1 = p.local_normal_at(Tuple4D::point(0.0, 0.0, 0.0));
+    let n2 = p.local_normal_at(Tuple4D::point(10.0, 0.0, -10.0));
+    let n3 = p.local_normal_at(Tuple4D::point(-5.0, 0.0, 150.0));
+
+    assert_eq!(n1, Tuple4D::vector(0.0, 1.0, 0.0));
+    assert_eq!(n2, Tuple4D::vector(0.0, 1.0, 0.0));
+    assert_eq!(n3, Tuple4D::vector(0.0, 1.0, 0.0));
+}
+
+#[test]
+fn ray_intersecting_plane_from_above() {
+    let mut p = Plane::new();
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 1.0, 0.0),
+        Tuple4D::vector(0.0, -1.0, 0.0)
+    );
+
+    let is = p.local_intersect(r);
+
+    assert_eq!(is.intersections.len(), 1);
+    assert_eq!(is.intersections[0].t, 1.0);
+}
+
+#[test]
+fn ray_intersecting_plane_from_below() {
+    let mut p = Plane::new();
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, -1.0, 0.0),
+        Tuple4D::vector(0.0, 1.0, 0.0)
+    );
+
+    let is = p.local_intersect(r);
+
+    assert_eq!(is.intersections.len(), 1);
+    assert_eq!(is.intersections[0].t, 1.0);
 }
 
 /*
