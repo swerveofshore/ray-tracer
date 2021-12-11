@@ -341,12 +341,65 @@ impl IntersectionComputation {
 /// Consider this shape a "null" shape which doesn't define any points or
 /// surfaces. Literally it is nothing in space, yet it still defines a transform
 /// and material (and can save rays).
+#[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct EmptyShape {
     pub transform: Matrix4D,
     pub material: Material,
 
-    pub saved_ray: Ray4D,
+    pub saved_ray: Option<Ray4D>,
 }
+
+impl EmptyShape {
+    #[allow(unused)] // Allowed because EmptyShape is mostly for testing.
+    pub(crate) fn new() -> EmptyShape {
+        EmptyShape {
+            transform: Default::default(),
+            material: Default::default(),
+            saved_ray: None,
+        }
+    }
+}
+
+impl Shape for EmptyShape {
+    fn local_intersect(&self, _r: Ray4D) -> Intersections {
+        // Empty shape can never be intersected.
+        Intersections::new()
+    }
+
+    fn local_normal_at(&self, at: Tuple4D) -> Tuple4D {
+        // Assume that an empty object is a sphere at the origin.
+        let mut normal = at;
+        normal.w = 0.0;
+
+        normal
+    }
+
+    fn transform(&self) -> &Matrix4D {
+        &self.transform
+    }
+
+    fn transform_mut(&mut self) -> &mut Matrix4D {
+        &mut self.transform
+    }
+
+    fn material(&self) -> &Material {
+        &self.material
+    }
+
+    fn material_mut(&mut self) -> &mut Material {
+        &mut self.material
+    }
+
+    fn saved_ray(&self) -> &Option<Ray4D> {
+        &self.saved_ray
+    }
+
+    fn saved_ray_mut(&mut self) -> &mut Option<Ray4D> {
+        &mut self.saved_ray
+    }
+}
+
+impl ShapeDebug for EmptyShape { }
 
 /// Intersects a ray with a `Shape`.
 ///
@@ -390,13 +443,13 @@ pub fn normal_at(s: & dyn ShapeDebug, p: Tuple4D) -> Tuple4D {
 }
 
 #[test]
-fn ray_intersects_scaled_sphere() {
+fn ray_intersects_scaled_shape() {
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -5.0),
         Tuple4D::vector(0.0, 0.0, 1.0)
     );
 
-    let mut s = Sphere::unit();
+    let mut s = EmptyShape::new();
     s.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
 
     let xs = intersect(&mut s, r);
@@ -405,22 +458,16 @@ fn ray_intersects_scaled_sphere() {
     let saved_ray = s.saved_ray.expect("Intersection should save a ray.");
     assert_eq!(saved_ray.origin, Tuple4D::point(0.0, 0.0, -2.5));
     assert_eq!(saved_ray.direction, Tuple4D::vector(0.0, 0.0, 0.5));
-    
-    /*
-    assert_eq!(xs.intersections.len(), 2);
-    assert_eq!(xs.intersections[0].t, 4.0);
-    assert_eq!(xs.intersections[1].t, 6.0);
-    */
 }
 
 #[test]
-fn ray_intersects_translated_sphere() {
+fn ray_intersects_translated_shape() {
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -5.0),
         Tuple4D::vector(0.0, 0.0, 1.0)
     );
 
-    let mut s = Sphere::unit();
+    let mut s = EmptyShape::new();
     s.transform = Matrix4D::translation(5.0, 0.0, 0.0);
 
     let xs = intersect(&mut s, r);
