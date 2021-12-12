@@ -9,6 +9,7 @@ pub mod camera;
 
 pub mod color;
 pub mod canvas;
+pub mod pattern;
 
 pub mod extra;
 
