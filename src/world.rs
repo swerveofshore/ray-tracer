@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use crate::ray::Ray4D;
 use crate::tuple::Tuple4D;
 use crate::color::Color;
@@ -15,7 +13,7 @@ use crate::geometry::{ ShapeDebug, Intersections,
 /// Worlds collect all objects as well as light for rendering. Most logic is
 /// performed within worlds for the ray tracer.
 pub struct World {
-    pub objects: Vec<Rc<RefCell<dyn ShapeDebug>>>,
+    pub objects: Vec<Box<dyn ShapeDebug>>,
     pub light_source: PointLight,
 }
 
@@ -37,7 +35,7 @@ impl Default for World {
         s2.transform = Matrix4D::scaling(0.5, 0.5, 0.5);
 
         World {
-            objects: vec![Rc::new(RefCell::new(s1)), Rc::new(RefCell::new(s2))],
+            objects: vec![Box::new(s1), Box::new(s2)],
             light_source
         }
     }
@@ -55,28 +53,32 @@ impl World {
     }
 
     /// Gets the first object in a world.
-    pub fn first(&self) -> Option<Rc<RefCell<dyn ShapeDebug>>> {
+    pub fn first(&self) -> Option<& dyn ShapeDebug> {
         if self.objects.len() > 0 {
-            Some(Rc::clone(&self.objects[0]))
+            Some(&*self.objects[1])
         } else {
             None
         }
     }
 
     /// Gets the second object in a world.
-    pub fn second(&self) -> Option<Rc<RefCell<dyn ShapeDebug>>> {
+    pub fn second(&self) -> Option<& dyn ShapeDebug> {
         if self.objects.len() > 1 {
-            Some(Rc::clone(&self.objects[1]))
+            Some(&*self.objects[2])
         } else {
             None
         }
     }
 
     /// Intersects a ray against all objects in a world.
-    pub fn intersect(&self, r: Ray4D) -> Intersections {
+    ///
+    /// The `World` needs to be mutable because it owns the objects it contains.
+    /// Function `intersect` has the opportunity to change the `saved_ray`
+    /// associated with each object.
+    pub fn intersect(&mut self, r: Ray4D) -> Intersections {
         let mut intersections: Intersections = Intersections::new();
-        for obj in self.objects.iter() {
-            let mut is: Intersections = intersect(&mut *(obj.borrow_mut()), r);
+        for obj in self.objects.iter_mut() {
+            let mut is: Intersections = intersect(&mut **obj, r);
             intersections.intersections.append(&mut is.intersections);
         }
 
@@ -85,7 +87,7 @@ impl World {
     }
 
     /// Determines whether a point is shadowed.
-    pub fn is_shadowed(&self, p: Tuple4D) -> bool {
+    pub fn is_shadowed(&mut self, p: Tuple4D) -> bool {
         let v = self.light_source.position - p;
         let distance = v.magnitude();
         let direction = v.normalize();
@@ -102,14 +104,14 @@ impl World {
     }
 
     /// Calculates the color for a hit, based on shadows and light.
-    pub fn shade_hit(&self, comps: &IntersectionComputation) -> Color {
-        lighting(*comps.obj.borrow().material(),
+    pub fn shade_hit(&mut self, comps: &IntersectionComputation) -> Color {
+        lighting(&comps.obj.material(),
             self.light_source, comps.point, comps.eyev, comps.normalv,
             self.is_shadowed(comps.over_point))
     }
 
     /// Determines a color based on the intersection of a ray and the objects.
-    pub fn color_at(&self, r: Ray4D) -> Color {
+    pub fn color_at(&mut self, r: Ray4D) -> Color {
         let mut is = self.intersect(r);
 
         // If at least one object is hit, return the color, else return black

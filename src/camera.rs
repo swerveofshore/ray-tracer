@@ -78,7 +78,7 @@ impl Camera {
         Ray4D::new(origin, direction)
     }
 
-    pub fn render(&self, w: &World) -> Canvas {
+    pub fn render(&self, w: &mut World) -> Canvas {
         let mut image = Canvas::new(self.hsize, self.vsize);
 
         for y in 0..self.vsize {

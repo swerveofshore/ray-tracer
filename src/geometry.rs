@@ -1,6 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
-
 use crate::FEQ_EPSILON;
 use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
@@ -16,9 +13,9 @@ use crate::light::Material;
 /// A trait object is used because there can be many unique objects (sphere,
 /// cube, plane, etc.) which are intersectable.
 #[derive(Clone, Debug)]
-pub struct Intersection {
+pub struct Intersection<'a> {
     pub t: f64,
-    pub what: Rc<RefCell<dyn ShapeDebug>>,
+    pub what: &'a dyn ShapeDebug,
 }
 
 /// Implements partial equality on an Intersection.
@@ -26,26 +23,26 @@ pub struct Intersection {
 /// Two Intersection structures are equal if the offsets `t` of the
 /// intersections are equivalent, and if the underlying *pointers* of the
 /// intersections are equivalent.
-impl PartialEq for Intersection {
-    fn eq(&self, other: &Intersection) -> bool {
-        self.t == other.t && Rc::ptr_eq(&self.what, &other.what)
+impl<'a> PartialEq for Intersection<'a> {
+    fn eq(&self, other: &Intersection<'a>) -> bool {
+        self.t == other.t && std::ptr::eq(self.what, other.what)
     }
 }
 
 /// Implements total equality on an Intersection. Empty implementation.
-impl Eq for Intersection { }
+impl<'a> Eq for Intersection<'a> { }
 
 /// A collection of intersections.
 ///
 /// Mostly a wrapper for a vector of `Intersection` objects. See the
 /// `Intersection` documentation for more information.
-pub struct Intersections {
-    pub intersections: Vec<Intersection>,
+pub struct Intersections<'a> {
+    pub intersections: Vec<Intersection<'a>>,
 }
 
-impl Intersections {
+impl<'a> Intersections<'a> {
     /// Creates a new list of intersections.
-    pub fn new() -> Intersections {
+    pub fn new() -> Intersections<'a> {
         Intersections { intersections: Vec::new() }
     }
 
@@ -59,7 +56,7 @@ impl Intersections {
     /// As a note, this function sorts the `intersections` field on every call.
     /// This is because the `Intersection` with the lowest `t` is chosen. A more
     /// optimal implementation is likely possible.
-    pub fn hit<'a>(&'a mut self) -> Option<&'a Intersection> {
+    pub fn hit<'b>(&'b mut self) -> Option<&'b Intersection<'a>> {
         self.intersections.retain(|i| i.t.is_finite());
         self.sort();
 
@@ -171,8 +168,8 @@ impl Shape for Sphere {
 
         let t1 = (-b - discriminant.sqrt()) / (2.0 * a);
         let t2 = (-b + discriminant.sqrt()) / (2.0 * a);
-        let i1 = Intersection { t: t1, what: Rc::new(RefCell::new(*self)) };
-        let i2 = Intersection { t: t2, what: Rc::new(RefCell::new(*self)) };
+        let i1 = Intersection { t: t1, what: self };
+        let i2 = Intersection { t: t2, what: self };
 
         Intersections { intersections: vec![i1, i2] }
     }
@@ -264,7 +261,7 @@ impl Shape for Plane {
         // In local space, we can deduce the offset of the ray by checking
         // the Y component. If a ray points down, it intersects with positive t.
         let t = -ray.origin.y / ray.direction.y;
-        let i = Intersection { t, what: Rc::new(RefCell::new(*self)) };
+        let i = Intersection { t, what: self };
 
         Intersections { intersections: vec![i] }
     }
@@ -304,12 +301,12 @@ impl ShapeDebug for Plane { }
 ///
 /// Mostly a superset of an `Intersection`.
 #[derive(Clone, Debug)]
-pub struct IntersectionComputation {
+pub struct IntersectionComputation<'a> {
     /// The "time" of the ray intersection.
     pub t: f64,
 
     /// The object being intersected.
-    pub obj: Rc<RefCell<dyn ShapeDebug>>,
+    pub obj: &'a dyn ShapeDebug,
 
     /// The point where the intersection occurs.
     pub point: Tuple4D,
@@ -327,14 +324,14 @@ pub struct IntersectionComputation {
     pub inside: bool,
 }
 
-impl IntersectionComputation {
+impl<'a> IntersectionComputation<'a> {
     /// Creates a new intersection computation, given a ray and intersection.
-    pub fn new(r: &Ray4D, i: &Intersection) -> IntersectionComputation {
+    pub fn new(r: &Ray4D, i: &Intersection<'a>) -> IntersectionComputation<'a> {
         let t = i.t;
-        let obj = Rc::clone(&i.what);
+        let obj = i.what;
         let point = r.position(t);
         let eyev = -r.direction;
-        let mut normalv = normal_at(&*(obj.borrow()), point);
+        let mut normalv = normal_at(obj, point);
         let over_point = point + normalv * FEQ_EPSILON;
 
         let inside = if normalv.dot(&eyev) < 0.0 {

@@ -60,7 +60,7 @@ impl Default for Material {
 ///
 /// If this point is in a shadow (parameter `in_shadow`), only ambient light is
 /// used.
-pub fn lighting(m: Material, light: PointLight, point: Tuple4D,
+pub fn lighting(m: &Material, light: PointLight, point: Tuple4D,
     eyev: Tuple4D, normalv: Tuple4D, in_shadow: bool) -> Color {
     // Combine surface color with light's color
     let effective_color = m.color * light.intensity;
