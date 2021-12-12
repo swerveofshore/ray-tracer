@@ -2,6 +2,10 @@ use crate::feq;
 use crate::tuple::Tuple4D;
 use crate::color::Color;
 
+pub trait Pattern {
+    fn pattern_at(&self, p: Tuple4D) -> Color;
+}
+
 /// An alternating stripe pattern applied across the X axis.
 ///
 /// Effectively, for a point `(x, y, z)`, if `floor(x) % 2 == 0`, the `primary'
@@ -23,6 +27,12 @@ impl StripePattern {
         } else {
             self.secondary
         }
+    }
+}
+
+impl Pattern for StripePattern {
+    fn pattern_at(&self, p: Tuple4D) -> Color {
+        self.stripe_at(p)
     }
 }
 
