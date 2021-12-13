@@ -1,6 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
-
 use ray_tracer_challenge::tuple::Tuple4D;
 use ray_tracer_challenge::matrix::Matrix4D;
 use ray_tracer_challenge::geometry::{ Sphere, Plane };
@@ -18,24 +15,6 @@ fn main() {
     floor.material = Default::default();
     floor.material.color = Color::rgb(0.5, 0.5, 0.5);
     floor.material.specular = 0.0;
-
-    /*
-    let mut left_wall = Sphere::unit();
-    left_wall.transform =
-        Matrix4D::translation(0.0, 0.0, 5.0) *
-        Matrix4D::rotation_y(-std::f64::consts::PI / 4.0) *
-        Matrix4D::rotation_x(std::f64::consts::PI / 2.0) *
-        Matrix4D::scaling(10.0, 0.01, 10.0);
-    left_wall.material = floor.material;
-
-    let mut right_wall = Sphere::unit();
-    right_wall.transform =
-        Matrix4D::translation(0.0, 0.0, 5.0) *
-        Matrix4D::rotation_y(std::f64::consts::PI / 4.0) *
-        Matrix4D::rotation_x(std::f64::consts::PI / 2.0) *
-        Matrix4D::scaling(10.0, 0.01, 10.0);
-    right_wall.material = floor.material;
-    */
 
     let mut middle = Sphere::unit();
     middle.transform = Matrix4D::translation(-0.5, 1.0, 2.0);
@@ -66,10 +45,10 @@ fn main() {
         Tuple4D::point(-10.0, 10.0, -10.0),
     );
     world.objects = vec![
-        Rc::new(RefCell::new(floor)),
-        Rc::new(RefCell::new(middle)),
-        Rc::new(RefCell::new(right)),
-        Rc::new(RefCell::new(left)),
+        Box::new(floor),
+        Box::new(middle),
+        Box::new(right),
+        Box::new(left),
     ];
 
     let mut camera = Camera::new(CANVAS_WIDTH, CANVAS_HEIGHT,
@@ -80,6 +59,6 @@ fn main() {
         Tuple4D::vector(0.0, 1.0, 0.0),
     );
 
-    let canvas = camera.render(&world);
+    let canvas = camera.render(&mut world);
     canvas.save("out.ppm").unwrap();
 }

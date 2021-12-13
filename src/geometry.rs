@@ -12,7 +12,7 @@ use crate::light::Material;
 /// The `what` parameter is a reference to an `IntersectableDebug` trait object.
 /// A trait object is used because there can be many unique objects (sphere,
 /// cube, plane, etc.) which are intersectable.
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Intersection<'a> {
     pub t: f64,
     pub what: &'a dyn ShapeDebug,
@@ -56,13 +56,29 @@ impl<'a> Intersections<'a> {
     /// As a note, this function sorts the `intersections` field on every call.
     /// This is because the `Intersection` with the lowest `t` is chosen. A more
     /// optimal implementation is likely possible.
-    pub fn hit<'b>(&'b mut self) -> Option<&'b Intersection<'a>> {
+    pub fn hit<'b>(&'b mut self) -> Option<Intersection<'a>> {
         self.intersections.retain(|i| i.t.is_finite());
         self.sort();
 
         for i in self.intersections.iter() {
             if i.t >= 0.0 {
-                return Some(i);
+                return Some(*i);
+            }
+        }
+
+        None
+    }
+
+    pub fn hit_imm(&self) -> Option<Intersection<'a>> {
+        let mut real_intersections: Vec<&Intersection<'a>> =
+            self.intersections.iter().filter(|i| i.t.is_finite()).collect();
+        real_intersections.sort_by(|a, b|
+            a.t.partial_cmp(&b.t).unwrap_or(std::cmp::Ordering::Equal)
+        );
+
+        for i in real_intersections {
+            if i.t >= 0.0 {
+                return Some(*i);
             }
         }
 
@@ -301,12 +317,12 @@ impl ShapeDebug for Plane { }
 ///
 /// Mostly a superset of an `Intersection`.
 #[derive(Clone, Debug)]
-pub struct IntersectionComputation<'a> {
+pub struct IntersectionComputation {
     /// The "time" of the ray intersection.
     pub t: f64,
 
-    /// The object being intersected.
-    pub obj: &'a dyn ShapeDebug,
+    /// The material of the object.
+    pub material: Material,
 
     /// The point where the intersection occurs.
     pub point: Tuple4D,
@@ -324,11 +340,12 @@ pub struct IntersectionComputation<'a> {
     pub inside: bool,
 }
 
-impl<'a> IntersectionComputation<'a> {
+impl IntersectionComputation {
     /// Creates a new intersection computation, given a ray and intersection.
-    pub fn new(r: &Ray4D, i: &Intersection<'a>) -> IntersectionComputation<'a> {
+    pub fn new(r: &Ray4D, i: &Intersection) -> IntersectionComputation {
         let t = i.t;
         let obj = i.what;
+        let material = obj.material();
         let point = r.position(t);
         let eyev = -r.direction;
         let mut normalv = normal_at(obj, point);
@@ -342,7 +359,7 @@ impl<'a> IntersectionComputation<'a> {
         };
 
         IntersectionComputation {
-            t, obj,
+            t, material: material.clone(),
             point, over_point, eyev, normalv,
             inside
         }

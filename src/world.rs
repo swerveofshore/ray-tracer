@@ -105,17 +105,20 @@ impl World {
 
     /// Calculates the color for a hit, based on shadows and light.
     pub fn shade_hit(&mut self, comps: &IntersectionComputation) -> Color {
-        lighting(&comps.obj.material(),
+        lighting(&comps.material,
             self.light_source, comps.point, comps.eyev, comps.normalv,
             self.is_shadowed(comps.over_point))
     }
 
     /// Determines a color based on the intersection of a ray and the objects.
     pub fn color_at(&mut self, r: Ray4D) -> Color {
-        let mut is = self.intersect(r);
+        let hit = {
+            let mut is = self.intersect(r);
+            is.hit()
+        };
 
         // If at least one object is hit, return the color, else return black
-        match is.hit() {
+        match hit {
             None => Color::black(),
             Some(i) => {
                 let comps = IntersectionComputation::new(&r, &i);
