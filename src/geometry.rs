@@ -106,9 +106,6 @@ pub trait Shape {
 
     fn transform(&self) -> &Matrix4D;
     fn transform_mut(&mut self) -> &mut Matrix4D;
-
-    fn saved_ray(&self) -> &Option<Ray4D>;
-    fn saved_ray_mut(&mut self) -> &mut Option<Ray4D>;
 }
 
 /// A combination of the Intersectable and the std::fmt::Debug trait.
@@ -126,8 +123,6 @@ pub struct Sphere {
 
     pub transform: Matrix4D,
     pub material: Material,
-
-    pub saved_ray: Option<Ray4D>,
 }
 
 impl Sphere {
@@ -144,7 +139,6 @@ impl Sphere {
             pos,
             transform: Matrix4D::identity(),
             material: Default::default(),
-            saved_ray: None,
         }
     }
 
@@ -155,7 +149,6 @@ impl Sphere {
             radius: 1.0,
             transform: Matrix4D::identity(),
             material: Default::default(),
-            saved_ray: None,
         }
     }
 }
@@ -228,14 +221,6 @@ impl Shape for Sphere {
     fn transform_mut(&mut self) -> &mut Matrix4D {
         &mut self.transform
     }
-
-    fn saved_ray(&self) -> &Option<Ray4D> {
-        &self.saved_ray
-    }
-
-    fn saved_ray_mut(&mut self) -> &mut Option<Ray4D> {
-        &mut self.saved_ray
-    }
 }
 
 /// Empty trait implementation for Sphere.
@@ -251,8 +236,6 @@ pub struct Plane {
 
     pub material: Material,
     pub transform: Matrix4D,
-
-    pub saved_ray: Option<Ray4D>,
 }
 
 impl Plane {
@@ -261,7 +244,6 @@ impl Plane {
             normal: Tuple4D::vector(0.0, 1.0, 0.0),
             material: Default::default(),
             transform: Default::default(),
-            saved_ray: None,
         }
     }
 }
@@ -300,14 +282,6 @@ impl Shape for Plane {
 
     fn transform_mut(&mut self) -> &mut Matrix4D {
         &mut self.transform
-    }
-
-    fn saved_ray(&self) -> &Option<Ray4D> {
-        &self.saved_ray
-    }
-
-    fn saved_ray_mut(&mut self) -> &mut Option<Ray4D> {
-        &mut self.saved_ray
     }
 }
 
@@ -375,8 +349,6 @@ impl IntersectionComputation {
 pub(crate) struct EmptyShape {
     pub transform: Matrix4D,
     pub material: Material,
-
-    pub saved_ray: Option<Ray4D>,
 }
 
 impl EmptyShape {
@@ -385,7 +357,6 @@ impl EmptyShape {
         EmptyShape {
             transform: Default::default(),
             material: Default::default(),
-            saved_ray: None,
         }
     }
 }
@@ -419,14 +390,6 @@ impl Shape for EmptyShape {
     fn material_mut(&mut self) -> &mut Material {
         &mut self.material
     }
-
-    fn saved_ray(&self) -> &Option<Ray4D> {
-        &self.saved_ray
-    }
-
-    fn saved_ray_mut(&mut self) -> &mut Option<Ray4D> {
-        &mut self.saved_ray
-    }
 }
 
 impl ShapeDebug for EmptyShape { }
@@ -446,8 +409,6 @@ pub fn intersect(s: &mut dyn ShapeDebug, r: Ray4D) -> Intersections {
     );
 
     let transformed_ray = r.transform(inverse_transform);
-    *(s.saved_ray_mut()) = Some(transformed_ray);
-
     s.local_intersect(transformed_ray)
 }
 
@@ -470,42 +431,6 @@ pub fn normal_at(s: & dyn ShapeDebug, p: Tuple4D) -> Tuple4D {
     world_normal.w = 0.0;
 
     world_normal.normalize()
-}
-
-#[test]
-fn ray_intersects_scaled_shape() {
-    let r = Ray4D::new(
-        Tuple4D::point(0.0, 0.0, -5.0),
-        Tuple4D::vector(0.0, 0.0, 1.0)
-    );
-
-    let mut s = EmptyShape::new();
-    s.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
-
-    let xs = intersect(&mut s, r);
-
-    // Assert that saved ray has correct dimensions
-    let saved_ray = s.saved_ray.expect("Intersection should save a ray.");
-    assert_eq!(saved_ray.origin, Tuple4D::point(0.0, 0.0, -2.5));
-    assert_eq!(saved_ray.direction, Tuple4D::vector(0.0, 0.0, 0.5));
-}
-
-#[test]
-fn ray_intersects_translated_shape() {
-    let r = Ray4D::new(
-        Tuple4D::point(0.0, 0.0, -5.0),
-        Tuple4D::vector(0.0, 0.0, 1.0)
-    );
-
-    let mut s = EmptyShape::new();
-    s.transform = Matrix4D::translation(5.0, 0.0, 0.0);
-
-    let xs = intersect(&mut s, r);
-
-    // Assert that saved ray has correct dimensions
-    let saved_ray = s.saved_ray.expect("Intersection should save a ray.");
-    assert_eq!(saved_ray.origin, Tuple4D::point(-5.0, 0.0, -5.0));
-    assert_eq!(saved_ray.direction, Tuple4D::vector(0.0, 0.0, 1.0));
 }
 
 #[test]
