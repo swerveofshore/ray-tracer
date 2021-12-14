@@ -6,16 +6,47 @@ use crate::geometry::ShapeDebug;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum PatternType {
+    /// Does nothing. Pixels are black at every point. Mostly for testing.
+    Null,
+
+    /// Returns a color equal to the supplied point.
+    Point,
+
+    /// Returns the same color at all points. Mostly for testing.
+    Identity(Color),
+
+    /// Creates an stripe pattern, alternating colors across the X axis.
     Stripe(Color, Color),
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Pattern {
     ty: PatternType,
-    transform: Matrix4D,
+    pub transform: Matrix4D,
 }
 
 impl Pattern {
+    pub fn null() -> Pattern {
+        Pattern {
+            ty: PatternType::Null,
+            transform: Matrix4D::identity(),
+        }
+    }
+
+    pub fn point() -> Pattern {
+        Pattern {
+            ty: PatternType::Point,
+            transform: Matrix4D::identity(),
+        }
+    }
+
+    pub fn identity(c: Color) -> Pattern {
+        Pattern {
+            ty: PatternType::Identity(c),
+            transform: Matrix4D::identity(),
+        }
+    }
+
     pub fn stripe(primary: Color, secondary: Color)
         -> Pattern {
         Pattern {
@@ -26,13 +57,21 @@ impl Pattern {
 
     pub fn pattern_at(&self, p: Tuple4D) -> Color {
         match self.ty {
+            PatternType::Null => Color::black(),
+            PatternType::Point => Color::rgb(p.x, p.y, p.z),
+            PatternType::Identity(c) => c,
             PatternType::Stripe(_, _) => self.stripe_at(p),
         }
     }
 
     fn stripe_at(&self, p: Tuple4D) -> Color {
         // The pattern type here can't be anything *but* a Stripe.
-        let PatternType::Stripe(primary, secondary) = self.ty;
+        let (primary, secondary) =
+            if let PatternType::Stripe(pr, se) = self.ty {
+                (pr, se)
+            } else {
+                unreachable!();
+            };
 
         if feq(p.x.floor().rem_euclid(2.0), 0.0) {
             primary
@@ -144,4 +183,43 @@ fn stripes_on_object_and_pattern_transformation() {
 
     let p = Tuple4D::point(2.5, 0.0, 0.0);
     assert_eq!(pattern.pattern_at_object(&object, p), Color::white());
+}
+
+#[test]
+fn point_pattern_with_object_transformation() {
+    use crate::geometry::Sphere;
+
+    let mut s = Sphere::unit();
+    s.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
+
+    let p = Pattern::point();
+    assert_eq!(p.pattern_at_object(&s, Tuple4D::point(2.0, 3.0, 4.0)),
+        Color::rgb(1.0, 1.5, 2.0));
+}
+
+#[test]
+fn point_pattern_with_pattern_transformation() {
+    use crate::geometry::Sphere;
+
+    let s = Sphere::unit();
+
+    let mut p = Pattern::point();
+    p.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
+
+    assert_eq!(p.pattern_at_object(&s, Tuple4D::point(2.0, 3.0, 4.0)),
+        Color::rgb(1.0, 1.5, 2.0));
+}
+
+#[test]
+fn point_pattern_with_object_and_pattern_transformation() {
+    use crate::geometry::Sphere;
+
+    let mut s = Sphere::unit();
+    s.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
+
+    let mut p = Pattern::point();
+    p.transform = Matrix4D::translation(0.5, 1.0, 1.5);
+
+    assert_eq!(p.pattern_at_object(&s, Tuple4D::point(2.5, 3.0, 3.5)),
+        Color::rgb(0.75, 0.5, 0.25));
 }
