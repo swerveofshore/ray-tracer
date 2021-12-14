@@ -52,19 +52,37 @@ impl World {
         World { objects: Vec::new(), light_source: Default::default() }
     }
 
-    /// Gets the first object in a world.
+    /// Gets a reference to the first object in a world.
     pub fn first(&self) -> Option<& dyn ShapeDebug> {
         if self.objects.len() > 0 {
+            Some(&*self.objects[0])
+        } else {
+            None
+        }
+    }
+
+    /// Gets a mutable reference to the first object in a world.
+    pub fn first_mut(&mut self) -> Option<&mut dyn ShapeDebug> {
+        if self.objects.len() > 0 {
+            Some(&mut *self.objects[0])
+        } else {
+            None
+        }
+    }
+
+    /// Gets a reference to the second object in a world.
+    pub fn second(&self) -> Option<& dyn ShapeDebug> {
+        if self.objects.len() > 1 {
             Some(&*self.objects[1])
         } else {
             None
         }
     }
 
-    /// Gets the second object in a world.
-    pub fn second(&self) -> Option<& dyn ShapeDebug> {
+    /// Gets a mutable reference to the second objet in a world.
+    pub fn second_mut(&mut self) -> Option<&mut dyn ShapeDebug> {
         if self.objects.len() > 1 {
-            Some(&*self.objects[2])
+            Some(&mut *self.objects[1])
         } else {
             None
         }
@@ -130,7 +148,7 @@ impl World {
 
 #[test]
 fn intersect_default_world_with_ray() {
-    let w: World = Default::default();
+    let mut w: World = Default::default();
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -5.0),
         Tuple4D::vector(0.0, 0.0, 1.0),
@@ -149,7 +167,7 @@ fn intersect_default_world_with_ray() {
 fn shade_intersection_from_outside() {
     use crate::geometry::Intersection;
 
-    let w: World = Default::default();
+    let mut w: World = Default::default();
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -5.0),
         Tuple4D::vector(0.0, 0.0, 1.0)
@@ -200,12 +218,12 @@ fn shade_intersection_in_shadow() {
         Tuple4D::point(0.0, 0.0, -10.0),
     );
 
-    let s1 = Rc::new(RefCell::new(Sphere::unit()));
-    w.objects.push(s1);
+    let s1 = Sphere::unit();
+    w.objects.push(Box::new(s1));
 
-    let s2 = Rc::new(RefCell::new(Sphere::unit()));
-    s2.borrow_mut().transform = Matrix4D::translation(0.0, 0.0, 10.0);
-    w.objects.push(s2);
+    let mut s2 = Sphere::unit();
+    s2.transform = Matrix4D::translation(0.0, 0.0, 10.0);
+    w.objects.push(Box::new(s2));
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, 5.0),
@@ -221,7 +239,7 @@ fn shade_intersection_in_shadow() {
 
 #[test]
 fn color_ray_miss() {
-    let w: World = Default::default();
+    let mut w: World = Default::default();
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -5.0),
         Tuple4D::vector(0.0, 1.0, 0.0),
@@ -232,7 +250,7 @@ fn color_ray_miss() {
 
 #[test]
 fn color_ray_hit() {
-    let w: World = Default::default();
+    let mut w: World = Default::default();
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -5.0),
         Tuple4D::vector(0.0, 0.0, 1.0),
@@ -243,24 +261,31 @@ fn color_ray_hit() {
 
 #[test]
 fn color_behind_ray() {
-    let w: World = Default::default();
-    let outer = w.first().unwrap();
-    let inner = w.second().unwrap();
-
-    outer.borrow_mut().material_mut().ambient = 1.0;
-    inner.borrow_mut().material_mut().ambient = 1.0;
+    let mut w: World = Default::default();
+    {
+        let mut outer = w.first_mut().unwrap();
+        outer.material_mut().ambient = 1.0;
+    }
+    {
+        let mut inner_mut = w.second_mut().unwrap();
+        inner_mut.material_mut().ambient = 1.0;
+    }
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, 0.75),
         Tuple4D::vector(0.0, 0.0, -1.0)
     );
 
-    assert_eq!(w.color_at(r), inner.borrow().material().color);
+    let inner_color = {
+        let inner = w.second().unwrap();
+        inner.material().color
+    };
+    assert_eq!(w.color_at(r), inner_color);
 }
 
 #[test]
 fn shadow_collinear_point_and_light() {
-    let w: World = Default::default();
+    let mut w: World = Default::default();
     let p = Tuple4D::point(0.0, 10.0, 0.0);
 
     assert!(!w.is_shadowed(p));
@@ -268,7 +293,7 @@ fn shadow_collinear_point_and_light() {
 
 #[test]
 fn shadow_light_between_point_and_spheres() {
-    let w: World = Default::default();
+    let mut w: World = Default::default();
     let p = Tuple4D::point(10.0, -10.0, 10.0);
 
     assert!(w.is_shadowed(p));
@@ -276,7 +301,7 @@ fn shadow_light_between_point_and_spheres() {
 
 #[test]
 fn shadow_object_behind_light() {
-    let w: World = Default::default();
+    let mut w: World = Default::default();
     let p = Tuple4D::point(-20.0, 20.0, -20.0);
 
     assert!(!w.is_shadowed(p));
@@ -284,7 +309,7 @@ fn shadow_object_behind_light() {
 
 #[test]
 fn shadow_object_behind_point() {
-    let w: World = Default::default();
+    let mut w: World = Default::default();
     let p = Tuple4D::point(-2.0, 2.0, -2.0);
 
     assert!(!w.is_shadowed(p));

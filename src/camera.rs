@@ -129,7 +129,7 @@ fn ray_when_camera_transformed() {
 fn render_world_with_camera() {
     use crate::color::Color;
 
-    let w: World = Default::default();
+    let mut w: World = Default::default();
     let mut c = Camera::new(11, 11, std::f64::consts::PI / 2.0,
         Matrix4D::identity());
 
@@ -139,7 +139,7 @@ fn render_world_with_camera() {
 
     c.transform = Matrix4D::view_transform(from, to, up);
     
-    let image = c.render(&w);
+    let image = c.render(&mut w);
     assert_eq!(image.read_pixel(5, 5).unwrap(),
         Color::rgb(0.38066, 0.47583, 0.2855));
 }

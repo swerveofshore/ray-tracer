@@ -113,7 +113,7 @@ fn eye_between_light_and_surface() {
         Tuple4D::point(0.0, 0.0, -10.0),
     );
 
-    let res = lighting(m, light, position, eyev, normalv, false);
+    let res = lighting(&m, light, position, eyev, normalv, false);
     assert_eq!(res, Color::rgb(1.9, 1.9, 1.9));
 }
 
@@ -129,7 +129,7 @@ fn eye_between_light_and_surface_offset_45() {
         Tuple4D::point(0.0, 0.0, -10.0),
     );
 
-    let res = lighting(m, light, position, eyev, normalv, false);
+    let res = lighting(&m, light, position, eyev, normalv, false);
     assert_eq!(res, Color::rgb(1.0, 1.0, 1.0));
 }
 
@@ -145,7 +145,7 @@ fn eye_opposite_from_surface_offset_45() {
         Tuple4D::point(0.0, 10.0, -10.0),
     );
 
-    let res = lighting(m, light, position, eyev, normalv, false);
+    let res = lighting(&m, light, position, eyev, normalv, false);
     assert_eq!(res, Color::rgb(0.7364, 0.7364, 0.7364));
 }
 
@@ -161,7 +161,7 @@ fn eye_opposite_from_surface_in_reflection() {
         Tuple4D::point(0.0, 10.0, -10.0),
     );
 
-    let res = lighting(m, light, position, eyev, normalv, false);
+    let res = lighting(&m, light, position, eyev, normalv, false);
     assert_eq!(res, Color::rgb(1.6364, 1.6364, 1.6364));
 }
 
@@ -177,6 +177,6 @@ fn eye_across_surface_from_light() {
         Tuple4D::point(0.0, 0.0, 10.0),
     );
 
-    let res = lighting(m, light, position, eyev, normalv, false);
+    let res = lighting(&m, light, position, eyev, normalv, false);
     assert_eq!(res, Color::rgb(0.1, 0.1, 0.1));   
 }
