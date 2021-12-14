@@ -15,8 +15,17 @@ enum PatternType {
     /// Returns the same color at all points. Mostly for testing.
     Identity(Color),
 
-    /// Creates an stripe pattern, alternating colors across the X axis.
+    /// A stripe pattern, alternating colors across the X axis.
     Stripe(Color, Color),
+
+    /// A ring pattern, alternating colors across the X and Z axis.
+    Ring(Color, Color),
+
+    /// A checker pattern, alternating colors across all axis.
+    Checker(Color, Color),
+
+    /// A gradient pattern, smoothly transitioning between colors across X.
+    Gradient(Color, Color),
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -47,10 +56,30 @@ impl Pattern {
         }
     }
 
-    pub fn stripe(primary: Color, secondary: Color)
-        -> Pattern {
+    pub fn stripe(primary: Color, secondary: Color) -> Pattern {
         Pattern {
             ty: PatternType::Stripe(primary, secondary),
+            transform: Matrix4D::identity(),
+        }
+    }
+
+    pub fn ring(primary: Color, secondary: Color) -> Pattern {
+        Pattern {
+            ty: PatternType::Ring(primary, secondary),
+            transform: Matrix4D::identity(),
+        }
+    }
+
+    pub fn checker(primary: Color, secondary: Color) -> Pattern {
+        Pattern {
+            ty: PatternType::Checker(primary, secondary),
+            transform: Matrix4D::identity(),
+        }
+    }
+
+    pub fn gradient(primary: Color, secondary: Color) -> Pattern {
+        Pattern {
+            ty: PatternType::Gradient(primary, secondary),
             transform: Matrix4D::identity(),
         }
     }
@@ -61,6 +90,9 @@ impl Pattern {
             PatternType::Point => Color::rgb(p.x, p.y, p.z),
             PatternType::Identity(c) => c,
             PatternType::Stripe(_, _) => self.stripe_at(p),
+            PatternType::Ring(_, _) => self.ring_at(p),
+            PatternType::Checker(_, _) => self.checker_at(p),
+            PatternType::Gradient(_, _) => self.gradient_at(p),
         }
     }
 
@@ -78,6 +110,57 @@ impl Pattern {
         } else {
             secondary
         }
+    }
+
+    fn ring_at(&self, p: Tuple4D) -> Color {
+        // The pattern type here can't be anything *but* a Ring.
+        let (primary, secondary) =
+            if let PatternType::Ring(pr, se) = self.ty {
+                (pr, se)
+            } else {
+                unreachable!();
+            };
+
+        let pyth = (p.x.powf(2.0) + p.z.powf(2.0)).sqrt();
+        if feq(pyth.floor().rem_euclid(2.0), 0.0) {
+            primary
+        } else {
+            secondary
+        }
+    }
+
+    fn checker_at(&self, p: Tuple4D) -> Color {
+        // The pattern type here can't be anything *but* a Checker.
+        let (primary, secondary) =
+            if let PatternType::Checker(pr, se) = self.ty {
+                (pr, se)
+            } else {
+                unreachable!();
+            };
+
+        let checker = p.x.floor() + p.y.floor() + p.z.floor();
+        if feq(checker.rem_euclid(2.0), 0.0) {
+            primary
+        } else {
+            secondary
+        }
+    }
+
+
+    fn gradient_at(&self, p: Tuple4D) -> Color {
+        // The pattern type here can't be anything *but* a Gradient.
+        let (primary, secondary) =
+            if let PatternType::Gradient(pr, se) = self.ty {
+                (pr, se)
+            } else {
+                unreachable!();
+            };
+
+        let distance = secondary - primary;
+        let fraction = p.x - p.x.floor();
+
+        // A gradient steps by the "fractional" part of the color along X.
+        primary + distance * fraction
     }
 
     /// Applies a Pattern to a Shape.
@@ -222,4 +305,54 @@ fn point_pattern_with_object_and_pattern_transformation() {
 
     assert_eq!(p.pattern_at_object(&s, Tuple4D::point(2.5, 3.0, 3.5)),
         Color::rgb(0.75, 0.5, 0.25));
+}
+
+#[test]
+fn gradient_linearly_interpolates_between_colors() {
+    let p = Pattern::gradient(Color::white(), Color::black());
+
+    assert_eq!(p.pattern_at(Tuple4D::point(0.0, 0.0, 0.0)), Color::white());
+    assert_eq!(p.pattern_at(Tuple4D::point(0.25, 0.0, 0.0)),
+        Color::rgb(0.75, 0.75, 0.75));
+    assert_eq!(p.pattern_at(Tuple4D::point(0.5, 0.0, 0.0)),
+        Color::rgb(0.5, 0.5, 0.5));
+    assert_eq!(p.pattern_at(Tuple4D::point(0.75, 0.0, 0.0)),
+        Color::rgb(0.25, 0.25, 0.25));
+}
+
+#[test]
+fn ring_extends_in_both_x_and_z() {
+    let p = Pattern::ring(Color::white(), Color::black());
+
+    assert_eq!(p.pattern_at(Tuple4D::point(0.0, 0.0, 0.0)), Color::white());
+    assert_eq!(p.pattern_at(Tuple4D::point(1.0, 0.0, 0.0)), Color::black());
+    assert_eq!(p.pattern_at(Tuple4D::point(0.0, 0.0, 1.0)), Color::black());
+    assert_eq!(p.pattern_at(Tuple4D::point(0.708, 0.0, 0.708)), Color::black());
+}
+
+#[test]
+fn checkers_should_repeat_in_x() {
+    let p = Pattern::checker(Color::white(), Color::black());
+
+    assert_eq!(p.pattern_at(Tuple4D::point(0.0, 0.0, 0.0)), Color::white());
+    assert_eq!(p.pattern_at(Tuple4D::point(0.99, 0.0, 0.0)), Color::white());
+    assert_eq!(p.pattern_at(Tuple4D::point(1.01, 0.0, 0.0)), Color::black());
+}
+
+#[test]
+fn checkers_should_repeat_in_y() {
+    let p = Pattern::checker(Color::white(), Color::black());
+
+    assert_eq!(p.pattern_at(Tuple4D::point(0.0, 0.0, 0.0)), Color::white());
+    assert_eq!(p.pattern_at(Tuple4D::point(0.0, 0.99, 0.0)), Color::white());
+    assert_eq!(p.pattern_at(Tuple4D::point(0.0, 1.01, 0.0)), Color::black());
+}
+
+#[test]
+fn checkers_should_repeat_in_z() {
+    let p = Pattern::checker(Color::white(), Color::black());
+
+    assert_eq!(p.pattern_at(Tuple4D::point(0.0, 0.0, 0.0)), Color::white());
+    assert_eq!(p.pattern_at(Tuple4D::point(0.0, 0.0, 0.99)), Color::white());
+    assert_eq!(p.pattern_at(Tuple4D::point(0.0, 0.0, 1.01)), Color::black());
 }
