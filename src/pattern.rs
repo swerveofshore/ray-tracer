@@ -47,7 +47,8 @@ impl Pattern {
     /// point `p`, `p` is transformed to object space (local to the `Shape`),
     /// afterwards transformed to pattern space (local to the `Pattern` on the
     /// `Shape`).
-    fn pattern_at_object(&self, object: & dyn ShapeDebug, p: Tuple4D) -> Color {
+    pub fn pattern_at_object(&self, object: & dyn ShapeDebug, p: Tuple4D)
+        -> Color {
         let oti = object.transform().inverse().expect(
             "Object transform should be invertible."
         );

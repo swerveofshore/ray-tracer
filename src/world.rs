@@ -93,10 +93,10 @@ impl World {
     /// The `World` needs to be mutable because it owns the objects it contains.
     /// Function `intersect` has the opportunity to change the `saved_ray`
     /// associated with each object.
-    pub fn intersect(&mut self, r: Ray4D) -> Intersections {
+    pub fn intersect(&self, r: Ray4D) -> Intersections {
         let mut intersections: Intersections = Intersections::new();
-        for obj in self.objects.iter_mut() {
-            let mut is: Intersections = intersect(&mut **obj, r);
+        for obj in self.objects.iter() {
+            let mut is: Intersections = intersect(& **obj, r);
             intersections.intersections.append(&mut is.intersections);
         }
 
@@ -105,7 +105,7 @@ impl World {
     }
 
     /// Determines whether a point is shadowed.
-    pub fn is_shadowed(&mut self, p: Tuple4D) -> bool {
+    pub fn is_shadowed(&self, p: Tuple4D) -> bool {
         let v = self.light_source.position - p;
         let distance = v.magnitude();
         let direction = v.normalize();
@@ -122,8 +122,10 @@ impl World {
     }
 
     /// Calculates the color for a hit, based on shadows and light.
-    pub fn shade_hit(&mut self, comps: &IntersectionComputation) -> Color {
-        lighting(&comps.material,
+    pub fn shade_hit(&self, comps: &IntersectionComputation) -> Color {
+        // TODO: Put object back into IntersectionComputation, figure out how
+        // to properly manage ownership of the Shape and World
+        lighting(comps.obj, 
             self.light_source, comps.point, comps.eyev, comps.normalv,
             self.is_shadowed(comps.over_point))
     }

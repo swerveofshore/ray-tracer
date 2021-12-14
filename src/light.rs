@@ -1,6 +1,7 @@
 use crate::color::Color;
 use crate::pattern::Pattern;
 use crate::tuple::Tuple4D;
+use crate::geometry::ShapeDebug;
 
 /// A point light.
 ///
@@ -65,14 +66,15 @@ impl Default for Material {
 ///
 /// If this point is in a shadow (parameter `in_shadow`), only ambient light is
 /// used.
-pub fn lighting(m: &Material, light: PointLight, point: Tuple4D,
-    eyev: Tuple4D, normalv: Tuple4D, in_shadow: bool) -> Color {
+pub fn lighting(obj: & dyn ShapeDebug, light: PointLight,
+    point: Tuple4D, eyev: Tuple4D, normalv: Tuple4D, in_shadow: bool) -> Color {
+    let m = obj.material();
 
     // If Material m has some pattern, use that for color
     let color = if let Some(pat) = m.pattern {
-        pat.pattern_at(point) 
+        pat.pattern_at_object(obj, point) 
     } else {
-        m.color
+        obj.material().color
     };
 
     // Combine surface color with light's color
@@ -116,8 +118,12 @@ pub fn lighting(m: &Material, light: PointLight, point: Tuple4D,
 
 #[test]
 fn eye_between_light_and_surface() {
+    use crate::geometry::Sphere;
+
     let m: Material = Default::default();
     let position = Tuple4D::point(0.0, 0.0, 0.0);
+    let mut s = Sphere::unit();
+    s.material = m;
 
     let eyev = Tuple4D::vector(0.0, 0.0, -1.0);
     let normalv = Tuple4D::vector(0.0, 0.0, -1.0);
@@ -126,14 +132,18 @@ fn eye_between_light_and_surface() {
         Tuple4D::point(0.0, 0.0, -10.0),
     );
 
-    let res = lighting(&m, light, position, eyev, normalv, false);
+    let res = lighting(&s, light, position, eyev, normalv, false);
     assert_eq!(res, Color::rgb(1.9, 1.9, 1.9));
 }
 
 #[test]
 fn eye_between_light_and_surface_offset_45() {
+    use crate::geometry::Sphere;
+
     let m: Material = Default::default();
     let position = Tuple4D::point(0.0, 0.0, 0.0);
+    let mut s = Sphere::unit();
+    s.material = m;
 
     let eyev = Tuple4D::vector(0.0, 2.0f64.sqrt() / 2.0, 2.0f64.sqrt() / 2.0);
     let normalv = Tuple4D::vector(0.0, 0.0, -1.0);
@@ -142,14 +152,18 @@ fn eye_between_light_and_surface_offset_45() {
         Tuple4D::point(0.0, 0.0, -10.0),
     );
 
-    let res = lighting(&m, light, position, eyev, normalv, false);
+    let res = lighting(&s, light, position, eyev, normalv, false);
     assert_eq!(res, Color::rgb(1.0, 1.0, 1.0));
 }
 
 #[test]
 fn eye_opposite_from_surface_offset_45() {
+    use crate::geometry::Sphere;
+
     let m: Material = Default::default();
     let position = Tuple4D::point(0.0, 0.0, 0.0);
+    let mut s = Sphere::unit();
+    s.material = m;
 
     let eyev = Tuple4D::vector(0.0, 0.0, -1.0);
     let normalv = Tuple4D::vector(0.0, 0.0, -1.0);
@@ -158,14 +172,18 @@ fn eye_opposite_from_surface_offset_45() {
         Tuple4D::point(0.0, 10.0, -10.0),
     );
 
-    let res = lighting(&m, light, position, eyev, normalv, false);
+    let res = lighting(&s, light, position, eyev, normalv, false);
     assert_eq!(res, Color::rgb(0.7364, 0.7364, 0.7364));
 }
 
 #[test]
 fn eye_opposite_from_surface_in_reflection() {
+    use crate::geometry::Sphere;
+
     let m: Material = Default::default();
     let position = Tuple4D::point(0.0, 0.0, 0.0);
+    let mut s = Sphere::unit();
+    s.material = m;
 
     let eyev = Tuple4D::vector(0., -(2.0f64.sqrt())/2., -(2.0f64.sqrt())/2.);
     let normalv = Tuple4D::vector(0.0, 0.0, -1.0);
@@ -174,14 +192,18 @@ fn eye_opposite_from_surface_in_reflection() {
         Tuple4D::point(0.0, 10.0, -10.0),
     );
 
-    let res = lighting(&m, light, position, eyev, normalv, false);
+    let res = lighting(&s, light, position, eyev, normalv, false);
     assert_eq!(res, Color::rgb(1.6364, 1.6364, 1.6364));
 }
 
 #[test]
 fn eye_across_surface_from_light() {
+    use crate::geometry::Sphere;
+
     let m: Material = Default::default();
     let position = Tuple4D::point(0.0, 0.0, 0.0);
+    let mut s = Sphere::unit();
+    s.material = m;
 
     let eyev = Tuple4D::vector(0.0, 0.0, -1.0);
     let normalv = Tuple4D::vector(0.0, 0.0, -1.0);
@@ -190,13 +212,13 @@ fn eye_across_surface_from_light() {
         Tuple4D::point(0.0, 0.0, 10.0),
     );
 
-    let res = lighting(&m, light, position, eyev, normalv, false);
+    let res = lighting(&s, light, position, eyev, normalv, false);
     assert_eq!(res, Color::rgb(0.1, 0.1, 0.1));   
 }
 
 #[test]
 fn lighting_with_stripe_pattern() {
-    use crate::matrix::Matrix4D;
+    use crate::geometry::Sphere;
 
     let m = Material {
         color: Color::rgb(0.5, 0.5, 0.5),
@@ -212,6 +234,9 @@ fn lighting_with_stripe_pattern() {
         shininess: 0.0,
     };
 
+    let mut s = Sphere::unit();
+    s.material = m;
+
     let eyev = Tuple4D::vector(0.0, 0.0, -1.0);
     let normalv = Tuple4D::vector(0.0, 0.0, -1.0);
     let light = PointLight::new(
@@ -220,11 +245,11 @@ fn lighting_with_stripe_pattern() {
 
     assert_eq!(
         Color::white(),
-        lighting(&m, light, Tuple4D::point(0.9, 0.0, 0.0), eyev, normalv, false)
+        lighting(&s, light, Tuple4D::point(0.9, 0.0, 0.0), eyev, normalv, false)
     );
 
     assert_eq!(
         Color::black(),
-        lighting(&m, light, Tuple4D::point(1.1, 0.0, 0.0), eyev, normalv, false)
+        lighting(&s, light, Tuple4D::point(1.1, 0.0, 0.0), eyev, normalv, false)
     );
 }

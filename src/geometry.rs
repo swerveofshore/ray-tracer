@@ -291,12 +291,12 @@ impl ShapeDebug for Plane { }
 ///
 /// Mostly a superset of an `Intersection`.
 #[derive(Clone, Debug)]
-pub struct IntersectionComputation {
+pub struct IntersectionComputation<'a> {
     /// The "time" of the ray intersection.
     pub t: f64,
 
-    /// The material of the object.
-    pub material: Material,
+    /// The object being intersected.
+    pub obj: &'a dyn ShapeDebug,
 
     /// The point where the intersection occurs.
     pub point: Tuple4D,
@@ -314,12 +314,11 @@ pub struct IntersectionComputation {
     pub inside: bool,
 }
 
-impl IntersectionComputation {
+impl<'a> IntersectionComputation<'a> {
     /// Creates a new intersection computation, given a ray and intersection.
-    pub fn new(r: &Ray4D, i: &Intersection) -> IntersectionComputation {
+    pub fn new(r: &Ray4D, i: &'a Intersection) -> IntersectionComputation<'a> {
         let t = i.t;
         let obj = i.what;
-        let material = obj.material();
         let point = r.position(t);
         let eyev = -r.direction;
         let mut normalv = normal_at(obj, point);
@@ -333,7 +332,7 @@ impl IntersectionComputation {
         };
 
         IntersectionComputation {
-            t, material: material.clone(),
+            t, obj,
             point, over_point, eyev, normalv,
             inside
         }
@@ -403,7 +402,7 @@ impl ShapeDebug for EmptyShape { }
 ///
 /// Intersections are technically calculated in local space; these local-space
 /// intersections are returned in an `Intersections` record.
-pub fn intersect(s: &mut dyn ShapeDebug, r: Ray4D) -> Intersections {
+pub fn intersect(s: & dyn ShapeDebug, r: Ray4D) -> Intersections {
     let inverse_transform = s.transform().inverse().expect(
         "Transformation matrix on shape should be invertible."
     );
