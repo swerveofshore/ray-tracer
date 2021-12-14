@@ -204,10 +204,12 @@ fn lighting_with_stripe_pattern() {
             Pattern::stripe(Matrix4D::identity(),Color::white(),Color::black())
         ),
 
+        // Note that ONLY ambient light is included, as the color of ambient
+        // light is mostly predictable
         ambient: 1.0,
         diffuse: 0.0,
         specular: 0.0,
-        shininess: 200.0,
+        shininess: 0.0,
     };
 
     let eyev = Tuple4D::vector(0.0, 0.0, -1.0);
