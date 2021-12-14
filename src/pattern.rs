@@ -4,7 +4,7 @@ use crate::matrix::Matrix4D;
 use crate::color::Color;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum PatternType {
+enum PatternType {
     Stripe(Color, Color),
 }
 
