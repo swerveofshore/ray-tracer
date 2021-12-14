@@ -125,7 +125,7 @@ impl World {
     pub fn shade_hit(&self, comps: &IntersectionComputation) -> Color {
         // TODO: Put object back into IntersectionComputation, figure out how
         // to properly manage ownership of the Shape and World
-        lighting(comps.obj, 
+        lighting(*comps.obj.material(), comps.obj, 
             self.light_source, comps.point, comps.eyev, comps.normalv,
             self.is_shadowed(comps.over_point))
     }

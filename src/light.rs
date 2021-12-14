@@ -66,10 +66,8 @@ impl Default for Material {
 ///
 /// If this point is in a shadow (parameter `in_shadow`), only ambient light is
 /// used.
-pub fn lighting(obj: & dyn ShapeDebug, light: PointLight,
+pub fn lighting(m: Material, obj: & dyn ShapeDebug, light: PointLight,
     point: Tuple4D, eyev: Tuple4D, normalv: Tuple4D, in_shadow: bool) -> Color {
-    let m = obj.material();
-
     // If Material m has some pattern, use that for color
     let color = if let Some(pat) = m.pattern {
         pat.pattern_at_object(obj, point) 
@@ -132,7 +130,7 @@ fn eye_between_light_and_surface() {
         Tuple4D::point(0.0, 0.0, -10.0),
     );
 
-    let res = lighting(&s, light, position, eyev, normalv, false);
+    let res = lighting(m, &s, light, position, eyev, normalv, false);
     assert_eq!(res, Color::rgb(1.9, 1.9, 1.9));
 }
 
@@ -152,7 +150,7 @@ fn eye_between_light_and_surface_offset_45() {
         Tuple4D::point(0.0, 0.0, -10.0),
     );
 
-    let res = lighting(&s, light, position, eyev, normalv, false);
+    let res = lighting(m, &s, light, position, eyev, normalv, false);
     assert_eq!(res, Color::rgb(1.0, 1.0, 1.0));
 }
 
@@ -172,7 +170,7 @@ fn eye_opposite_from_surface_offset_45() {
         Tuple4D::point(0.0, 10.0, -10.0),
     );
 
-    let res = lighting(&s, light, position, eyev, normalv, false);
+    let res = lighting(m, &s, light, position, eyev, normalv, false);
     assert_eq!(res, Color::rgb(0.7364, 0.7364, 0.7364));
 }
 
@@ -192,7 +190,7 @@ fn eye_opposite_from_surface_in_reflection() {
         Tuple4D::point(0.0, 10.0, -10.0),
     );
 
-    let res = lighting(&s, light, position, eyev, normalv, false);
+    let res = lighting(m, &s, light, position, eyev, normalv, false);
     assert_eq!(res, Color::rgb(1.6364, 1.6364, 1.6364));
 }
 
@@ -212,7 +210,7 @@ fn eye_across_surface_from_light() {
         Tuple4D::point(0.0, 0.0, 10.0),
     );
 
-    let res = lighting(&s, light, position, eyev, normalv, false);
+    let res = lighting(m, &s, light, position, eyev, normalv, false);
     assert_eq!(res, Color::rgb(0.1, 0.1, 0.1));   
 }
 
@@ -245,11 +243,13 @@ fn lighting_with_stripe_pattern() {
 
     assert_eq!(
         Color::white(),
-        lighting(&s, light, Tuple4D::point(0.9, 0.0, 0.0), eyev, normalv, false)
+        lighting(m, &s, light, Tuple4D::point(0.9, 0.0, 0.0),
+            eyev, normalv, false)
     );
 
     assert_eq!(
         Color::black(),
-        lighting(&s, light, Tuple4D::point(1.1, 0.0, 0.0), eyev, normalv, false)
+        lighting(m, &s, light, Tuple4D::point(1.1, 0.0, 0.0),
+            eyev, normalv, false)
     );
 }
