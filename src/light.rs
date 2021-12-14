@@ -1,4 +1,5 @@
 use crate::color::Color;
+use crate::pattern::Pattern;
 use crate::tuple::Tuple4D;
 
 /// A point light.
@@ -31,6 +32,8 @@ impl PointLight {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Material {
     pub color: Color,
+    pub pattern: Option<Pattern>,
+
     pub ambient: f64,
     pub diffuse: f64,
     pub specular: f64,
@@ -41,6 +44,8 @@ impl Default for Material {
     fn default() -> Material {
         Material {
             color: Color::rgb(1.0, 1.0, 1.0),
+            pattern: None,
+
             ambient: 0.1,
             diffuse: 0.9,
             specular: 0.9,
@@ -62,8 +67,16 @@ impl Default for Material {
 /// used.
 pub fn lighting(m: &Material, light: PointLight, point: Tuple4D,
     eyev: Tuple4D, normalv: Tuple4D, in_shadow: bool) -> Color {
+
+    // If Material m has some pattern, use that for color
+    let color = if let Some(pat) = m.pattern {
+        pat.pattern_at(point) 
+    } else {
+        m.color
+    };
+
     // Combine surface color with light's color
-    let effective_color = m.color * light.intensity;
+    let effective_color = color * light.intensity;
 
     // Find direction to light source
     let lightv = (light.position - point).normalize();
@@ -179,4 +192,37 @@ fn eye_across_surface_from_light() {
 
     let res = lighting(&m, light, position, eyev, normalv, false);
     assert_eq!(res, Color::rgb(0.1, 0.1, 0.1));   
+}
+
+#[test]
+fn lighting_with_stripe_pattern() {
+    use crate::matrix::Matrix4D;
+
+    let m = Material {
+        color: Color::rgb(0.5, 0.5, 0.5),
+        pattern: Some(
+            Pattern::stripe(Matrix4D::identity(),Color::white(),Color::black())
+        ),
+
+        ambient: 1.0,
+        diffuse: 0.0,
+        specular: 0.0,
+        shininess: 200.0,
+    };
+
+    let eyev = Tuple4D::vector(0.0, 0.0, -1.0);
+    let normalv = Tuple4D::vector(0.0, 0.0, -1.0);
+    let light = PointLight::new(
+        Color::white(), Tuple4D::point(0.0, 0.0, -10.0)
+    );
+
+    assert_eq!(
+        Color::white(),
+        lighting(&m, light, Tuple4D::point(0.9, 0.0, 0.0), eyev, normalv, false)
+    );
+
+    assert_eq!(
+        Color::black(),
+        lighting(&m, light, Tuple4D::point(1.1, 0.0, 0.0), eyev, normalv, false)
+    );
 }
