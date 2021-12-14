@@ -201,7 +201,7 @@ fn lighting_with_stripe_pattern() {
     let m = Material {
         color: Color::rgb(0.5, 0.5, 0.5),
         pattern: Some(
-            Pattern::stripe(Matrix4D::identity(),Color::white(),Color::black())
+            Pattern::stripe(Color::white(),Color::black())
         ),
 
         // Note that ONLY ambient light is included, as the color of ambient
