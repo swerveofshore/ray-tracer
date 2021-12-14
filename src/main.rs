@@ -2,12 +2,13 @@ use ray_tracer_challenge::tuple::Tuple4D;
 use ray_tracer_challenge::matrix::Matrix4D;
 use ray_tracer_challenge::geometry::{ Sphere, Plane };
 use ray_tracer_challenge::color::Color;
+use ray_tracer_challenge::pattern::Pattern;
 use ray_tracer_challenge::light::PointLight;
 use ray_tracer_challenge::world::World;
 use ray_tracer_challenge::camera::Camera;
 
-const CANVAS_WIDTH: usize = 3840;
-const CANVAS_HEIGHT: usize = 2160;
+const CANVAS_WIDTH: usize = 960;
+const CANVAS_HEIGHT: usize = 540; 
 
 fn main() {
     let mut floor = Plane::new();
@@ -15,6 +16,10 @@ fn main() {
     floor.material = Default::default();
     floor.material.color = Color::rgb(0.5, 0.5, 0.5);
     floor.material.specular = 0.0;
+    floor.material.pattern = Some(Pattern::checker(
+        Color::white(),
+        Color::red()
+    ));
 
     let mut middle = Sphere::unit();
     middle.transform = Matrix4D::translation(-0.5, 1.0, 2.0);
