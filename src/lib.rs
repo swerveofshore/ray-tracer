@@ -14,6 +14,8 @@ pub mod pattern;
 pub mod extra;
 
 pub const FEQ_EPSILON: f64 = 0.0001;
+pub const REFLECTION_RECURSION_DEPTH: usize = 5;
+
 pub fn feq(left: f64, right: f64) -> bool {
     (left - right).abs() < FEQ_EPSILON
 }

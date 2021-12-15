@@ -3,6 +3,7 @@ use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
 use crate::world::World;
 use crate::canvas::Canvas;
+use crate::REFLECTION_RECURSION_DEPTH;
 
 /// A camera record for generating a canvas.
 ///
@@ -84,7 +85,7 @@ impl Camera {
         for y in 0..self.vsize {
             for x in 0..self.hsize {
                 let ray = self.ray_for_pixel(x, y);
-                let color = w.color_at(ray);
+                let color = w.color_at(ray, REFLECTION_RECURSION_DEPTH);
                 image.write_pixel(x, y, &color);
             }
         }

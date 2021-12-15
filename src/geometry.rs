@@ -310,6 +310,9 @@ pub struct IntersectionComputation<'a> {
     /// The normal vector of the object being intersected.
     pub normalv: Tuple4D,
 
+    /// The intersection ray, reflected across the normal.
+    pub reflectv: Tuple4D,
+
     /// Whether the intersection occurs within the object or not.
     pub inside: bool,
 }
@@ -331,9 +334,12 @@ impl<'a> IntersectionComputation<'a> {
             false
         };
 
+        let reflectv = r.direction.reflect(&normalv);
+
         IntersectionComputation {
             t, obj,
-            point, over_point, eyev, normalv,
+            point, over_point,
+            eyev, normalv, reflectv,
             inside
         }
     }

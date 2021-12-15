@@ -39,6 +39,7 @@ pub struct Material {
     pub diffuse: f64,
     pub specular: f64,
     pub shininess: f64,
+    pub reflective: f64,
 }
 
 impl Default for Material {
@@ -50,7 +51,8 @@ impl Default for Material {
             ambient: 0.1,
             diffuse: 0.9,
             specular: 0.9,
-            shininess: 200.0
+            shininess: 200.0,
+            reflective: 0.0,
         }
     }
 }
@@ -233,6 +235,7 @@ fn lighting_with_stripe_pattern() {
         diffuse: 0.0,
         specular: 0.0,
         shininess: 0.0,
+        reflective: 0.0,
     };
 
     let mut s = Sphere::unit();

@@ -1,3 +1,4 @@
+use crate::feq;
 use crate::ray::Ray4D;
 use crate::tuple::Tuple4D;
 use crate::color::Color;
@@ -121,15 +122,41 @@ impl World {
         }
     }
 
+    pub fn reflected_color(&self, comps: &IntersectionComputation,
+            remaining: usize) -> Color {
+        if remaining == 0 {
+            return Color::black();
+        }
+
+        if feq(comps.obj.material().reflective, 0.0) {
+            return Color::black();
+        }
+
+        let reflect_ray = Ray4D::new(comps.over_point, comps.reflectv);
+        let color = self.color_at(reflect_ray, remaining - 1);
+
+        color * comps.obj.material().reflective
+    }
+
     /// Calculates the color for a hit, based on shadows and light.
-    pub fn shade_hit(&self, comps: &IntersectionComputation) -> Color {
-        lighting(*comps.obj.material(), comps.obj, 
-            self.light_source, comps.over_point, comps.eyev, comps.normalv,
-            self.is_shadowed(comps.over_point))
+    pub fn shade_hit(&self, comps: &IntersectionComputation, remaining: usize)
+        -> Color {
+        // Color calculated from light on a surface
+        let surface = lighting(
+            *comps.obj.material(), comps.obj, self.light_source,
+             comps.over_point, comps.eyev, comps.normalv,
+             self.is_shadowed(comps.over_point)
+        );
+
+        // Color calculated from light reflecting off of a surface
+        let reflected = self.reflected_color(&comps, remaining);
+
+        // Add together all calculated colors.
+        surface + reflected
     }
 
     /// Determines a color based on the intersection of a ray and the objects.
-    pub fn color_at(&mut self, r: Ray4D) -> Color {
+    pub fn color_at(&self, r: Ray4D, remaining: usize) -> Color {
         let hit = {
             let mut is = self.intersect(r);
             is.hit()
@@ -140,7 +167,7 @@ impl World {
             None => Color::black(),
             Some(i) => {
                 let comps = IntersectionComputation::new(&r, &i);
-                self.shade_hit(&comps)
+                self.shade_hit(&comps, remaining)
             },
         }
     }
@@ -165,6 +192,7 @@ fn intersect_default_world_with_ray() {
 
 #[test]
 fn shade_intersection_from_outside() {
+    use crate::REFLECTION_RECURSION_DEPTH;
     use crate::geometry::Intersection;
 
     let mut w: World = Default::default();
@@ -177,13 +205,14 @@ fn shade_intersection_from_outside() {
     let i = Intersection { t: 4.0, what: shape };
 
     let comps = IntersectionComputation::new(&r, &i);
-    let c = w.shade_hit(&comps);
+    let c = w.shade_hit(&comps, REFLECTION_RECURSION_DEPTH);
 
     assert_eq!(c, Color::rgb(0.38066, 0.47583, 0.2855));
 }
 
 #[test]
 fn shade_intersection_from_inside() {
+    use crate::REFLECTION_RECURSION_DEPTH;
     use crate::geometry::Intersection;
 
     let mut w: World = Default::default();
@@ -201,13 +230,14 @@ fn shade_intersection_from_inside() {
     let i = Intersection { t: 0.5, what: shape };
 
     let comps = IntersectionComputation::new(&r, &i);
-    let c = w.shade_hit(&comps);
+    let c = w.shade_hit(&comps, REFLECTION_RECURSION_DEPTH);
 
     assert_eq!(c, Color::rgb(0.90498, 0.90498, 0.90498));
 }
 
 #[test]
 fn shade_intersection_in_shadow() {
+    use crate::REFLECTION_RECURSION_DEPTH;
     use crate::geometry::Intersection;
 
     let mut w: World = World::empty();
@@ -230,35 +260,44 @@ fn shade_intersection_in_shadow() {
 
     let i = Intersection { t: 4.0, what: w.second().unwrap() };
     let comps = IntersectionComputation::new(&r, &i);
-    let c = w.shade_hit(&comps);
+    let c = w.shade_hit(&comps, REFLECTION_RECURSION_DEPTH);
 
     assert_eq!(c, Color::rgb(0.1, 0.1, 0.1));
 }
 
 #[test]
 fn color_ray_miss() {
+    use crate::REFLECTION_RECURSION_DEPTH;
+
     let mut w: World = Default::default();
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -5.0),
         Tuple4D::vector(0.0, 1.0, 0.0),
     );
 
-    assert_eq!(w.color_at(r), Color::black());
+    assert_eq!(w.color_at(r, REFLECTION_RECURSION_DEPTH), Color::black());
 }
 
 #[test]
 fn color_ray_hit() {
+    use crate::REFLECTION_RECURSION_DEPTH;
+
     let mut w: World = Default::default();
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -5.0),
         Tuple4D::vector(0.0, 0.0, 1.0),
     );
 
-    assert_eq!(w.color_at(r), Color::rgb(0.38066, 0.47583, 0.2855));
+    assert_eq!(
+        w.color_at(r, REFLECTION_RECURSION_DEPTH),
+        Color::rgb(0.38066, 0.47583, 0.2855)
+    );
 }
 
 #[test]
 fn color_behind_ray() {
+    use crate::REFLECTION_RECURSION_DEPTH;
+
     let mut w: World = Default::default();
     {
         let mut outer = w.first_mut().unwrap();
@@ -278,7 +317,7 @@ fn color_behind_ray() {
         let inner = w.second().unwrap();
         inner.material().color
     };
-    assert_eq!(w.color_at(r), inner_color);
+    assert_eq!(w.color_at(r, REFLECTION_RECURSION_DEPTH), inner_color);
 }
 
 #[test]
@@ -311,4 +350,83 @@ fn shadow_object_behind_point() {
     let p = Tuple4D::point(-2.0, 2.0, -2.0);
 
     assert!(!w.is_shadowed(p));
+}
+
+#[test]
+fn reflected_color_for_nonreflective_material() {
+    use crate::REFLECTION_RECURSION_DEPTH;
+    use crate::geometry::Intersection;
+
+    let mut w: World = Default::default();
+
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, 0.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+
+    {
+        let s = w.second_mut().unwrap();
+        s.material_mut().ambient = 1.0;
+    }
+
+    let s = w.second().unwrap();
+    let i = Intersection { t: 1.0, what: s };
+    let comps = IntersectionComputation::new(&r, &i);
+
+    assert_eq!(
+        Color::black(),
+        w.reflected_color(&comps, REFLECTION_RECURSION_DEPTH)
+    );
+}
+
+#[test]
+fn reflected_color_for_reflective_material() {
+    use crate::REFLECTION_RECURSION_DEPTH;
+    use crate::geometry::{ Intersection, Plane };
+
+    let mut s = Plane::new();
+    s.material.reflective = 0.5;
+    s.transform = Matrix4D::translation(0.0, -1.0, 0.0);
+
+    let mut w: World = Default::default();
+    w.objects.push(Box::new(s));
+
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, -3.0),
+        Tuple4D::vector(0.0, -(2.0f64.sqrt()) / 2.0, (2.0f64.sqrt()) / 2.0)
+    );
+
+    let i = Intersection { t: 2.0f64.sqrt(), what: &*w.objects[2] };
+    let comps = IntersectionComputation::new(&r, &i);
+
+    assert_eq!(
+        Color::rgb(0.19032, 0.2379, 0.14274),
+        w.reflected_color(&comps, REFLECTION_RECURSION_DEPTH)
+    );
+}
+
+#[test]
+fn shade_hit_with_reflective_material() {
+    use crate::REFLECTION_RECURSION_DEPTH;
+    use crate::geometry::{ Intersection, Plane };
+
+    let mut s = Plane::new();
+    s.material.reflective = 0.5;
+    s.transform = Matrix4D::translation(0.0, -1.0, 0.0);
+
+    let mut w: World = Default::default();
+    w.objects.push(Box::new(s));
+
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, -3.0),
+        Tuple4D::vector(0.0, -(2.0f64.sqrt()) / 2.0, (2.0f64.sqrt()) / 2.0)
+    );
+
+    let i = Intersection { t: 2.0f64.sqrt(), what: &*w.objects[2] };
+    let comps = IntersectionComputation::new(&r, &i);
+
+    assert_eq!(
+        Color::rgb(0.87677, 0.92436, 0.82918),
+        w.shade_hit(&comps, REFLECTION_RECURSION_DEPTH)
+    );
 }
