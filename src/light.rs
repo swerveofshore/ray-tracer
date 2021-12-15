@@ -89,13 +89,16 @@ pub fn lighting(m: Material, obj: & dyn ShapeDebug, light: PointLight,
         return ambient;
     }
 
-    // Default to black for locations without light
-    let mut diffuse = Color::black();
-    let mut specular = Color::black();
+    // Declare diffuse and specular variables for calculating light
+    let diffuse;
+    let specular;
 
-    // Find which side of the surface the light is on, act accordingly
+    // For the side of the surface with no light, use only ambient light
     let light_dot_normal = lightv.dot(&normalv);
-    if light_dot_normal >= 0.0 {
+    if light_dot_normal < 0.0 {
+        diffuse = Color::black();
+        specular = Color::black();
+    } else {
         diffuse = effective_color * m.diffuse * light_dot_normal;
 
         let reflectv = (-lightv).reflect(&normalv);
