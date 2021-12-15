@@ -151,6 +151,19 @@ impl Sphere {
             material: Default::default(),
         }
     }
+
+    /// Creates a unit sphere with a glassy material.
+    pub fn glassy() -> Sphere {
+        Sphere {
+            material: Material {
+                transparency: 1.0,
+                refractive_index: 1.5,
+                ..Default::default()
+            },
+
+            ..Sphere::unit()
+        }
+    }
 }
 
 impl Shape for Sphere {
@@ -315,13 +328,23 @@ pub struct IntersectionComputation<'a> {
 
     /// Whether the intersection occurs within the object or not.
     pub inside: bool,
+
+    /// The refractive index of the material being exited.
+    pub n1: f64,
+
+    /// The refractive index of the material being entered.
+    pub n2: f64,
 }
 
 impl<'a> IntersectionComputation<'a> {
     /// Creates a new intersection computation, given a ray and intersection.
-    pub fn new(r: &Ray4D, i: &'a Intersection) -> IntersectionComputation<'a> {
-        let t = i.t;
-        let obj = i.what;
+    ///
+    /// The `is` parameter is a collection of intersections. If provided,
+    /// refraction indices will be calculated.
+    pub fn new(r: &Ray4D, hit: &'a Intersection, is: Option<&Intersections<'a>>)
+        -> IntersectionComputation<'a> {
+        let t = hit.t;
+        let obj = hit.what;
         let point = r.position(t);
         let eyev = -r.direction;
         let mut normalv = normal_at(obj, point);
@@ -335,13 +358,64 @@ impl<'a> IntersectionComputation<'a> {
         };
 
         let reflectv = r.direction.reflect(&normalv);
+        let (n1, n2) = if let Some(xs) = is {
+            Self::refraction_indices(hit, xs)
+        } else {
+            (1.0, 1.0)
+        };
 
         IntersectionComputation {
             t, obj,
             point, over_point,
             eyev, normalv, reflectv,
-            inside
+            inside,
+            n1, n2,
         }
+    }
+
+    fn refraction_indices(hit: &'a Intersection, is: &Intersections<'a>)
+        -> (f64, f64) {
+        // The exiting and entering refractive indices, respectively.
+        let mut n1 = 1.0;
+        let mut n2 = 1.0;
+
+        // Contains all objects which have been encountered, but not yet exited
+        // by the refracting ray.
+        let mut containers: Vec<&'a dyn ShapeDebug> = Vec::new();
+
+        for i in is.intersections.iter() {
+            if i == hit {
+                if containers.is_empty() {
+                    n1 = 1.0; 
+                } else {
+                    n1 = containers.last().unwrap().material().refractive_index;
+                }
+            }
+
+            // If object `i.what` is in `containers`, remove it.
+            if let Some(j) 
+                = containers.iter().position(|&x| std::ptr::eq(x, i.what)) {
+                containers.remove(j);
+            }
+            // Otherwise, add the object to `containers`.
+            else {
+                containers.push(i.what);
+            }
+
+            if i == hit {
+                if containers.is_empty() {
+                    n2 = 1.0;
+                } else {
+                    n2 = containers.last().unwrap().material().refractive_index;
+                }
+
+                // TODO: refactor this to be more Rust-idiomatic; the hanging
+                // break on this second if feels awkward
+                break;
+            }
+        }
+
+        (n1, n2)
     }
 }
 
@@ -745,3 +819,48 @@ fn hit_should_offset_point() {
     assert!(comps.point.z > comps.over_point.z);
 }
 */
+
+#[test]
+fn find_refraction_indices_from_intersections() {
+    let mut a = Sphere::glassy();
+    a.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
+    a.material.refractive_index = 1.5;
+
+    let mut b = Sphere::glassy();
+    b.transform = Matrix4D::translation(0.0, 0.0, -0.25);
+    b.material.refractive_index = 2.0;
+
+    let mut c = Sphere::glassy();
+    c.transform = Matrix4D::translation(0.0, 0.0, 0.25);
+    c.material.refractive_index = 2.5;
+
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, -4.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+
+    let is = Intersections {
+        intersections: vec![
+            Intersection { t: 2.0,  what: &a },
+            Intersection { t: 2.75, what: &b },
+            Intersection { t: 3.25, what: &c },
+            Intersection { t: 4.75, what: &b },
+            Intersection { t: 5.25, what: &c },
+            Intersection { t: 6.0,  what: &a },
+        ],
+    };
+
+    let expected_refractions = vec![
+        (1.0, 1.5),
+        (1.5, 2.0),
+        (2.0, 2.5),
+        (2.5, 2.5),
+        (2.5, 1.5),
+        (1.5, 1.0)
+    ];
+
+    for (j, i) in is.intersections.iter().enumerate() {
+        let comps = IntersectionComputation::new(&r, &i, Some(&is));
+        assert_eq!(expected_refractions[j], (comps.n1, comps.n2)); 
+    }
+}

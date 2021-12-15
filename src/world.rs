@@ -157,16 +157,14 @@ impl World {
 
     /// Determines a color based on the intersection of a ray and the objects.
     pub fn color_at(&self, r: Ray4D, remaining: usize) -> Color {
-        let hit = {
-            let mut is = self.intersect(r);
-            is.hit()
-        };
+        let mut is = self.intersect(r);
+        let hit = is.hit();
 
         // If at least one object is hit, return the color, else return black
         match hit {
             None => Color::black(),
             Some(i) => {
-                let comps = IntersectionComputation::new(&r, &i);
+                let comps = IntersectionComputation::new(&r, &i, Some(&is));
                 self.shade_hit(&comps, remaining)
             },
         }
@@ -204,7 +202,7 @@ fn shade_intersection_from_outside() {
     let shape = w.first().expect("Default world should contain objects.");
     let i = Intersection { t: 4.0, what: shape };
 
-    let comps = IntersectionComputation::new(&r, &i);
+    let comps = IntersectionComputation::new(&r, &i, None);
     let c = w.shade_hit(&comps, REFLECTION_RECURSION_DEPTH);
 
     assert_eq!(c, Color::rgb(0.38066, 0.47583, 0.2855));
@@ -229,7 +227,7 @@ fn shade_intersection_from_inside() {
     let shape = w.second().expect("Default world should contain objects.");
     let i = Intersection { t: 0.5, what: shape };
 
-    let comps = IntersectionComputation::new(&r, &i);
+    let comps = IntersectionComputation::new(&r, &i, None);
     let c = w.shade_hit(&comps, REFLECTION_RECURSION_DEPTH);
 
     assert_eq!(c, Color::rgb(0.90498, 0.90498, 0.90498));
@@ -259,7 +257,7 @@ fn shade_intersection_in_shadow() {
     );
 
     let i = Intersection { t: 4.0, what: w.second().unwrap() };
-    let comps = IntersectionComputation::new(&r, &i);
+    let comps = IntersectionComputation::new(&r, &i, None);
     let c = w.shade_hit(&comps, REFLECTION_RECURSION_DEPTH);
 
     assert_eq!(c, Color::rgb(0.1, 0.1, 0.1));
@@ -371,7 +369,7 @@ fn reflected_color_for_nonreflective_material() {
 
     let s = w.second().unwrap();
     let i = Intersection { t: 1.0, what: s };
-    let comps = IntersectionComputation::new(&r, &i);
+    let comps = IntersectionComputation::new(&r, &i, None);
 
     assert_eq!(
         Color::black(),
@@ -397,7 +395,7 @@ fn reflected_color_for_reflective_material() {
     );
 
     let i = Intersection { t: 2.0f64.sqrt(), what: &*w.objects[2] };
-    let comps = IntersectionComputation::new(&r, &i);
+    let comps = IntersectionComputation::new(&r, &i, None);
 
     assert_eq!(
         Color::rgb(0.19032, 0.2379, 0.14274),
@@ -423,7 +421,7 @@ fn shade_hit_with_reflective_material() {
     );
 
     let i = Intersection { t: 2.0f64.sqrt(), what: &*w.objects[2] };
-    let comps = IntersectionComputation::new(&r, &i);
+    let comps = IntersectionComputation::new(&r, &i, None);
 
     assert_eq!(
         Color::rgb(0.87677, 0.92436, 0.82918),
