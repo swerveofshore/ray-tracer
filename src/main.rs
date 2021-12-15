@@ -20,6 +20,8 @@ fn main() {
         Color::white(),
         Color::red()
     ));
+    floor.material.pattern.get_or_insert(floor.material.pattern.unwrap())
+        .transform = Matrix4D::scaling(0.1, 0.1, 0.1);
 
     let mut middle = Sphere::unit();
     middle.transform = Matrix4D::translation(-0.5, 1.0, 2.0);
@@ -27,6 +29,10 @@ fn main() {
     middle.material.color = Color::rgb(1.0, 0.4666, 0.2666);
     middle.material.diffuse = 0.7;
     middle.material.specular = 0.3;
+    middle.material.pattern = Some(Pattern::checker(
+        Color::blue(),
+        Color::green()
+    ));
 
     let mut right = Sphere::unit();
     right.transform = Matrix4D::translation(1.5, 0.5, -0.5)
@@ -62,8 +68,7 @@ fn main() {
         Tuple4D::point(0.0, 1.5, -5.0),
         Tuple4D::point(0.0, 1.0,  0.0),
         Tuple4D::vector(0.0, 1.0, 0.0),
-    );
+    ); // * Matrix4D::translation(0.0, 0.0, 40.0);
 
     let canvas = camera.render(&mut world);
-    canvas.save("out.ppm").unwrap();
-}
+    canvas.save("out.ppm").unwrap(); }
