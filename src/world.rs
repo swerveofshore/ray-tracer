@@ -124,7 +124,7 @@ impl World {
     /// Calculates the color for a hit, based on shadows and light.
     pub fn shade_hit(&self, comps: &IntersectionComputation) -> Color {
         lighting(*comps.obj.material(), comps.obj, 
-            self.light_source, comps.point, comps.eyev, comps.normalv,
+            self.light_source, comps.over_point, comps.eyev, comps.normalv,
             self.is_shadowed(comps.over_point))
     }
 
