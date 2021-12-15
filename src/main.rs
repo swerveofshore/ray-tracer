@@ -7,8 +7,8 @@ use ray_tracer_challenge::light::PointLight;
 use ray_tracer_challenge::world::World;
 use ray_tracer_challenge::camera::Camera;
 
-const CANVAS_WIDTH: usize = 960;
-const CANVAS_HEIGHT: usize = 540; 
+const CANVAS_WIDTH: usize = 960 * 4;
+const CANVAS_HEIGHT: usize = 540 * 4; 
 
 fn main() {
     let mut floor = Plane::new();
@@ -18,10 +18,11 @@ fn main() {
     floor.material.specular = 0.0;
     floor.material.pattern = Some(Pattern::checker(
         Color::white(),
-        Color::red()
+        Color::black()
     ));
     floor.material.pattern.get_or_insert(floor.material.pattern.unwrap())
         .transform = Matrix4D::scaling(0.1, 0.1, 0.1);
+    floor.material.reflective = 0.5;
 
     let mut middle = Sphere::unit();
     middle.transform = Matrix4D::translation(-0.5, 1.0, 2.0);
@@ -29,10 +30,13 @@ fn main() {
     middle.material.color = Color::rgb(1.0, 0.4666, 0.2666);
     middle.material.diffuse = 0.7;
     middle.material.specular = 0.3;
+
+    /*
     middle.material.pattern = Some(Pattern::checker(
         Color::blue(),
         Color::green()
     ));
+    */
 
     let mut right = Sphere::unit();
     right.transform = Matrix4D::translation(1.5, 0.5, -0.5)
@@ -68,7 +72,7 @@ fn main() {
         Tuple4D::point(0.0, 1.5, -5.0),
         Tuple4D::point(0.0, 1.0,  0.0),
         Tuple4D::vector(0.0, 1.0, 0.0),
-    ); // * Matrix4D::translation(0.0, 0.0, 40.0);
+    ); // * Matrix4D::translation(0.0, 0.0, 100.0);
 
     let canvas = camera.render(&mut world);
     canvas.save("out.ppm").unwrap(); }

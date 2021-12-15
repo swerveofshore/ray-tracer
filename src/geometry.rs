@@ -1,4 +1,4 @@
-use crate::FEQ_EPSILON;
+use crate::consts::FEQ_EPSILON;
 use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
 use crate::ray::Ray4D;

@@ -192,7 +192,7 @@ fn intersect_default_world_with_ray() {
 
 #[test]
 fn shade_intersection_from_outside() {
-    use crate::REFLECTION_RECURSION_DEPTH;
+    use crate::consts::REFLECTION_RECURSION_DEPTH;
     use crate::geometry::Intersection;
 
     let mut w: World = Default::default();
@@ -212,7 +212,7 @@ fn shade_intersection_from_outside() {
 
 #[test]
 fn shade_intersection_from_inside() {
-    use crate::REFLECTION_RECURSION_DEPTH;
+    use crate::consts::REFLECTION_RECURSION_DEPTH;
     use crate::geometry::Intersection;
 
     let mut w: World = Default::default();
@@ -237,7 +237,7 @@ fn shade_intersection_from_inside() {
 
 #[test]
 fn shade_intersection_in_shadow() {
-    use crate::REFLECTION_RECURSION_DEPTH;
+    use crate::consts::REFLECTION_RECURSION_DEPTH;
     use crate::geometry::Intersection;
 
     let mut w: World = World::empty();
@@ -267,7 +267,7 @@ fn shade_intersection_in_shadow() {
 
 #[test]
 fn color_ray_miss() {
-    use crate::REFLECTION_RECURSION_DEPTH;
+    use crate::consts::REFLECTION_RECURSION_DEPTH;
 
     let mut w: World = Default::default();
     let r = Ray4D::new(
@@ -280,7 +280,7 @@ fn color_ray_miss() {
 
 #[test]
 fn color_ray_hit() {
-    use crate::REFLECTION_RECURSION_DEPTH;
+    use crate::consts::REFLECTION_RECURSION_DEPTH;
 
     let mut w: World = Default::default();
     let r = Ray4D::new(
@@ -296,7 +296,7 @@ fn color_ray_hit() {
 
 #[test]
 fn color_behind_ray() {
-    use crate::REFLECTION_RECURSION_DEPTH;
+    use crate::consts::REFLECTION_RECURSION_DEPTH;
 
     let mut w: World = Default::default();
     {
@@ -354,7 +354,7 @@ fn shadow_object_behind_point() {
 
 #[test]
 fn reflected_color_for_nonreflective_material() {
-    use crate::REFLECTION_RECURSION_DEPTH;
+    use crate::consts::REFLECTION_RECURSION_DEPTH;
     use crate::geometry::Intersection;
 
     let mut w: World = Default::default();
@@ -381,7 +381,7 @@ fn reflected_color_for_nonreflective_material() {
 
 #[test]
 fn reflected_color_for_reflective_material() {
-    use crate::REFLECTION_RECURSION_DEPTH;
+    use crate::consts::REFLECTION_RECURSION_DEPTH;
     use crate::geometry::{ Intersection, Plane };
 
     let mut s = Plane::new();
@@ -407,7 +407,7 @@ fn reflected_color_for_reflective_material() {
 
 #[test]
 fn shade_hit_with_reflective_material() {
-    use crate::REFLECTION_RECURSION_DEPTH;
+    use crate::consts::REFLECTION_RECURSION_DEPTH;
     use crate::geometry::{ Intersection, Plane };
 
     let mut s = Plane::new();

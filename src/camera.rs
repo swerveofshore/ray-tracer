@@ -3,7 +3,7 @@ use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
 use crate::world::World;
 use crate::canvas::Canvas;
-use crate::REFLECTION_RECURSION_DEPTH;
+use crate::consts::REFLECTION_RECURSION_DEPTH;
 
 /// A camera record for generating a canvas.
 ///
