@@ -123,8 +123,6 @@ impl World {
 
     /// Calculates the color for a hit, based on shadows and light.
     pub fn shade_hit(&self, comps: &IntersectionComputation) -> Color {
-        // TODO: Put object back into IntersectionComputation, figure out how
-        // to properly manage ownership of the Shape and World
         lighting(*comps.obj.material(), comps.obj, 
             self.light_source, comps.point, comps.eyev, comps.normalv,
             self.is_shadowed(comps.over_point))
@@ -184,7 +182,6 @@ fn shade_intersection_from_outside() {
     assert_eq!(c, Color::rgb(0.38066, 0.47583, 0.2855));
 }
 
-/* TODO: No idea why this doesn't pass.
 #[test]
 fn shade_intersection_from_inside() {
     use crate::geometry::Intersection;
@@ -208,7 +205,6 @@ fn shade_intersection_from_inside() {
 
     assert_eq!(c, Color::rgb(0.90498, 0.90498, 0.90498));
 }
-*/
 
 #[test]
 fn shade_intersection_in_shadow() {
