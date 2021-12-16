@@ -36,6 +36,7 @@ impl<'a> Eq for Intersection<'a> { }
 ///
 /// Mostly a wrapper for a vector of `Intersection` objects. See the
 /// `Intersection` documentation for more information.
+#[derive(Clone, Debug)]
 pub struct Intersections<'a> {
     pub intersections: Vec<Intersection<'a>>,
 }
@@ -57,7 +58,7 @@ impl<'a> Intersections<'a> {
     /// This is because the `Intersection` with the lowest `t` is chosen. A more
     /// optimal implementation is likely possible.
     pub fn hit<'b>(&'b mut self) -> Option<Intersection<'a>> {
-        self.intersections.retain(|i| i.t.is_finite());
+        // self.intersections.retain(|i| i.t.is_finite());
         self.sort();
 
         for i in self.intersections.iter() {
@@ -314,8 +315,13 @@ pub struct IntersectionComputation<'a> {
     /// The point where the intersection occurs.
     pub point: Tuple4D,
 
-    /// An error-corrected point of the intersection.
+    /// A point slightly above the intersected surface. Used to prevent an
+    /// object from shadowing itself (this causes "acne").
     pub over_point: Tuple4D,
+
+    /// A point slightly below the intersected surface. Used to prevent an
+    /// object from refracting itself on its surface.
+    pub under_point: Tuple4D,
 
     /// The eye vector for the intersection.
     pub eyev: Tuple4D,
@@ -348,7 +354,6 @@ impl<'a> IntersectionComputation<'a> {
         let point = r.position(t);
         let eyev = -r.direction;
         let mut normalv = normal_at(obj, point);
-        let over_point = point + normalv * FEQ_EPSILON;
 
         let inside = if normalv.dot(&eyev) < 0.0 {
             normalv = -normalv;
@@ -356,6 +361,9 @@ impl<'a> IntersectionComputation<'a> {
         } else {
             false
         };
+
+        let over_point = point + normalv * FEQ_EPSILON;
+        let under_point = point - normalv * FEQ_EPSILON;
 
         let reflectv = r.direction.reflect(&normalv);
         let (n1, n2) = if let Some(xs) = is {
@@ -366,7 +374,7 @@ impl<'a> IntersectionComputation<'a> {
 
         IntersectionComputation {
             t, obj,
-            point, over_point,
+            point, over_point, under_point,
             eyev, normalv, reflectv,
             inside,
             n1, n2,
@@ -537,7 +545,7 @@ fn compute_normal_on_transformed_sphere() {
 
 #[test]
 fn normal_on_plane() {
-    let mut p = Plane::new();
+    let p = Plane::new();
 
     let n1 = p.local_normal_at(Tuple4D::point(0.0, 0.0, 0.0));
     let n2 = p.local_normal_at(Tuple4D::point(10.0, 0.0, -10.0));
@@ -550,7 +558,7 @@ fn normal_on_plane() {
 
 #[test]
 fn ray_intersecting_plane_from_above() {
-    let mut p = Plane::new();
+    let p = Plane::new();
     let r = Ray4D::new(
         Tuple4D::point(0.0, 1.0, 0.0),
         Tuple4D::vector(0.0, -1.0, 0.0)
@@ -564,7 +572,7 @@ fn ray_intersecting_plane_from_above() {
 
 #[test]
 fn ray_intersecting_plane_from_below() {
-    let mut p = Plane::new();
+    let p = Plane::new();
     let r = Ray4D::new(
         Tuple4D::point(0.0, -1.0, 0.0),
         Tuple4D::vector(0.0, 1.0, 0.0)
@@ -863,4 +871,22 @@ fn find_refraction_indices_from_intersections() {
         let comps = IntersectionComputation::new(&r, &i, Some(&is));
         assert_eq!(expected_refractions[j], (comps.n1, comps.n2)); 
     }
+}
+
+#[test]
+fn under_point_is_below_the_surface() {
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, -5.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+
+    let mut s = Sphere::glassy();
+    s.transform = Matrix4D::translation(0.0, 0.0, 1.0);
+
+    let i = Intersection { t: 5.0, what: &s };
+    let is = Intersections { intersections: vec![i] };
+    let comps = IntersectionComputation::new(&r, &i, Some(&is));
+
+    assert!(comps.under_point.z > FEQ_EPSILON / 2.0);
+    assert!(comps.point.z < comps.under_point.z);
 }
