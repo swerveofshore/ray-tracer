@@ -7,8 +7,8 @@ use ray_tracer_challenge::light::PointLight;
 use ray_tracer_challenge::world::World;
 use ray_tracer_challenge::camera::Camera;
 
-const CANVAS_WIDTH: usize = 960 * 4;
-const CANVAS_HEIGHT: usize = 540 * 4; 
+const CANVAS_WIDTH: usize = 960; // * 4;
+const CANVAS_HEIGHT: usize = 540; // * 4; 
 
 fn main() {
     let mut floor = Plane::new();
@@ -30,6 +30,9 @@ fn main() {
     middle.material.color = Color::rgb(1.0, 0.4666, 0.2666);
     middle.material.diffuse = 0.7;
     middle.material.specular = 0.3;
+    middle.material.transparency = 0.5;
+    middle.material.reflective = 0.5;
+    middle.material.refractive_index = 1.5;
 
     /*
     middle.material.pattern = Some(Pattern::checker(

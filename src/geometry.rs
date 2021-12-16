@@ -425,6 +425,34 @@ impl<'a> IntersectionComputation<'a> {
 
         (n1, n2)
     }
+
+    /// Calculates the reflectance of a hit.
+    ///
+    /// The reflectance is a number between 0 and 1, representing what fraction
+    /// of the light is reflected for the hit.
+    ///
+    /// TODO: Explain why the below calculations work.
+    pub fn schlick(&self) -> f64 {
+        let mut cos = self.eyev.dot(&self.normalv);
+
+        // Total internal reflection can only occur if n1 > n2.
+        if self.n1 > self.n2 {
+            let n = self.n1 / self.n2;
+            let sin2_t = n.powi(2) * (1.0 - cos.powi(2));
+
+            // If the squared sin of theta t is greater than 1, return full
+            // reflectance.
+            if sin2_t > 1.0 {
+                return 1.0
+            }
+
+            // Otherwise, continue calculations.
+            cos = (1.0 - sin2_t).sqrt();
+        }
+
+        let r0 = ((self.n1 - self.n2) / (self.n1 + self.n2)).powi(2);
+        r0 + (1.0 - r0) * (1.0 - cos).powi(5)
+    }
 }
 
 /// An empty shape for testing.
@@ -889,4 +917,73 @@ fn under_point_is_below_the_surface() {
 
     assert!(comps.under_point.z > FEQ_EPSILON / 2.0);
     assert!(comps.point.z < comps.under_point.z);
+}
+
+#[test]
+fn schlick_approximation_under_total_internal_reflection() {
+    let s = Sphere::glassy();
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, 2.0f64.sqrt() / 2.0),
+        Tuple4D::vector(0.0, 1.0, 0.0)
+    );
+
+    let is = Intersections {
+        intersections: vec![
+            Intersection { t: -(2.0f64.sqrt()) / 2.0, what: &s },
+            Intersection { t: 2.0f64.sqrt() / 2.0, what: &s }
+        ]
+    };
+
+    let comps = IntersectionComputation::new(
+        &r, &is.intersections[1], Some(&is)
+    );
+
+    assert_eq!(1.0, comps.schlick());
+}
+
+#[test]
+fn schlick_approximation_at_perpendicular_view() {
+    use crate::feq;
+
+    let s = Sphere::glassy();
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, 0.0),
+        Tuple4D::vector(0.0, 1.0, 0.0)
+    );
+
+    let is = Intersections {
+        intersections: vec![
+            Intersection { t: -1.0, what: &s },
+            Intersection { t:  1.0, what: &s }
+        ]
+    };
+
+    let comps = IntersectionComputation::new(
+        &r, &is.intersections[1], Some(&is)
+    );
+
+    assert!(feq(0.04, comps.schlick()));
+}
+
+#[test]
+fn schlick_approximation_with_small_angle_and_n2_gt_n1() {
+    use crate::feq;
+
+    let s = Sphere::glassy();
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.99, -2.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+
+    let is = Intersections {
+        intersections: vec![
+            Intersection { t: 1.8589, what: &s },
+        ]
+    };
+
+    let comps = IntersectionComputation::new(
+        &r, &is.intersections[0], Some(&is)
+    );
+
+    assert!(feq(0.48873, comps.schlick()));
 }
