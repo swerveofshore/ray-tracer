@@ -3,6 +3,7 @@ pub const FEQ_EPSILON: f64 = 0.0001;
 
 // Maximum recursion depths
 pub const REFLECTION_RECURSION_DEPTH: usize = 5;
+pub const REFRACTION_RECURSION_DEPTH: usize = 5;
 
 // Common refraction indices
 pub const VACUUM_RI: f64 = 1.0;
