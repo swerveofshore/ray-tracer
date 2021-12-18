@@ -58,7 +58,7 @@ impl<'a> Intersections<'a> {
     /// This is because the `Intersection` with the lowest `t` is chosen. A more
     /// optimal implementation is likely possible.
     pub fn hit<'b>(&'b mut self) -> Option<Intersection<'a>> {
-        // self.intersections.retain(|i| i.t.is_finite());
+        self.intersections.retain(|i| i.t.is_finite());
         self.sort();
 
         for i in self.intersections.iter() {
@@ -550,7 +550,7 @@ impl Shape for Cylinder {
             Tuple4D::vector(0.0, 1.0, 0.0)
         }
         // If on the bottom cap, return a normal pointing down.
-        else if dist < 1.0 && p.y <= self.minimum - FEQ_EPSILON {
+        else if dist < 1.0 && p.y <= self.minimum + FEQ_EPSILON {
             Tuple4D::vector(0.0, -1.0, 0.0)
         }
         // If on the round surface, return a normal pointing outwards.
