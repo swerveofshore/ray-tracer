@@ -578,6 +578,167 @@ impl Shape for Cylinder {
 
 impl ShapeDebug for Cylinder { }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Cone {
+    pub transform: Matrix4D,
+    pub material: Material,
+
+    pub minimum: f64,
+    pub maximum: f64,
+    pub closed: bool,
+}
+
+impl Cone {
+    pub fn unit() -> Cone {
+        Cone {
+            transform: Default::default(),
+            material: Default::default(),
+
+            minimum: -1.0 * std::f64::INFINITY,
+            maximum: std::f64::INFINITY,
+            closed: false,
+        }
+    }
+
+    pub fn intersect_caps<'a>(&'a self, r: Ray4D, is: &mut Intersections<'a>) {
+        // If not closed, or the ray doesn't point anywhere near y, ignore caps.
+        if !self.closed || r.direction.y.abs() < FEQ_EPSILON {
+            return;
+        }
+
+        // Check for an intersection with the lower end cap.
+        let tl = (self.minimum - r.origin.y) / r.direction.y;
+        if Self::check_cap(r, tl, self.minimum) {
+            is.intersections.push(Intersection { t: tl, what: self });
+        }
+
+        // Check for an intersection with the upper end cap.
+        let tu = (self.maximum - r.origin.y) / r.direction.y;
+        if Self::check_cap(r, tu, self.maximum) {
+            is.intersections.push(Intersection { t: tu, what: self });
+        }
+    }
+
+    /// Checks to see if the intersection `t` is within a radius of `y`
+    /// from the Y axis. A `Cone` has a radius equal to the `y` coordinate.
+    fn check_cap(r: Ray4D, t: f64, y: f64) -> bool {
+        let x = r.origin.x + t * r.direction.x;
+        let z = r.origin.z + t * r.direction.z;
+
+        x.powi(2) + z.powi(2) <= y.powi(2)
+    }
+}
+
+impl Shape for Cone {
+    fn local_intersect(&self, r: Ray4D) -> Intersections {
+        let a = r.direction.x.powi(2) - r.direction.y.powi(2)
+              + r.direction.z.powi(2); 
+        
+        let b = 2.0f64 * r.origin.x * r.direction.x
+              - 2.0f64 * r.origin.y * r.direction.y
+              + 2.0f64 * r.origin.z * r.direction.z;
+
+        let c = r.origin.x.powi(2) - r.origin.y.powi(2) + r.origin.z.powi(2);
+
+        if a.abs() < FEQ_EPSILON {
+            let mut is = Intersections::new();
+            self.intersect_caps(r, &mut is);
+
+            // Ray misses when both a and b are 0.
+            if b.abs() < FEQ_EPSILON {
+                return is;
+            }
+            // If only a is 0, then there's a single point of intersection.
+            else {
+                let t = -c / (2.0 * b);
+                is.intersections.push(Intersection { t, what: self });
+                return is;
+            }
+        }
+
+        let disc = b.powi(2) - 4.0 * a * c;
+
+        // Ray r does not intersect the cone 
+        if disc < 0.0 {
+            return Intersections::new();
+        }
+
+        // Ray r intersects the cone at one or two points
+        let mut t0 = (-b - (disc.sqrt())) / (2.0 * a);
+        let mut t1 = (-b + (disc.sqrt())) / (2.0 * a);
+        
+        // Make sure that t0 is the lowest intersection location.
+        if t0 > t1 {
+            std::mem::swap(&mut t0, &mut t1);
+        }
+
+        let mut is = Intersections::new();
+
+        // If the t0 intersection is within the cone's bounds, add it.
+        let y0 = r.origin.y + t0 * r.direction.y;
+        if self.minimum < y0 && y0 < self.maximum {
+            is.intersections.push(
+                Intersection { t: t0, what: self }
+            );
+        }
+
+        // If the t1 intersection is within the cone's bounds, add it.
+        let y1 = r.origin.y + t1 * r.direction.y;
+        if self.minimum < y1 && y1 < self.maximum {
+            is.intersections.push(
+                Intersection { t: t1, what: self }
+            );
+        }
+
+        // Check whether any intersections occur at the cylinder caps.
+        self.intersect_caps(r, &mut is);
+
+        // Return all cylinder intersections.
+        is
+    }
+
+    fn local_normal_at(&self, p: Tuple4D) -> Tuple4D {
+        // Calculate the square of the distance from the y axis.
+        let dist = p.x.powi(2) + p.z.powi(2);
+
+        // If on the top cap, return a normal pointing up.
+        if dist < 1.0 && p.y >= self.maximum - FEQ_EPSILON {
+            Tuple4D::vector(0.0, 1.0, 0.0)
+        }
+        // If on the bottom cap, return a normal pointing down.
+        else if dist < 1.0 && p.y <= self.minimum + FEQ_EPSILON {
+            Tuple4D::vector(0.0, -1.0, 0.0)
+        }
+        // If on the round surface, return a normal pointing outwards.
+        else {
+            let mut y = dist.sqrt();
+            if p.y > 0.0 {
+                y = -y;
+            }
+
+            Tuple4D::vector(p.x, y, p.z)
+        }
+    }
+
+    fn transform(&self) -> &Matrix4D {
+        &self.transform
+    }
+
+    fn transform_mut(&mut self) -> &mut Matrix4D {
+        &mut self.transform
+    }
+
+    fn material(&self) -> &Material {
+        &self.material
+    }
+
+    fn material_mut(&mut self) -> &mut Material {
+        &mut self.material
+    }
+}
+
+impl ShapeDebug for Cone { }
+
 /// A record for computations associated with an `Intersection`.
 ///
 /// Mostly a superset of an `Intersection`.
@@ -1543,5 +1704,111 @@ fn a_ray_intersects_caps_of_a_closed_cylinder() {
     for (r, co) in rays.into_iter().zip(counts.into_iter()) {
         let is = c.local_intersect(r);
         assert_eq!(is.intersections.len(), co);
+    }
+}
+
+#[test]
+fn intersecting_a_cone_with_a_ray() {
+    use crate::feq;
+
+    let c = Cone::unit();
+
+    let rays = vec![
+        Ray4D::new(
+            Tuple4D::point(0.0, 0.0, -5.0),
+            Tuple4D::vector(0.0, 0.0, 1.0).normalize()
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 0.0, -5.0),
+            Tuple4D::vector(1.0, 1.0, 1.0).normalize()
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(1.0, 1.0, -5.0),
+            Tuple4D::vector(-0.5, -1.0, 1.0).normalize()
+        ),
+    ];
+
+    let ts = vec![
+        (5.0, 5.0),
+        (8.66025, 8.66025),
+        (4.55006, 49.44994)
+    ];
+
+    for (r, (t0, t1)) in rays.into_iter().zip(ts.into_iter()) {
+        let is = c.local_intersect(r);
+        assert_eq!(is.intersections.len(), 2);
+        assert!(feq(is.intersections[0].t, t0));
+        assert!(feq(is.intersections[1].t, t1));
+    }
+}
+
+#[test]
+fn intersecting_a_cone_with_ray_parallel_to_half() {
+    use crate::feq;
+
+    let c = Cone::unit();
+
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, -1.0),
+        Tuple4D::vector(0.0, 1.0, 1.0).normalize()
+    );
+
+    let is = c.local_intersect(r);
+    assert_eq!(is.intersections.len(), 1);
+    assert!(feq(is.intersections[0].t, 0.35355));
+}
+
+#[test]
+fn interescting_a_cones_end_caps() {
+    let mut c = Cone::unit();
+    c.minimum = -0.5;
+    c.maximum = 0.5;
+    c.closed = true;
+
+    let rays = vec![
+        Ray4D::new(
+            Tuple4D::point(0.0, 0.0, -5.0),
+            Tuple4D::vector(0.0, 1.0, 0.0).normalize()
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 0.0, -0.25),
+            Tuple4D::vector(0.0, 1.0, 1.0).normalize()
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 0.0, -0.25),
+            Tuple4D::vector(0.0, 1.0, 0.0).normalize()
+        ),
+    ];
+
+    let counts = vec![ 0, 2, 4 ];
+
+    for (r, co) in rays.into_iter().zip(counts.into_iter()) {
+        let is = c.local_intersect(r);
+        assert_eq!(is.intersections.len(), co);
+    }
+}
+
+#[test]
+fn computing_the_normal_vector_on_a_cone() {
+    let c = Cone::unit();
+
+    let points = vec![
+        Tuple4D::point( 0.0,  0.0, 0.0),
+        Tuple4D::point( 1.0,  1.0, 1.0),
+        Tuple4D::point(-1.0, -1.0, 0.0),
+    ];
+
+    let normal = vec![
+        Tuple4D::vector(0.0, 0.0, 0.0),
+        Tuple4D::vector(1.0, -(2.0f64.sqrt()), 1.0),
+        Tuple4D::vector(-1.0, 1.0, 0.0)
+    ];
+
+    for (p, n) in points.into_iter().zip(normal.into_iter()) {
+        assert_eq!(n, c.local_normal_at(p));
     }
 }
