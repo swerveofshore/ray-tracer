@@ -301,6 +301,120 @@ impl Shape for Plane {
 
 impl ShapeDebug for Plane { }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Cube {
+    pub transform: Matrix4D,
+    pub material: Material,
+}
+
+impl Cube {
+    pub fn new(transform: Matrix4D, material: Material) -> Cube {
+        Cube { transform, material }
+    }
+
+    pub fn unit() -> Cube {
+        Cube {
+            transform: Default::default(),
+            material: Default::default()
+        }
+    }
+
+    /// Gets the minimum and maximum intersection offsets along an axis.
+    ///
+    /// No particular axis is specified; this function takes a component from
+    /// the `origin` and `direction` fields of a `Ray4D` (e.g. `origin.x` and
+    /// `direction.x`) and returns where the `Ray4D` intersects planes on a cube
+    /// for a single axis.
+    ///
+    /// The smaller `t` is first in the tuple, the larger `t` is second.
+    ///
+    /// Note that this calculation assumes that the current `Cube` is a unit
+    /// cube centered at the object-space origin.
+    fn check_axis(origin: f64, direction: f64) -> (f64, f64) {
+        let tmin_numerator = -1.0 - origin;
+        let tmax_numerator =  1.0 - origin;
+
+        // Make sure that the direction is non-zero. If it is, assign INFINITY.
+        let (tmin, tmax) = if direction.abs() >= FEQ_EPSILON {
+            (tmin_numerator / direction, tmax_numerator / direction) 
+        } else {
+            (tmin_numerator * std::f64::INFINITY,
+             tmax_numerator * std::f64::INFINITY)
+        };
+
+        // If tmin is actually greater than tmax, return tmax first.
+        if tmin > tmax {
+            (tmax, tmin)
+        } else {
+            (tmin, tmax)
+        }
+    }
+}
+
+impl Shape for Cube {
+    fn local_intersect(&self, r: Ray4D) -> Intersections {
+        let (xtmin, xtmax) = Cube::check_axis(r.origin.x, r.direction.x);
+        let (ytmin, ytmax) = Cube::check_axis(r.origin.y, r.direction.y);
+        let (ztmin, ztmax) = Cube::check_axis(r.origin.z, r.direction.z);
+
+        let tmin = xtmin.max(ytmin).max(ztmin);
+        let tmax = xtmax.min(ytmax).min(ztmax);
+
+        // This can never happen if the ray hits the cube/sphere.
+        if tmin > tmax {
+            return Intersections::new()
+        }
+
+        Intersections {
+            intersections: vec![
+                Intersection { t: tmin, what: self },
+                Intersection { t: tmax, what: self }
+            ]
+        }
+    }
+
+    /// Gets the normal for a face of the cube.
+    ///
+    /// Effectively, a normal is chosen by taking the component of `p` with the
+    /// largest absolute value.
+    ///
+    /// If `p = (0.5, 0.7, -0.99)` for example, then the normal vector would be
+    /// `(0.0, 0.0, -1)`, as that vector points in the direction of the face
+    /// along the negative `z` axis.
+    fn local_normal_at(&self, p: Tuple4D) -> Tuple4D {
+        let xa = p.x.abs();
+        let ya = p.y.abs();
+        let za = p.z.abs();
+
+        let max_component = xa.max(ya).max(za);
+        if max_component == xa {
+            Tuple4D::vector(p.x, 0.0, 0.0)
+        } else if max_component == ya {
+            Tuple4D::vector(0.0, p.y, 0.0)
+        } else {
+            Tuple4D::vector(0.0, 0.0, p.z)
+        }
+    }
+
+    fn transform(&self) -> &Matrix4D {
+        &self.transform
+    }
+
+    fn transform_mut(&mut self) -> &mut Matrix4D {
+        &mut self.transform
+    }
+
+    fn material(&self) -> &Material {
+        &self.material
+    }
+
+    fn material_mut(&mut self) -> &mut Material {
+        &mut self.material
+    }
+}
+
+impl ShapeDebug for Cube { }
+
 /// A record for computations associated with an `Intersection`.
 ///
 /// Mostly a superset of an `Intersection`.
@@ -986,4 +1100,128 @@ fn schlick_approximation_with_small_angle_and_n2_gt_n1() {
     );
 
     assert!(feq(0.48873, comps.schlick()));
+}
+
+#[test]
+fn a_ray_intersects_a_cube() {
+    let c = Cube::unit(); 
+    let rays = vec![
+        Ray4D::new(
+            Tuple4D::point(5.0, 0.5, 0.0), Tuple4D::vector(-1.0, 0.0, 0.0)
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(-5.0, 0.5, 0.0), Tuple4D::vector(1.0, 0.0, 0.0)
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.5, 5.0, 0.0), Tuple4D::vector(0.0, -1.0, 0.0)
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.5, -5.0, 0.0), Tuple4D::vector(0.0, 1.0, 0.0)
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.5, 0.0, 5.0), Tuple4D::vector(0.0, 0.0, -1.0)
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.5, 0.0, -5.0), Tuple4D::vector(0.0, 0.0, 1.0)
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 0.5, 0.0), Tuple4D::vector(0.0, 0.0, 1.0),
+        )
+    ];
+
+    let expected_ts = vec![
+        ( 4.0, 6.0),
+        ( 4.0, 6.0),
+        ( 4.0, 6.0),
+        ( 4.0, 6.0),
+        ( 4.0, 6.0),
+        ( 4.0, 6.0),
+        (-1.0, 1.0)
+    ];
+
+    // Show that local intersections are correctly calculated for any face.
+    for (r, (t1, t2)) in rays.into_iter().zip(expected_ts.into_iter()) {
+        let is = c.local_intersect(r);
+        assert_eq!(is.intersections.len(), 2);
+        assert_eq!(is.intersections[0].t, t1);
+        assert_eq!(is.intersections[1].t, t2);
+    }
+}
+
+#[test]
+fn a_ray_misses_a_cube() {
+    let c = Cube::unit(); 
+    let rays = vec![
+        Ray4D::new(
+            Tuple4D::point(-2.0, 0.0, 0.0),
+            Tuple4D::vector(0.2673, 0.5345, 0.8018)
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, -2.0, 0.0),
+            Tuple4D::vector(0.8018, 0.2673, 0.5345)
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 0.0, -2.0),
+            Tuple4D::vector(0.5345, 0.8018, 0.2673)
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(2.0, 0.0, 2.0),
+            Tuple4D::vector(0.0, 0.0, -1.0)
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 2.0, 2.0),
+            Tuple4D::vector(0.0, -1.0, 0.0)
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(2.0, 2.0, 0.0),
+            Tuple4D::vector(-1.0, 0.0, 0.0)
+        ),
+    ];
+
+    // Show that local intersections are correctly calculated for any face.
+    for r in rays {
+        let is = c.local_intersect(r);
+        assert_eq!(is.intersections.len(), 0);
+    }
+}
+
+#[test]
+fn normal_on_cube() {
+    let c = Cube::unit();
+    let points = vec![
+        Tuple4D::point( 1.0,  0.5, -0.8),
+        Tuple4D::point(-1.0, -0.2,  0.9),
+        Tuple4D::point(-0.4,  1.0, -0.1),
+        Tuple4D::point( 0.3, -1.0, -0.7),
+        Tuple4D::point(-0.6,  0.3,  1.0),
+        Tuple4D::point( 0.4,  0.4, -1.0),
+        Tuple4D::point( 1.0,  1.0,  1.0),
+        Tuple4D::point(-1.0, -1.0, -1.0),
+    ];
+
+    let normals = vec![
+        Tuple4D::vector( 1.0,  0.0,  0.0),
+        Tuple4D::vector(-1.0,  0.0,  0.0),
+        Tuple4D::vector( 0.0,  1.0,  0.0),
+        Tuple4D::vector( 0.0, -1.0,  0.0),
+        Tuple4D::vector( 0.0,  0.0,  1.0),
+        Tuple4D::vector( 0.0,  0.0, -1.0),
+        Tuple4D::vector( 1.0,  0.0,  0.0),
+        Tuple4D::vector(-1.0,  0.0,  0.0),
+    ];
+
+    for (p, n) in points.into_iter().zip(normals.into_iter()) {
+        assert_eq!(n, c.local_normal_at(p));
+    }
 }
