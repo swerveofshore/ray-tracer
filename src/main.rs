@@ -1,6 +1,6 @@
 use ray_tracer_challenge::tuple::Tuple4D;
 use ray_tracer_challenge::matrix::Matrix4D;
-use ray_tracer_challenge::geometry::{ Sphere, Plane, Cube };
+use ray_tracer_challenge::geometry::{ Sphere, Plane, Cube, Cylinder };
 use ray_tracer_challenge::color::Color;
 use ray_tracer_challenge::pattern::Pattern;
 use ray_tracer_challenge::light::PointLight;
@@ -41,13 +41,19 @@ fn main() {
     ));
     */
 
-    let mut right = Sphere::unit();
+    let mut right = Cylinder::unit();
+    right.minimum = 1.0;
+    right.maximum = 3.0;
+    right.closed = true;
     right.transform = Matrix4D::translation(1.5, 0.5, -0.5)
-        * Matrix4D::scaling(0.5, 0.5, 0.5);
+        * Matrix4D::scaling(0.5, 0.5, 0.5)
+        * Matrix4D::rotation_x(std::f64::consts::PI / 6.0);
     right.material = Default::default();
     right.material.color = Color::rgb(1.0, 0.6666, 0.2666);
     right.material.diffuse = 0.7;
     right.material.specular = 0.3;
+    right.material.transparency = 0.9;
+    right.material.refractive_index = 1.7;
 
     let mut left = Cube::unit();
     left.transform = Matrix4D::translation(-1.5, 1.0, -0.75)
