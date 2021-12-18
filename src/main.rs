@@ -1,14 +1,13 @@
 use ray_tracer_challenge::tuple::Tuple4D;
 use ray_tracer_challenge::matrix::Matrix4D;
-use ray_tracer_challenge::geometry::{ Sphere, Plane, Cube, Cylinder };
+use ray_tracer_challenge::geometry::{ Sphere, Plane, Cube, Cylinder, Cone };
 use ray_tracer_challenge::color::Color;
 use ray_tracer_challenge::pattern::Pattern;
 use ray_tracer_challenge::light::PointLight;
 use ray_tracer_challenge::world::World;
 use ray_tracer_challenge::camera::Camera;
-
-const CANVAS_WIDTH: usize = 960; // * 4;
-const CANVAS_HEIGHT: usize = 540; // * 4; 
+const CANVAS_WIDTH: usize = 960 * 4;
+const CANVAS_HEIGHT: usize = 540 * 4; 
 
 fn main() {
     let mut floor = Plane::new();
@@ -41,19 +40,20 @@ fn main() {
     ));
     */
 
-    let mut right = Cylinder::unit();
-    right.minimum = 1.0;
+    let mut right = Cone::unit();
+    right.minimum = 0.0;
     right.maximum = 3.0;
     right.closed = true;
-    right.transform = Matrix4D::translation(1.5, 0.5, -0.5)
-        * Matrix4D::scaling(0.5, 0.5, 0.5)
-        * Matrix4D::rotation_x(std::f64::consts::PI / 6.0);
+    right.transform = Matrix4D::translation(1.5, 2.5, -0.5)
+        * Matrix4D::scaling(0.25, 0.25, 0.25)
+        // * Matrix4D::rotation_x(std::f64::consts::PI / 1.0)
+        * Matrix4D::rotation_z(std::f64::consts::PI / 4.0)
+        * Matrix4D::rotation_y(std::f64::consts::PI / 8.0);
     right.material = Default::default();
     right.material.color = Color::rgb(1.0, 0.6666, 0.2666);
     right.material.diffuse = 0.7;
     right.material.specular = 0.3;
-    right.material.transparency = 0.9;
-    right.material.refractive_index = 1.7;
+    right.material.reflective = 0.3;
 
     let mut left = Cube::unit();
     left.transform = Matrix4D::translation(-1.5, 1.0, -0.75)
@@ -86,7 +86,7 @@ fn main() {
         Tuple4D::point(0.0, 1.5, -5.0),
         Tuple4D::point(0.0, 1.0,  0.0),
         Tuple4D::vector(0.0, 1.0, 0.0),
-    ); // * Matrix4D::translation(0.0, 0.0, 100.0);
+    ) * Matrix4D::translation(0.0, 0.0, 10.0);
 
     let canvas = camera.render(&mut world);
     canvas.save("out.ppm").unwrap(); }
