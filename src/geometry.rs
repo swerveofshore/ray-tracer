@@ -312,6 +312,10 @@ impl Cube {
         Cube { transform, material }
     }
 
+    /// Creates a "unit cube."
+    ///
+    /// In object space, I consider a "unit cube" to be a cube with sides of
+    /// length 1 in each direction, with the center of the cube at the origin.
     pub fn unit() -> Cube {
         Cube {
             transform: Default::default(),
@@ -414,6 +418,165 @@ impl Shape for Cube {
 }
 
 impl ShapeDebug for Cube { }
+
+/// A cylinder.
+///
+/// Cylinders are centered along the Y axis. Specifically, the Y axis cuts
+/// through the two "origins" of the cylinder's "circles" in object space.
+///
+/// By default, cylinders are "open," meaning that the circles on their ends
+/// are not solid. In that case, they look somewhat like a paper towel roll.
+///
+/// To close the cylinder on its ends, set the `closed` property to `true`.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Cylinder {
+    pub transform: Matrix4D,
+    pub material: Material,
+
+    /// The bottom of the cylinder along the Y axis.
+    pub minimum: f64,
+    
+    /// The top of the cylinder along the Y axis.
+    pub maximum: f64,
+
+    /// Whether the cylinder is closed.
+    pub closed: bool,
+}
+
+impl Cylinder {
+    pub fn unit() -> Cylinder {
+        Cylinder {
+            transform: Default::default(),
+            material: Default::default(),
+
+            minimum: -1.0 * std::f64::INFINITY,
+            maximum: std::f64::INFINITY, 
+            closed: false,
+        }
+    }
+
+    pub fn intersect_caps<'a>(&'a self, r: Ray4D, is: &mut Intersections<'a>) {
+        // If not closed, or the ray doesn't point anywhere near y, ignore caps.
+        if !self.closed || r.direction.y.abs() < FEQ_EPSILON {
+            return;
+        }
+
+        // Check for an intersection with the lower end cap.
+        let tl = (self.minimum - r.origin.y) / r.direction.y;
+        if Self::check_cap(r, tl) {
+            is.intersections.push(Intersection { t: tl, what: self });
+        }
+
+        // Check for an intersection with the upper end cap.
+        let tu = (self.maximum - r.origin.y) / r.direction.y;
+        if Self::check_cap(r, tu) {
+            is.intersections.push(Intersection { t: tu, what: self });
+        }
+    }
+
+    /// Checks to see if the intersection `t` is within a radius of 1 (the
+    /// assumed radius of a cylinder) from the Y axis.
+    fn check_cap(r: Ray4D, t: f64) -> bool {
+        let x = r.origin.x + t * r.direction.x;
+        let z = r.origin.z + t * r.direction.z;
+
+        (x.powi(2) + z.powi(2)) <= 1.0
+    }
+}
+
+impl Shape for Cylinder {
+    fn local_intersect(&self, r: Ray4D) -> Intersections {
+        let a = r.direction.x.powi(2) + r.direction.z.powi(2); 
+        
+        // If r is parallel to the Y axis, check caps (if present) and leave.
+        if a < FEQ_EPSILON {
+            let mut is = Intersections::new();
+            self.intersect_caps(r, &mut is);
+            return is;
+        }
+
+        let b = 2.0f64 * r.origin.x * r.direction.x
+              + 2.0f64 * r.origin.z * r.direction.z;
+
+        let c = r.origin.x.powi(2) + r.origin.z.powi(2) - 1.0;
+
+        let disc = b.powi(2) - 4.0 * a * c;
+
+        // Ray r does not intersect the cylinder
+        if disc < 0.0 {
+            return Intersections::new();
+        }
+
+        // Ray r intersects the cylinder at one or two points
+        let mut t0 = (-b - (disc.sqrt())) / (2.0 * a);
+        let mut t1 = (-b + (disc.sqrt())) / (2.0 * a);
+        
+        // Make sure that t0 is the lowest intersection location.
+        if t0 > t1 {
+            std::mem::swap(&mut t0, &mut t1);
+        }
+
+        let mut is = Intersections::new();
+
+        // If the t0 intersection is within the cylinder's bounds, add it.
+        let y0 = r.origin.y + t0 * r.direction.y;
+        if self.minimum < y0 && y0 < self.maximum {
+            is.intersections.push(
+                Intersection { t: t0, what: self }
+            );
+        }
+
+        // If the t1 intersection is within the cylinder's bounds, add it.
+        let y1 = r.origin.y + t1 * r.direction.y;
+        if self.minimum < y1 && y1 < self.maximum {
+            is.intersections.push(
+                Intersection { t: t1, what: self }
+            );
+        }
+
+        // Check whether any intersections occur at the cylinder caps.
+        self.intersect_caps(r, &mut is);
+
+        // Return all cylinder intersections.
+        is
+    }
+
+    fn local_normal_at(&self, p: Tuple4D) -> Tuple4D {
+        // Calculate the square of the distance from the y axis.
+        let dist = p.x.powi(2) + p.z.powi(2);
+
+        // If on the top cap, return a normal pointing up.
+        if dist < 1.0 && p.y >= self.maximum - FEQ_EPSILON {
+            Tuple4D::vector(0.0, 1.0, 0.0)
+        }
+        // If on the bottom cap, return a normal pointing down.
+        else if dist < 1.0 && p.y <= self.minimum - FEQ_EPSILON {
+            Tuple4D::vector(0.0, -1.0, 0.0)
+        }
+        // If on the round surface, return a normal pointing outwards.
+        else {
+            Tuple4D::vector(p.x, 0.0, p.z)
+        }
+    }
+
+    fn transform(&self) -> &Matrix4D {
+        &self.transform
+    }
+
+    fn transform_mut(&mut self) -> &mut Matrix4D {
+        &mut self.transform
+    }
+
+    fn material(&self) -> &Material {
+        &self.material
+    }
+
+    fn material_mut(&mut self) -> &mut Material {
+        &mut self.material
+    }
+}
+
+impl ShapeDebug for Cylinder { }
 
 /// A record for computations associated with an `Intersection`.
 ///
@@ -1223,5 +1386,162 @@ fn normal_on_cube() {
 
     for (p, n) in points.into_iter().zip(normals.into_iter()) {
         assert_eq!(n, c.local_normal_at(p));
+    }
+}
+
+#[test]
+fn a_ray_misses_a_cylinder() {
+    let c = Cylinder::unit(); 
+    let rays = vec![
+        Ray4D::new(
+            Tuple4D::point(1.0, 0.0, 0.0),
+            Tuple4D::vector(0.0, 1.0, 0.0)
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 0.0, 0.0),
+            Tuple4D::vector(0.0, 1.0, 0.0)
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 0.0, -5.0),
+            Tuple4D::vector(1.0, 1.0, 1.0)
+        ),
+    ];
+
+    // Show that local intersections are correctly calculated for any face.
+    for r in rays {
+        let is = c.local_intersect(r);
+        assert_eq!(is.intersections.len(), 0);
+    }
+}
+
+#[test]
+fn a_ray_strikes_a_cylinder() {
+    use crate::feq;
+
+    let c = Cylinder::unit(); 
+    let rays = vec![
+        Ray4D::new(
+            Tuple4D::point(1.0, 0.0, -5.0),
+            Tuple4D::vector(0.0, 0.0, 1.0).normalize()
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 0.0, -5.0),
+            Tuple4D::vector(0.0, 0.0, 1.0).normalize()
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.5, 0.0, -5.0),
+            Tuple4D::vector(0.1, 1.0, 1.0).normalize()
+        ),
+    ];
+
+    let ts = vec![
+        (5.0, 5.0),
+        (4.0, 6.0),
+        (6.80798, 7.08872)
+    ];
+
+    // Show that local intersections are correctly calculated for any face.
+    for (r, (t0, t1)) in rays.into_iter().zip(ts.into_iter()) {
+        let is = c.local_intersect(r);
+
+        assert_eq!(is.intersections.len(), 2);
+        assert!(feq(is.intersections[0].t, t0));
+        assert!(feq(is.intersections[1].t, t1));
+    }
+}
+
+#[test]
+fn a_ray_strikes_a_constrained_cylinder() {
+    use crate::feq;
+
+    let mut c = Cylinder::unit(); 
+    c.minimum = 1.0;
+    c.maximum = 2.0;
+
+    let rays = vec![
+        Ray4D::new(
+            Tuple4D::point(0.0, 1.5, 0.0),
+            Tuple4D::vector(0.1, 1.0, 0.0).normalize()
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 3.0, -5.0),
+            Tuple4D::vector(0.0, 0.0, 1.0).normalize()
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 0.0, -5.0),
+            Tuple4D::vector(0.0, 0.0, 1.0).normalize()
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 2.0, -5.0),
+            Tuple4D::vector(0.0, 0.0, 1.0).normalize()
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 1.0, -5.0),
+            Tuple4D::vector(0.0, 0.0, 1.0).normalize()
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 1.5, -2.0),
+            Tuple4D::vector(0.0, 0.0, 1.0).normalize()
+        ),
+    ];
+
+    let counts = vec![ 0, 0, 0, 0, 0, 2 ];
+
+    // Show that local intersections are correctly calculated for any face.
+    for (r, co) in rays.into_iter().zip(counts.into_iter()) {
+        let is = c.local_intersect(r);
+        assert_eq!(is.intersections.len(), co);
+    }
+}
+
+#[test]
+fn a_ray_intersects_caps_of_a_closed_cylinder() {
+    let mut c = Cylinder::unit();
+    c.minimum = 1.0;
+    c.maximum = 2.0;
+    c.closed = true;
+
+    let rays = vec![
+        Ray4D::new(
+            Tuple4D::point(0.0, 3.0, 0.0),
+            Tuple4D::vector(0.0, -1.0, 0.0).normalize(),
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 3.0, -2.0),
+            Tuple4D::vector(0.0, -1.0, 2.0).normalize(),
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 4.0, -2.0),
+            Tuple4D::vector(0.0, -1.0, 1.0).normalize(),
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, 0.0, -2.0),
+            Tuple4D::vector(0.0, 1.0, 2.0).normalize(),
+        ),
+
+        Ray4D::new(
+            Tuple4D::point(0.0, -1.0, -2.0),
+            Tuple4D::vector(0.0, 1.0, 1.0).normalize(),
+        )
+    ];
+
+    let counts = vec![ 2, 2, 2, 2, 2 ];
+
+    // Show that local intersections are correctly calculated for any face.
+    for (r, co) in rays.into_iter().zip(counts.into_iter()) {
+        let is = c.local_intersect(r);
+        assert_eq!(is.intersections.len(), co);
     }
 }
