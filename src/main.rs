@@ -1,6 +1,6 @@
 use ray_tracer_challenge::tuple::Tuple4D;
 use ray_tracer_challenge::matrix::Matrix4D;
-use ray_tracer_challenge::geometry::{ Sphere, Plane };
+use ray_tracer_challenge::geometry::{ Sphere, Plane, Cube };
 use ray_tracer_challenge::color::Color;
 use ray_tracer_challenge::pattern::Pattern;
 use ray_tracer_challenge::light::PointLight;
@@ -49,13 +49,18 @@ fn main() {
     right.material.diffuse = 0.7;
     right.material.specular = 0.3;
 
-    let mut left = Sphere::unit();
-    left.transform = Matrix4D::translation(-1.5, 0.33, -0.75)
-        * Matrix4D::scaling(0.33, 0.33, 0.33);
+    let mut left = Cube::unit();
+    left.transform = Matrix4D::translation(-1.5, 1.0, -0.75)
+        * Matrix4D::scaling(0.33, 0.33, 0.33)
+        * Matrix4D::rotation_x(std::f64::consts::PI / 4.0)
+        * Matrix4D::rotation_y(std::f64::consts::PI / 4.0)
+        * Matrix4D::rotation_z(std::f64::consts::PI / 4.0);
     left.material = Default::default();
     left.material.color = Color::rgb(0.8666, 0.2, 0.2);
     left.material.diffuse = 0.7;
     left.material.specular = 0.3;
+    left.material.transparency = 0.5;
+    left.material.refractive_index = 1.1;
 
     let mut world = World::empty();
     world.light_source = PointLight::new(
