@@ -175,13 +175,16 @@ impl Shape {
         }
 
         // Sphere is centered at object-space origin.
-        let sphere_to_ray = ray.origin;
+        // Note that subtracting a point removes the 'w' part of the ray origin.
+        let sphere_to_ray = ray.origin - Tuple4D::point(0.0, 0.0, 0.0);
 
         let a = ray.direction.dot(&ray.direction);
         let b = 2.0 * ray.direction.dot(&sphere_to_ray);
         let c = sphere_to_ray.dot(&sphere_to_ray) - 1.0;
+        println!("d dot d: {}", sphere_to_ray.dot(&sphere_to_ray));
 
-        let discriminant = b.powf(2.0) - (4.0 * a * c);
+        let discriminant = b.powi(2) - (4.0 * a * c);
+        println!("a: {}, c: {}", a, c);
 
         if discriminant < 0.0 {
             return Intersections::new()
@@ -691,11 +694,14 @@ fn ray_is_tangent_to_sphere() {
 
 #[test]
 fn ray_is_inside_sphere() {
-    let r = Ray4D::new(Tuple4D::point(0.0, 0.0, 0.0),
-                       Tuple4D::vector(0.0, 0.0, 1.0));
-    let s = Shape::sphere();
-    let xs = intersect(&s, r);
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, 0.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
 
+    let s = Shape::sphere();
+
+    let xs = s.intersect_sphere(&r);
     assert_eq!(xs.intersections.len(), 2);
     assert_eq!(xs.intersections[0].t, -1.0);
     assert_eq!(xs.intersections[1].t, 1.0);
@@ -753,37 +759,6 @@ fn hit_multiple() {
     let mut is = Intersections { intersections: vec![i1, i2, i3, i4] };
 
     assert_eq!(is.hit().unwrap(), i4);
-}
-
-#[test]
-fn ray_hits_scaled_sphere() {
-    let r = Ray4D::new(
-        Tuple4D::point(0.0, 0.0, -5.0),
-        Tuple4D::vector(0.0, 0.0, 1.0)
-    );
-
-    let mut s = Shape::sphere();
-    s.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
-
-    let is = intersect(&s, r);
-
-    assert_eq!(is.intersections.len(), 2);
-    assert_eq!(is.intersections[0].t, 3.0);
-    assert_eq!(is.intersections[1].t, 7.0);
-}
-
-#[test]
-fn ray_missess_translated_sphere() {
-    let r = Ray4D::new(
-        Tuple4D::point(0.0, 0.0, -5.0),
-        Tuple4D::vector(0.0, 0.0, 1.0)
-    );
-
-    let mut s = Shape::sphere();
-    s.transform = Matrix4D::translation(5.0, 0.0, 0.0);
-
-    let is = intersect(&s, r);
-    assert_eq!(is.intersections.len(), 0);
 }
 
 #[test]
@@ -865,7 +840,7 @@ fn precompute_intersection_state() {
 
     let comps = IntersectionComputation::new(&r, &i, None);
 
-    assert!(std::ptr::eq(&comps.obj, &i.what));
+    assert!(std::ptr::eq(comps.obj, i.what));
     assert_eq!(comps.t, i.t);
     assert_eq!(comps.point, Tuple4D::point(0.0, 0.0, -1.0));
     assert_eq!(comps.eyev, Tuple4D::vector(0.0, 0.0, -1.0));
@@ -903,7 +878,7 @@ fn precompute_inside_intersection() {
     let comps = IntersectionComputation::new(&r, &i, None);
 
     assert!(comps.inside);
-    assert!(std::ptr::eq(&comps.obj, &i.what));
+    assert!(std::ptr::eq(comps.obj, i.what));
     assert_eq!(comps.t, i.t);
     assert_eq!(comps.point, Tuple4D::point(0.0, 0.0, 1.0));
     assert_eq!(comps.eyev, Tuple4D::vector(0.0, 0.0, -1.0));
