@@ -32,7 +32,7 @@ impl<'a> PartialEq for Intersection<'a> {
 ///
 /// Mostly a wrapper for a vector of `Intersection` objects. See the
 /// `Intersection` documentation for more information.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Intersections<'a> {
     pub intersections: Vec<Intersection<'a>>,
 }
