@@ -7,8 +7,8 @@ use ray_tracer_challenge::light::PointLight;
 use ray_tracer_challenge::world::World;
 use ray_tracer_challenge::camera::Camera;
 
-const CANVAS_WIDTH: usize = 960; // * 4;
-const CANVAS_HEIGHT: usize = 540; // * 4; 
+const CANVAS_WIDTH: usize = 960 * 4;
+const CANVAS_HEIGHT: usize = 540 * 4; 
 
 fn main() {
     let mut floor = Shape::plane();
@@ -25,7 +25,7 @@ fn main() {
     floor.material_mut().reflective = 0.5;
 
     let mut middle = Shape::sphere();
-    *middle.transform_mut() = Matrix4D::translation(-0.5, 1.0, 2.0);
+    *middle.transform_mut() = Matrix4D::translation(-0.5, 1.0, -5.0);
     *middle.material_mut() = Default::default();
     middle.material_mut().color = Color::rgb(1.0, 0.4666, 0.2666);
     middle.material_mut().diffuse = 0.7;
@@ -42,7 +42,7 @@ fn main() {
     */
 
     let mut right = Shape::capped_cylinder(0.0, 3.0);
-    *right.transform_mut() = Matrix4D::translation(1.5, 2.5, -0.5)
+    *right.transform_mut() = Matrix4D::translation(1.5, 2.5, -5.5)
         * Matrix4D::scaling(0.25, 0.25, 0.25)
         // * Matrix4D::rotation_x(std::f64::consts::PI / 1.0)
         * Matrix4D::rotation_z(std::f64::consts::PI / 4.0)
@@ -52,6 +52,8 @@ fn main() {
     right.material_mut().diffuse = 0.7;
     right.material_mut().specular = 0.3;
     right.material_mut().reflective = 0.3;
+    right.material_mut().transparency = 0.9;
+    right.material_mut().refractive_index = 1.5;
 
     let mut left = Shape::cube();
     *left.transform_mut() = Matrix4D::translation(-1.5, 1.0, -0.75)
