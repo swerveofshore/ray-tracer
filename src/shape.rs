@@ -46,7 +46,7 @@ impl Shape {
         Shape {
             ty: ShapeType::Sphere,
             parent: Weak::new(),
-            transform: Default::default(),
+            transform: Matrix4D::identity(),
             material: Default::default(),
         }
     }
@@ -56,7 +56,7 @@ impl Shape {
         Shape {
             ty: ShapeType::Plane(Tuple4D::vector(0.0, 1.0, 0.0)),
             parent: Weak::new(),
-            transform: Default::default(),
+            transform: Matrix4D::identity(),
             material: Default::default(),
         }
     }
@@ -66,7 +66,7 @@ impl Shape {
         Shape {
             ty: ShapeType::Cube,
             parent: Weak::new(),
-            transform: Default::default(),
+            transform: Matrix4D::identity(),
             material: Default::default(),
         }
     }
@@ -80,7 +80,7 @@ impl Shape {
                     false
                 ),
             parent: Weak::new(),
-            transform: Default::default(),
+            transform: Matrix4D::identity(),
             material: Default::default(),
         }
     }
@@ -90,7 +90,7 @@ impl Shape {
          Shape {
             ty: ShapeType::Cylinder(minimum, maximum, false),
             parent: Weak::new(),
-            transform: Default::default(),
+            transform: Matrix4D::identity(),
             material: Default::default(),
         }       
     }
@@ -100,7 +100,7 @@ impl Shape {
          Shape {
             ty: ShapeType::Cylinder(minimum, maximum, true),
             parent: Weak::new(),
-            transform: Default::default(),
+            transform: Matrix4D::identity(),
             material: Default::default(),
         }       
     }
@@ -114,7 +114,7 @@ impl Shape {
                     false
                 ),
             parent: Weak::new(),
-            transform: Default::default(),
+            transform: Matrix4D::identity(),
             material: Default::default(),
         }
     }
@@ -189,9 +189,9 @@ impl Shape {
 
         let t1 = (-b - discriminant.sqrt()) / (2.0 * a);
         let t2 = (-b + discriminant.sqrt()) / (2.0 * a);
+
         let i1 = Intersection { t: t1, what: self };
         let i2 = Intersection { t: t2, what: self };
-
         Intersections { intersections: vec![i1, i2] }
     }
 
