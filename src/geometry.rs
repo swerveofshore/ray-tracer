@@ -3,7 +3,7 @@ use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
 use crate::ray::Ray4D;
 use crate::light::Material;
-use crate::intersect::{ Intersection, Intersections, IntersectionComputation };
+use crate::intersect::{ Intersection, Intersections };
 
 /// Includes properties that all intersectable objects should have.
 ///
@@ -1035,6 +1035,8 @@ fn hit_should_offset_point() {
 
 #[test]
 fn find_refraction_indices_from_intersections() {
+    use crate::intersect::IntersectionComputation;
+
     let mut a = Sphere::glassy();
     a.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
     a.material.refractive_index = 1.5;
@@ -1080,6 +1082,8 @@ fn find_refraction_indices_from_intersections() {
 
 #[test]
 fn under_point_is_below_the_surface() {
+    use crate::intersect::IntersectionComputation;
+
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -5.0),
         Tuple4D::vector(0.0, 0.0, 1.0)
@@ -1098,6 +1102,8 @@ fn under_point_is_below_the_surface() {
 
 #[test]
 fn schlick_approximation_under_total_internal_reflection() {
+    use crate::intersect::IntersectionComputation;
+ 
     let s = Sphere::glassy();
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, 2.0f64.sqrt() / 2.0),
@@ -1121,6 +1127,7 @@ fn schlick_approximation_under_total_internal_reflection() {
 #[test]
 fn schlick_approximation_at_perpendicular_view() {
     use crate::feq;
+    use crate::intersect::IntersectionComputation;
 
     let s = Sphere::glassy();
     let r = Ray4D::new(
@@ -1145,6 +1152,7 @@ fn schlick_approximation_at_perpendicular_view() {
 #[test]
 fn schlick_approximation_with_small_angle_and_n2_gt_n1() {
     use crate::feq;
+    use crate::intersect::IntersectionComputation;
 
     let s = Sphere::glassy();
     let r = Ray4D::new(
