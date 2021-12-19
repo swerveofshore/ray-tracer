@@ -14,7 +14,7 @@ impl Ray4D {
         }
 
         if !direction.is_vector() {
-            direction.w = 1.0;
+            direction.w = 0.0;
         }
 
         Ray4D { origin, direction }
