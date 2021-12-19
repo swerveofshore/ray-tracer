@@ -36,8 +36,8 @@ pub struct Shape {
     ty: ShapeType, 
     parent: Weak<Shape>,
 
-    transform: Matrix4D,
-    material: Material,
+    pub transform: Matrix4D,
+    pub material: Material,
 }
 
 impl Shape {
@@ -609,4 +609,322 @@ pub fn normal_at(s: &Shape, p: Tuple4D) -> Tuple4D {
     world_normal.w = 0.0;
 
     world_normal.normalize()
+}
+
+#[test]
+fn compute_normal_on_translated_sphere() {
+    let mut s = Shape::sphere();
+    s.transform = Matrix4D::translation(0.0, 1.0, 0.0);
+
+    let p = Tuple4D::point(0.0, 1.70711, -0.70711);
+    let n = normal_at(&s, p);
+
+    assert_eq!(n, Tuple4D::vector(0.0, 0.70711, -0.70711));
+}
+
+#[test]
+fn compute_normal_on_transformed_sphere() {
+    let mut s = Shape::sphere();
+    s.transform = Matrix4D::scaling(1.0, 0.5, 1.0)
+        * Matrix4D::rotation_z(std::f64::consts::PI / 5.0);
+    
+    let p = Tuple4D::point(0.0, 2.0f64.sqrt() / 2.0, -(2.0f64.sqrt()) / 2.0);
+    let n = normal_at(&s, p);
+
+    assert_eq!(n, Tuple4D::vector(0.0, 0.97014, -0.24254));
+}
+
+#[test]
+fn normal_on_plane() {
+    let p = Shape::plane();
+
+    let n1 = p.local_normal_at(&Tuple4D::point(0.0, 0.0, 0.0));
+    let n2 = p.local_normal_at(&Tuple4D::point(10.0, 0.0, -10.0));
+    let n3 = p.local_normal_at(&Tuple4D::point(-5.0, 0.0, 150.0));
+
+    assert_eq!(n1, Tuple4D::vector(0.0, 1.0, 0.0));
+    assert_eq!(n2, Tuple4D::vector(0.0, 1.0, 0.0));
+    assert_eq!(n3, Tuple4D::vector(0.0, 1.0, 0.0));
+}
+
+#[test]
+fn ray_intersecting_plane_from_above() {
+    let p = Shape::plane();
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 1.0, 0.0),
+        Tuple4D::vector(0.0, -1.0, 0.0)
+    );
+
+    let is = p.local_intersect(&r);
+
+    assert_eq!(is.intersections.len(), 1);
+    assert_eq!(is.intersections[0].t, 1.0);
+}
+
+#[test]
+fn ray_intersecting_plane_from_below() {
+    let p = Shape::plane();
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, -1.0, 0.0),
+        Tuple4D::vector(0.0, 1.0, 0.0)
+    );
+
+    let is = p.local_intersect(&r);
+
+    assert_eq!(is.intersections.len(), 1);
+    assert_eq!(is.intersections[0].t, 1.0);
+}
+
+#[test]
+fn ray_is_tangent_to_sphere() {
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 1.0, -5.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+    let s = Shape::sphere();
+    let xs = intersect(&s, r);
+
+    assert_eq!(xs.intersections.len(), 2);
+    assert_eq!(xs.intersections[0].t, 5.0);
+    assert_eq!(xs.intersections[1].t, 5.0);
+}
+
+#[test]
+fn ray_is_inside_sphere() {
+    let r = Ray4D::new(Tuple4D::point(0.0, 0.0, 0.0),
+                       Tuple4D::vector(0.0, 0.0, 1.0));
+    let s = Shape::sphere();
+    let xs = intersect(&s, r);
+
+    assert_eq!(xs.intersections.len(), 2);
+    assert_eq!(xs.intersections[0].t, -1.0);
+    assert_eq!(xs.intersections[1].t, 1.0);
+}
+
+#[test]
+fn sphere_is_behind_ray() {
+    let r = Ray4D::new(Tuple4D::point(0.0, 0.0, 5.0),
+                       Tuple4D::vector(0.0, 0.0, 1.0));
+    let s = Shape::sphere();
+    let xs = intersect(&s, r);
+
+    assert_eq!(xs.intersections.len(), 2);
+    assert_eq!(xs.intersections[0].t, -6.0);
+    assert_eq!(xs.intersections[1].t, -4.0);
+}
+
+#[test]
+fn hit_with_all_positive() {
+    let s  = Shape::sphere();
+    let i1 = Intersection { t: 1.0, what: &s }; 
+    let i2 = Intersection { t: 2.0, what: &s };
+    let mut is = Intersections { intersections: vec![i1, i2] };
+
+    assert_eq!(is.hit().unwrap(), i1);
+}
+
+#[test]
+fn hit_with_some_negative() {
+    let s  = Shape::sphere();
+    let i1 = Intersection { t: -1.0, what: &s }; 
+    let i2 = Intersection { t: 1.0, what: &s };
+    let mut is = Intersections { intersections: vec![i1, i2] };
+
+    assert_eq!(is.hit().unwrap(), i2);
+}
+
+#[test]
+fn hit_with_all_negative() {
+    let s  = Shape::sphere();
+    let i1 = Intersection { t: -2.0, what: &s };
+    let i2 = Intersection { t: -1.0, what: &s };
+    let mut is = Intersections { intersections: vec![i1, i2] };
+
+    assert_eq!(is.hit(), None);
+}
+
+#[test]
+fn hit_multiple() {
+    let s  = Shape::sphere();
+    let i1 = Intersection { t: 5.0,  what: &s }; 
+    let i2 = Intersection { t: 7.0,  what: &s };
+    let i3 = Intersection { t: -3.0, what: &s };
+    let i4 = Intersection { t: 2.0,  what: &s };
+    let mut is = Intersections { intersections: vec![i1, i2, i3, i4] };
+
+    assert_eq!(is.hit().unwrap(), i4);
+}
+
+#[test]
+fn ray_hits_scaled_sphere() {
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, -5.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+
+    let mut s = Shape::sphere();
+    s.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
+
+    let is = intersect(&s, r);
+
+    assert_eq!(is.intersections.len(), 2);
+    assert_eq!(is.intersections[0].t, 3.0);
+    assert_eq!(is.intersections[1].t, 7.0);
+}
+
+#[test]
+fn ray_missess_translated_sphere() {
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, -5.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+
+    let mut s = Shape::sphere();
+    s.transform = Matrix4D::translation(5.0, 0.0, 0.0);
+
+    let is = intersect(&s, r);
+    assert_eq!(is.intersections.len(), 0);
+}
+
+#[test]
+fn normal_on_sphere_x() {
+    let s = Shape::sphere();
+    let n = normal_at(&s, Tuple4D::point(1.0, 0.0, 0.0));
+
+    assert_eq!(n, Tuple4D::vector(1.0, 0.0, 0.0));
+}
+
+#[test]
+fn normal_on_sphere_y() {
+    let s = Shape::sphere();
+    let n = normal_at(&s, Tuple4D::point(0.0, 1.0, 0.0));
+
+    assert_eq!(n, Tuple4D::vector(0.0, 1.0, 0.0));
+}
+
+#[test]
+fn normal_on_sphere_z() {
+    let s = Shape::sphere();
+    let n = normal_at(&s, Tuple4D::point(0.0, 0.0, 1.0));
+
+    assert_eq!(n, Tuple4D::vector(0.0, 0.0, 1.0));
+}
+
+#[test]
+fn normal_on_sphere_nonaxial() {
+    let s = Shape::sphere();
+    let n = normal_at(&s,
+        Tuple4D::point(
+            3.0f64.sqrt() / 3.0,
+            3.0f64.sqrt() / 3.0,
+            3.0f64.sqrt() / 3.0
+        )
+    );
+
+    assert_eq!(n,
+        Tuple4D::vector(
+            3.0f64.sqrt() / 3.0,
+            3.0f64.sqrt() / 3.0,
+            3.0f64.sqrt() / 3.0
+        )
+    );
+}
+
+#[test]
+fn normal_on_sphere_translated() {
+    let mut s = Shape::sphere();
+    s.transform = Matrix4D::translation(0.0, 1.0, 0.0);
+    let n = normal_at(&s, Tuple4D::point(0.0, 1.70711, -0.70711));
+    
+    assert_eq!(n, Tuple4D::vector(0.0, 0.70711, -0.70711));
+}
+
+#[test]
+fn normal_on_sphere_transformed() {
+    let mut s = Shape::sphere();
+    s.transform = Matrix4D::scaling(1.0, 0.5, 1.0)
+        * Matrix4D::rotation_z(std::f64::consts::PI / 5.0);
+    let n = normal_at(&s,
+        Tuple4D::point(0.0, 2.0f64.sqrt() / 2.0, -(2.0f64.sqrt() / 2.0))
+    );
+
+    assert_eq!(n, Tuple4D::vector(0.0, 0.97014, -0.24254));
+}
+
+#[test]
+fn precompute_intersection_state() {
+    use crate::intersect::IntersectionComputation;
+
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, -5.0),
+        Tuple4D::vector(0.0, 0.0, 1.0),
+    );
+
+    let shape = Shape::sphere();
+    let i = Intersection { t: 4.0, what: &shape };
+
+    let comps = IntersectionComputation::new(&r, &i, None);
+
+    assert!(std::ptr::eq(&comps.obj, &i.what));
+    assert_eq!(comps.t, i.t);
+    assert_eq!(comps.point, Tuple4D::point(0.0, 0.0, -1.0));
+    assert_eq!(comps.eyev, Tuple4D::vector(0.0, 0.0, -1.0));
+    assert_eq!(comps.normalv, Tuple4D::vector(0.0, 0.0, -1.0));
+}
+
+#[test]
+fn precompute_outside_intersection() {
+    use crate::intersect::IntersectionComputation;
+
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, -5.0),
+        Tuple4D::vector(0.0, 0.0, 1.0),
+    );
+
+    let shape = Shape::sphere();
+    let i = Intersection { t: 4.0, what: &shape };
+
+    let comps = IntersectionComputation::new(&r, &i, None);
+    assert!(!comps.inside);
+}
+
+#[test]
+fn precompute_inside_intersection() {
+    use crate::intersect::IntersectionComputation;
+
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, -0.0),
+        Tuple4D::vector(0.0, 0.0, 1.0),
+    );
+
+    let shape = Shape::sphere();
+    let i = Intersection { t: 1.0, what: &shape };
+
+    let comps = IntersectionComputation::new(&r, &i, None);
+
+    assert!(comps.inside);
+    assert!(std::ptr::eq(&comps.obj, &i.what));
+    assert_eq!(comps.t, i.t);
+    assert_eq!(comps.point, Tuple4D::point(0.0, 0.0, 1.0));
+    assert_eq!(comps.eyev, Tuple4D::vector(0.0, 0.0, -1.0));
+    assert_eq!(comps.normalv, Tuple4D::vector(0.0, 0.0, -1.0));
+}
+
+#[test]
+fn hit_should_offset_point() {
+    use crate::intersect::IntersectionComputation;
+
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, -5.0),
+        Tuple4D::vector(0.0, 0.0, 1.0),
+    );
+
+    let mut shape = Shape::sphere();
+    shape.transform = Matrix4D::translation(0.0, 0.0, 1.0);
+
+    let i = Intersection { t: 5.0, what: &shape };
+    let comps = IntersectionComputation::new(&r, &i, None);
+
+    assert!(comps.over_point.z < -FEQ_EPSILON / 2.0);
+    assert!(comps.point.z > comps.over_point.z);
 }

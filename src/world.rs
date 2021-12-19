@@ -316,12 +316,12 @@ fn shade_intersection_in_shadow() {
         Tuple4D::point(0.0, 0.0, -10.0),
     );
 
-    let s1 = Sphere::unit();
-    w.objects.push(Box::new(s1));
+    let s1 = Shape::sphere();
+    w.objects.push(s1);
 
-    let mut s2 = Sphere::unit();
+    let mut s2 = Shape::sphere();
     s2.transform = Matrix4D::translation(0.0, 0.0, 10.0);
-    w.objects.push(Box::new(s2));
+    w.objects.push(s2);
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, 5.0),
@@ -453,21 +453,21 @@ fn reflected_color_for_nonreflective_material() {
 fn reflected_color_for_reflective_material() {
     use crate::consts::REFLECTION_RECURSION_DEPTH;
     use crate::intersect::Intersection;
-    use crate::geometry::Plane;
+    use crate::shape::Shape;
 
-    let mut s = Plane::new();
+    let mut s = Shape::plane();
     s.material.reflective = 0.5;
     s.transform = Matrix4D::translation(0.0, -1.0, 0.0);
 
     let mut w: World = Default::default();
-    w.objects.push(Box::new(s));
+    w.objects.push(s);
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -3.0),
         Tuple4D::vector(0.0, -(2.0f64.sqrt()) / 2.0, (2.0f64.sqrt()) / 2.0)
     );
 
-    let i = Intersection { t: 2.0f64.sqrt(), what: &*w.objects[2] };
+    let i = Intersection { t: 2.0f64.sqrt(), what: &w.objects[2] };
     let comps = IntersectionComputation::new(&r, &i, None);
 
     assert_eq!(
@@ -480,21 +480,21 @@ fn reflected_color_for_reflective_material() {
 fn shade_hit_with_reflective_material() {
     use crate::consts::REFLECTION_RECURSION_DEPTH;
     use crate::intersect::Intersection;
-    use crate::geometry::Plane;
+    use crate::shape::Shape;
 
-    let mut s = Plane::new();
+    let mut s = Shape::plane();
     s.material.reflective = 0.5;
     s.transform = Matrix4D::translation(0.0, -1.0, 0.0);
 
     let mut w: World = Default::default();
-    w.objects.push(Box::new(s));
+    w.objects.push(s);
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -3.0),
         Tuple4D::vector(0.0, -(2.0f64.sqrt()) / 2.0, (2.0f64.sqrt()) / 2.0)
     );
 
-    let i = Intersection { t: 2.0f64.sqrt(), what: &*w.objects[2] };
+    let i = Intersection { t: 2.0f64.sqrt(), what: &w.objects[2] };
     let comps = IntersectionComputation::new(&r, &i, None);
 
     assert_eq!(
@@ -649,22 +649,22 @@ fn refracted_color_with_refracted_ray() {
 #[test]
 fn shade_hit_with_transparent_material() {
     use crate::intersect::Intersection;
-    use crate::geometry::Plane;
+    use crate::shape::Shape;
 
     let mut w: World = Default::default();
 
-    let mut floor = Plane::new();
+    let mut floor = Shape::plane();
     floor.transform = Matrix4D::translation(0.0, -1.0, 0.0);
     floor.material.transparency = 0.5;
     floor.material.refractive_index = 1.5;
 
-    let mut ball = Sphere::unit();
+    let mut ball = Shape::sphere();
     ball.material.color = Color::red();
     ball.material.ambient = 0.5;
     ball.transform = Matrix4D::translation(0.0, -3.5, -0.5);
 
-    w.objects.push(Box::new(floor));
-    w.objects.push(Box::new(ball));
+    w.objects.push(floor);
+    w.objects.push(ball);
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -3.0),
@@ -673,7 +673,7 @@ fn shade_hit_with_transparent_material() {
 
     let is = Intersections {
         intersections: vec![
-            Intersection { t: 2.0f64.sqrt(), what: &*w.objects[2] }
+            Intersection { t: 2.0f64.sqrt(), what: &w.objects[2] }
         ]
     };
 
@@ -690,23 +690,23 @@ fn shade_hit_with_transparent_material() {
 #[test]
 fn shade_hit_with_reflective_transparent_material() {
     use crate::intersect::Intersection;
-    use crate::geometry::Plane;
+    use crate::shape::Shape;
 
     let mut w: World = Default::default();
 
-    let mut floor = Plane::new();
+    let mut floor = Shape::plane();
     floor.transform = Matrix4D::translation(0.0, -1.0, 0.0);
     floor.material.reflective = 0.5;
     floor.material.transparency = 0.5;
     floor.material.refractive_index = 1.5;
 
-    let mut ball = Sphere::unit();
+    let mut ball = Shape::sphere();
     ball.material.color = Color::red();
     ball.material.ambient = 0.5;
     ball.transform = Matrix4D::translation(0.0, -3.5, -0.5);
 
-    w.objects.push(Box::new(floor));
-    w.objects.push(Box::new(ball));
+    w.objects.push(floor);
+    w.objects.push(ball);
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -3.0),
@@ -715,7 +715,7 @@ fn shade_hit_with_reflective_transparent_material() {
 
     let is = Intersections {
         intersections: vec![
-            Intersection { t: 2.0f64.sqrt(), what: &*w.objects[2] }
+            Intersection { t: 2.0f64.sqrt(), what: &w.objects[2] }
         ]
     };
 

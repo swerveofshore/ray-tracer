@@ -230,9 +230,9 @@ fn stripe_pattern_alternates_along_x() {
 
 #[test]
 fn stripes_on_object_transformation() {
-    use crate::geometry::Sphere;
+    use crate::shape::Shape;
 
-    let mut object = Sphere::unit();
+    let mut object = Shape::sphere();
     object.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
 
     let pattern = Pattern::stripe(Color::white(), Color::black());
@@ -243,9 +243,9 @@ fn stripes_on_object_transformation() {
 
 #[test]
 fn stripes_on_pattern_transformation() {
-    use crate::geometry::Sphere;
+    use crate::shape::Shape;
 
-    let object = Sphere::unit();
+    let object = Shape::sphere();
 
     let mut pattern = Pattern::stripe(Color::white(), Color::black());
     pattern.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
@@ -256,9 +256,9 @@ fn stripes_on_pattern_transformation() {
 
 #[test]
 fn stripes_on_object_and_pattern_transformation() {
-    use crate::geometry::Sphere;
+    use crate::shape::Shape;
 
-    let mut object = Sphere::unit();
+    let mut object = Shape::sphere();
     object.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
 
     let mut pattern = Pattern::stripe(Color::white(), Color::black());
@@ -270,9 +270,9 @@ fn stripes_on_object_and_pattern_transformation() {
 
 #[test]
 fn point_pattern_with_object_transformation() {
-    use crate::geometry::Sphere;
+    use crate::shape::Shape;
 
-    let mut s = Sphere::unit();
+    let mut s = Shape::sphere();
     s.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
 
     let p = Pattern::point();
@@ -282,9 +282,9 @@ fn point_pattern_with_object_transformation() {
 
 #[test]
 fn point_pattern_with_pattern_transformation() {
-    use crate::geometry::Sphere;
+    use crate::shape::Shape;
 
-    let s = Sphere::unit();
+    let s = Shape::sphere();
 
     let mut p = Pattern::point();
     p.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
@@ -295,9 +295,9 @@ fn point_pattern_with_pattern_transformation() {
 
 #[test]
 fn point_pattern_with_object_and_pattern_transformation() {
-    use crate::geometry::Sphere;
+    use crate::shape::Shape;
 
-    let mut s = Sphere::unit();
+    let mut s = Shape::sphere();
     s.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
 
     let mut p = Pattern::point();

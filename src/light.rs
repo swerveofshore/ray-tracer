@@ -127,11 +127,11 @@ pub fn lighting(m: Material, obj: &Shape, light: PointLight,
 
 #[test]
 fn eye_between_light_and_surface() {
-    use crate::geometry::Sphere;
+    use crate::shape::Shape;
 
     let m: Material = Default::default();
     let position = Tuple4D::point(0.0, 0.0, 0.0);
-    let mut s = Sphere::unit();
+    let mut s = Shape::sphere();
     s.material = m;
 
     let eyev = Tuple4D::vector(0.0, 0.0, -1.0);
@@ -147,11 +147,11 @@ fn eye_between_light_and_surface() {
 
 #[test]
 fn eye_between_light_and_surface_offset_45() {
-    use crate::geometry::Sphere;
+    use crate::shape::Shape;
 
     let m: Material = Default::default();
     let position = Tuple4D::point(0.0, 0.0, 0.0);
-    let mut s = Sphere::unit();
+    let mut s = Shape::sphere();
     s.material = m;
 
     let eyev = Tuple4D::vector(0.0, 2.0f64.sqrt() / 2.0, 2.0f64.sqrt() / 2.0);
@@ -167,11 +167,11 @@ fn eye_between_light_and_surface_offset_45() {
 
 #[test]
 fn eye_opposite_from_surface_offset_45() {
-    use crate::geometry::Sphere;
+    use crate::shape::Shape;
 
     let m: Material = Default::default();
     let position = Tuple4D::point(0.0, 0.0, 0.0);
-    let mut s = Sphere::unit();
+    let mut s = Shape::sphere();
     s.material = m;
 
     let eyev = Tuple4D::vector(0.0, 0.0, -1.0);
@@ -187,11 +187,11 @@ fn eye_opposite_from_surface_offset_45() {
 
 #[test]
 fn eye_opposite_from_surface_in_reflection() {
-    use crate::geometry::Sphere;
+    use crate::shape::Shape;
 
     let m: Material = Default::default();
     let position = Tuple4D::point(0.0, 0.0, 0.0);
-    let mut s = Sphere::unit();
+    let mut s = Shape::sphere();
     s.material = m;
 
     let eyev = Tuple4D::vector(0., -(2.0f64.sqrt())/2., -(2.0f64.sqrt())/2.);
@@ -207,11 +207,11 @@ fn eye_opposite_from_surface_in_reflection() {
 
 #[test]
 fn eye_across_surface_from_light() {
-    use crate::geometry::Sphere;
+    use crate::shape::Shape;
 
     let m: Material = Default::default();
     let position = Tuple4D::point(0.0, 0.0, 0.0);
-    let mut s = Sphere::unit();
+    let mut s = Shape::sphere();
     s.material = m;
 
     let eyev = Tuple4D::vector(0.0, 0.0, -1.0);
@@ -227,7 +227,7 @@ fn eye_across_surface_from_light() {
 
 #[test]
 fn lighting_with_stripe_pattern() {
-    use crate::geometry::Sphere;
+    use crate::shape::Shape;
 
     let m = Material {
         color: Color::rgb(0.5, 0.5, 0.5),
@@ -246,7 +246,7 @@ fn lighting_with_stripe_pattern() {
         ..Default::default()
     };
 
-    let mut s = Sphere::unit();
+    let mut s = Shape::sphere();
     s.material = m;
 
     let eyev = Tuple4D::vector(0.0, 0.0, -1.0);
