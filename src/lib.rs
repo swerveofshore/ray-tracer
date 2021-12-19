@@ -2,6 +2,7 @@ pub mod tuple;
 pub mod matrix;
 
 pub mod ray;
+pub mod shape;
 pub mod geometry;
 pub mod intersect;
 
