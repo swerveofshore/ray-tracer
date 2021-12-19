@@ -1,7 +1,7 @@
 use crate::color::Color;
 use crate::pattern::Pattern;
 use crate::tuple::Tuple4D;
-use crate::geometry::ShapeDebug;
+use crate::shape::Shape;
 
 /// A point light.
 ///
@@ -74,7 +74,7 @@ impl Default for Material {
 ///
 /// If this point is in a shadow (parameter `in_shadow`), only ambient light is
 /// used.
-pub fn lighting(m: Material, obj: & dyn ShapeDebug, light: PointLight,
+pub fn lighting(m: Material, obj: &Shape, light: PointLight,
     point: Tuple4D, eyev: Tuple4D, normalv: Tuple4D, in_shadow: bool) -> Color {
     // If Material m has some pattern, use that for color
     let color = if let Some(pat) = m.pattern {

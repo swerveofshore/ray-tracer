@@ -3,7 +3,7 @@ pub mod matrix;
 
 pub mod ray;
 pub mod shape;
-pub mod geometry;
+// pub mod geometry;
 pub mod intersect;
 
 pub mod light;

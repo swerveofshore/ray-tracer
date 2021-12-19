@@ -85,6 +85,26 @@ impl Shape {
         }
     }
 
+    /// Creates a bounded cylinder without caps.
+    pub fn bounded_cylinder(minimum: f64, maximum: f64) -> Shape {
+         Shape {
+            ty: ShapeType::Cylinder(minimum, maximum, false),
+            parent: Weak::new(),
+            transform: Default::default(),
+            material: Default::default(),
+        }       
+    }
+
+    /// Creates a bounded cylinder with caps.
+    pub fn capped_cylinder(minimum: f64, maximum: f64) -> Shape {
+         Shape {
+            ty: ShapeType::Cylinder(minimum, maximum, true),
+            parent: Weak::new(),
+            transform: Default::default(),
+            material: Default::default(),
+        }       
+    }
+
     /// Creates an infinitely long double-napped cone with no end caps.
     pub fn cone() -> Shape {
         Shape {
@@ -199,7 +219,7 @@ impl Shape {
 
     fn intersect_plane(&self, ray: &Ray4D) -> Intersections {
         // Extract plane normal, panic if this isn't a plane.
-        let normal = match self.ty {
+        let _normal = match self.ty {
             ShapeType::Plane(n) => n,
             _ => unreachable!(),
         };
@@ -216,7 +236,7 @@ impl Shape {
         Intersections { intersections: vec![i] }
     }
 
-    fn normal_at_plane(&self, at: &Tuple4D) -> Tuple4D {
+    fn normal_at_plane(&self, _at: &Tuple4D) -> Tuple4D {
         // Extract plane normal, panic if this isn't a plane.
         match self.ty {
             ShapeType::Plane(n) => n.clone(),
@@ -276,8 +296,8 @@ impl Shape {
     }
 
     fn intersect_cylinder(&self, ray: &Ray4D) -> Intersections {
-        let (minimum, maximum, closed) = match self.ty {
-            ShapeType::Cylinder(min, max, c) => (min, max, c),
+        let (minimum, maximum) = match self.ty {
+            ShapeType::Cylinder(min, max, _) => (min, max),
             _ => unreachable!(),
         };
 
@@ -360,8 +380,8 @@ impl Shape {
     }
 
     fn intersect_cone(&self, ray: &Ray4D) -> Intersections {
-        let (minimum, maximum, closed) = match self.ty {
-            ShapeType::Cone(min, max, c) => (min, max, c),
+        let (minimum, maximum) = match self.ty {
+            ShapeType::Cone(min, max, _) => (min, max),
             _ => unreachable!(),
         };
 

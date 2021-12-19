@@ -2,7 +2,7 @@ use crate::feq;
 use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
 use crate::color::Color;
-use crate::geometry::ShapeDebug;
+use crate::shape::Shape;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum PatternType {
@@ -169,7 +169,7 @@ impl Pattern {
     /// point `p`, `p` is transformed to object space (local to the `Shape`),
     /// afterwards transformed to pattern space (local to the `Pattern` on the
     /// `Shape`).
-    pub fn pattern_at_object(&self, object: & dyn ShapeDebug, p: Tuple4D)
+    pub fn pattern_at_object(&self, object: &Shape, p: Tuple4D)
         -> Color {
         let oti = object.transform().inverse().expect(
             "Object transform should be invertible."

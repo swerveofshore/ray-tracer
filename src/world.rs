@@ -2,9 +2,9 @@ use crate::feq;
 use crate::ray::Ray4D;
 use crate::tuple::Tuple4D;
 use crate::color::Color;
+use crate::shape::Shape;
 use crate::matrix::Matrix4D;
 use crate::light::{ PointLight, Material, lighting };
-use crate::geometry::{ ShapeDebug, Sphere };
 use crate::intersect::{ Intersections, IntersectionComputation };
 use crate::shape::intersect;
 
@@ -15,7 +15,7 @@ use crate::shape::intersect;
 /// Worlds collect all objects as well as light for rendering. Most logic is
 /// performed within worlds for the ray tracer.
 pub struct World {
-    pub objects: Vec<Box<dyn ShapeDebug>>,
+    pub objects: Vec<Shape>,
     pub light_source: PointLight,
 }
 
@@ -26,18 +26,18 @@ impl Default for World {
             Tuple4D::point(-10.0, 10.0, -10.0)
         );
 
-        let mut s1 = Sphere::unit();
+        let mut s1 = Shape::sphere();
         let mut m1: Material = Default::default();
         m1.color = Color::rgb(0.8, 1.0, 0.6);
         m1.diffuse = 0.7;
         m1.specular = 0.2;
-        s1.material = m1;
+        *s1.material_mut() = m1;
 
-        let mut s2 = Sphere::unit();
-        s2.transform = Matrix4D::scaling(0.5, 0.5, 0.5);
+        let mut s2 = Shape::sphere();
+        *s2.transform_mut() = Matrix4D::scaling(0.5, 0.5, 0.5);
 
         World {
-            objects: vec![Box::new(s1), Box::new(s2)],
+            objects: vec![s1, s2],
             light_source
         }
     }
@@ -55,36 +55,36 @@ impl World {
     }
 
     /// Gets a reference to the first object in a world.
-    pub fn first(&self) -> Option<& dyn ShapeDebug> {
+    pub fn first(&self) -> Option<&Shape> {
         if self.objects.len() > 0 {
-            Some(&*self.objects[0])
+            Some(&self.objects[0])
         } else {
             None
         }
     }
 
     /// Gets a mutable reference to the first object in a world.
-    pub fn first_mut(&mut self) -> Option<&mut dyn ShapeDebug> {
+    pub fn first_mut(&mut self) -> Option<&mut Shape> {
         if self.objects.len() > 0 {
-            Some(&mut *self.objects[0])
+            Some(&mut self.objects[0])
         } else {
             None
         }
     }
 
     /// Gets a reference to the second object in a world.
-    pub fn second(&self) -> Option<& dyn ShapeDebug> {
+    pub fn second(&self) -> Option<&Shape> {
         if self.objects.len() > 1 {
-            Some(&*self.objects[1])
+            Some(&self.objects[1])
         } else {
             None
         }
     }
 
     /// Gets a mutable reference to the second objet in a world.
-    pub fn second_mut(&mut self) -> Option<&mut dyn ShapeDebug> {
+    pub fn second_mut(&mut self) -> Option<&mut Shape> {
         if self.objects.len() > 1 {
-            Some(&mut *self.objects[1])
+            Some(&mut self.objects[1])
         } else {
             None
         }
@@ -98,7 +98,7 @@ impl World {
     pub fn intersect(&self, r: Ray4D) -> Intersections {
         let mut intersections: Intersections = Intersections::new();
         for obj in self.objects.iter() {
-            let mut is: Intersections = intersect(&**obj, r);
+            let mut is: Intersections = intersect(&obj, r);
             intersections.intersections.append(&mut is.intersections);
         }
 
