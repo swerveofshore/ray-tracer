@@ -5,8 +5,8 @@ use crate::color::Color;
 use crate::matrix::Matrix4D;
 use crate::light::{ PointLight, Material, lighting };
 use crate::geometry::{ ShapeDebug, Sphere };
-use crate::intersect::{ Intersection, Intersections,
-    IntersectionComputation, intersect };
+use crate::intersect::{ Intersections, IntersectionComputation };
+use crate::shape::intersect;
 
 /// A world with objects and light.
 ///

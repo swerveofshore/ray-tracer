@@ -560,6 +560,24 @@ impl Shape {
     }
 }
 
+/// Intersects a ray with a `Shape`.
+///
+/// Each shape implements `local_intersect`, which calculates intersections of a
+/// shape in *normal* space. This function uses the `transform` associated with
+/// each `Shape`, and converts the ray to object space before calculating
+/// intersections.
+///
+/// Intersections are technically calculated in local space; these local-space
+/// intersections are returned in an `Intersections` record.
+pub fn intersect(s: &Shape, r: Ray4D) -> Intersections {
+    let inverse_transform = s.transform().inverse().expect(
+        "Transformation matrix on shape should be invertible."
+    );
+
+    let transformed_ray = r.transform(inverse_transform);
+    s.local_intersect(&transformed_ray)
+}
+
 pub fn normal_at(s: &Shape, p: Tuple4D) -> Tuple4D {
     let trans_inv = s.transform.inverse().expect(
         "Shape transform should be invertible."
