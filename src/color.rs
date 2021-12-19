@@ -73,6 +73,14 @@ impl Color {
 
         Color { r, g, b }
     }
+
+    pub fn average(c1: &Color, c2: &Color) -> Color {
+        let r = (c1.r + c2.r) / 2.0;
+        let g = (c1.g + c2.g) / 2.0;
+        let b = (c1.b + c2.b) / 2.0;
+
+        Color { r, g, b }
+    }
 }
 
 impl Add<Color> for Color {

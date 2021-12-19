@@ -11,17 +11,31 @@ const CANVAS_WIDTH: usize = 960 * 4;
 const CANVAS_HEIGHT: usize = 540 * 4; 
 
 fn main() {
+    let mut floor_pattern_01 = Pattern::checker(
+        Color::white(),
+        Color::black()
+    );
+    floor_pattern_01.transform
+        = Matrix4D::scaling(0.1, 0.1, 0.1);
+
+    let mut floor_pattern_02 = Pattern::stripe(
+        Color::white(),
+        Color::blue()
+    );
+    floor_pattern_02.transform
+        = Matrix4D::rotation_y(std::f64::consts::PI / 4.0);
+
+    let mut floor_pattern = Pattern::mix(floor_pattern_01, floor_pattern_02);
+    floor_pattern.transform
+        = Matrix4D::scaling(0.1, 0.1, 0.1)
+        * Matrix4D::rotation_y(std::f64::consts::PI / 4.0);
+
     let mut floor = Shape::plane();
     *floor.transform_mut() = Matrix4D::scaling(10.0, 0.01, 10.0);
     *floor.material_mut() = Default::default();
     floor.material_mut().color = Color::rgb(0.5, 0.5, 0.5);
     floor.material_mut().specular = 0.0;
-    floor.material_mut().pattern = Some(Pattern::checker(
-        Color::white(),
-        Color::black()
-    ));
-    floor.material_mut().pattern.iter_mut().next().unwrap().transform
-        = Matrix4D::scaling(0.1, 0.1, 0.1);
+    floor.material_mut().pattern = Some(floor_pattern);
     floor.material_mut().reflective = 0.5;
 
     let mut middle = Shape::sphere();

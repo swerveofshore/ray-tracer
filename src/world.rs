@@ -203,7 +203,7 @@ impl World {
         -> Color {
         // Color calculated from light on a surface
         let surface = lighting(
-            *comps.obj.material(), comps.obj, self.light_source,
+             comps.obj.material(), comps.obj, &self.light_source,
              comps.over_point, comps.eyev, comps.normalv,
              self.is_shadowed(comps.over_point)
         );

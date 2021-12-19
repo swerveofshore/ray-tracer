@@ -4,7 +4,7 @@ use crate::matrix::Matrix4D;
 use crate::color::Color;
 use crate::shape::Shape;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 enum PatternType {
     /// Does nothing. Pixels are black at every point. Mostly for testing.
     Null,
@@ -26,9 +26,12 @@ enum PatternType {
 
     /// A gradient pattern, smoothly transitioning between colors across X.
     Gradient(Color, Color),
+
+    /// A combination of two patterns, averaging the patterns at every point.
+    Mix(Box<Pattern>, Box<Pattern>),
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Pattern {
     ty: PatternType,
     pub transform: Matrix4D,
@@ -84,6 +87,13 @@ impl Pattern {
         }
     }
 
+    pub fn mix(first: Pattern, second: Pattern) -> Pattern {
+        Pattern {
+            ty: PatternType::Mix(Box::new(first), Box::new(second)),
+            transform: Matrix4D::identity()
+        }
+    }
+
     pub fn pattern_at(&self, p: Tuple4D) -> Color {
         match self.ty {
             PatternType::Null => Color::black(),
@@ -93,6 +103,7 @@ impl Pattern {
             PatternType::Ring(_, _) => self.ring_at(p),
             PatternType::Checker(_, _) => self.checker_at(p),
             PatternType::Gradient(_, _) => self.gradient_at(p),
+            PatternType::Mix(_, _) => self.mix_at(p),
         }
     }
 
@@ -161,6 +172,20 @@ impl Pattern {
 
         // A gradient steps by the "fractional" part of the color along X.
         primary + distance * fraction
+    }
+
+    fn mix_at(&self, p: Tuple4D) -> Color {
+        let (first, second) =
+            if let PatternType::Mix(ref f, ref s) = self.ty {
+                (f, s)
+            } else {
+                unreachable!();
+            };
+
+        let c1 = first.pattern_at(p);
+        let c2 = second.pattern_at(p);
+
+        Color::average(&c1, &c2)
     }
 
     /// Applies a Pattern to a Shape.
