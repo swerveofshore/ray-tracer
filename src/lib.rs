@@ -1,15 +1,17 @@
 pub mod tuple;
 pub mod matrix;
-pub mod ray;
-pub mod light;
 
+pub mod ray;
 pub mod geometry;
+pub mod intersect;
+
+pub mod light;
+pub mod color;
+pub mod pattern;
+
 pub mod world;
 pub mod camera;
-
-pub mod color;
 pub mod canvas;
-pub mod pattern;
 
 pub mod extra;
 pub mod consts;

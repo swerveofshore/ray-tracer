@@ -4,8 +4,9 @@ use crate::tuple::Tuple4D;
 use crate::color::Color;
 use crate::matrix::Matrix4D;
 use crate::light::{ PointLight, Material, lighting };
-use crate::geometry::{ ShapeDebug, Intersections,
-    IntersectionComputation, Sphere, intersect };
+use crate::geometry::{ ShapeDebug, Sphere };
+use crate::intersect::{ Intersection, Intersections,
+    IntersectionComputation, intersect };
 
 /// A world with objects and light.
 ///
@@ -262,7 +263,7 @@ fn intersect_default_world_with_ray() {
 #[test]
 fn shade_intersection_from_outside() {
     use crate::consts::REFLECTION_RECURSION_DEPTH;
-    use crate::geometry::Intersection;
+    use crate::intersect::Intersection;
 
     let w: World = Default::default();
     let r = Ray4D::new(
@@ -282,7 +283,7 @@ fn shade_intersection_from_outside() {
 #[test]
 fn shade_intersection_from_inside() {
     use crate::consts::REFLECTION_RECURSION_DEPTH;
-    use crate::geometry::Intersection;
+    use crate::intersect::Intersection;
 
     let mut w: World = Default::default();
     w.light_source = PointLight::new(
@@ -307,7 +308,7 @@ fn shade_intersection_from_inside() {
 #[test]
 fn shade_intersection_in_shadow() {
     use crate::consts::REFLECTION_RECURSION_DEPTH;
-    use crate::geometry::Intersection;
+    use crate::intersect::Intersection;
 
     let mut w: World = World::empty();
     w.light_source = PointLight::new(
@@ -424,7 +425,7 @@ fn shadow_object_behind_point() {
 #[test]
 fn reflected_color_for_nonreflective_material() {
     use crate::consts::REFLECTION_RECURSION_DEPTH;
-    use crate::geometry::Intersection;
+    use crate::intersect::Intersection;
 
     let mut w: World = Default::default();
 
@@ -451,7 +452,8 @@ fn reflected_color_for_nonreflective_material() {
 #[test]
 fn reflected_color_for_reflective_material() {
     use crate::consts::REFLECTION_RECURSION_DEPTH;
-    use crate::geometry::{ Intersection, Plane };
+    use crate::intersect::Intersection;
+    use crate::geometry::Plane;
 
     let mut s = Plane::new();
     s.material.reflective = 0.5;
@@ -477,7 +479,8 @@ fn reflected_color_for_reflective_material() {
 #[test]
 fn shade_hit_with_reflective_material() {
     use crate::consts::REFLECTION_RECURSION_DEPTH;
-    use crate::geometry::{ Intersection, Plane };
+    use crate::intersect::Intersection;
+    use crate::geometry::Plane;
 
     let mut s = Plane::new();
     s.material.reflective = 0.5;
@@ -503,7 +506,7 @@ fn shade_hit_with_reflective_material() {
 #[test]
 fn refracted_color_on_opaque_material() {
     use crate::consts::REFRACTION_RECURSION_DEPTH;
-    use crate::geometry::{ Intersection, Intersections };
+    use crate::intersect::{ Intersection, Intersections };
 
     let w: World = Default::default();
     let s = w.first().unwrap();
@@ -532,7 +535,7 @@ fn refracted_color_on_opaque_material() {
 
 #[test]
 fn refracted_color_at_max_recursion_depth() {
-    use crate::geometry::{ Intersection, Intersections };
+    use crate::intersect::{ Intersection, Intersections };
 
     let mut w: World = Default::default();
     {
@@ -567,7 +570,7 @@ fn refracted_color_at_max_recursion_depth() {
 #[test]
 fn refracted_color_under_total_internal_reflection() {
     use crate::consts::REFRACTION_RECURSION_DEPTH;
-    use crate::geometry::Intersection;
+    use crate::intersect::Intersection;
 
     let mut w: World = Default::default();
     {
@@ -601,7 +604,7 @@ fn refracted_color_under_total_internal_reflection() {
 
 #[test]
 fn refracted_color_with_refracted_ray() {
-    use crate::geometry::Intersection;
+    use crate::intersect::Intersection;
     use crate::pattern::Pattern;
 
     let mut w: World = Default::default();
@@ -645,7 +648,8 @@ fn refracted_color_with_refracted_ray() {
 
 #[test]
 fn shade_hit_with_transparent_material() {
-    use crate::geometry::{ Plane, Intersection };
+    use crate::intersect::Intersection;
+    use crate::geometry::Plane;
 
     let mut w: World = Default::default();
 
@@ -685,7 +689,8 @@ fn shade_hit_with_transparent_material() {
 
 #[test]
 fn shade_hit_with_reflective_transparent_material() {
-    use crate::geometry::{ Plane, Intersection };
+    use crate::intersect::Intersection;
+    use crate::geometry::Plane;
 
     let mut w: World = Default::default();
 
