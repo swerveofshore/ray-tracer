@@ -28,7 +28,7 @@ enum PatternType {
     Gradient(Color, Color),
 
     /// A combination of two patterns, averaging the patterns at every point.
-    Mix(Box<Pattern>, Box<Pattern>),
+    Blend(Box<Pattern>, Box<Pattern>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -87,9 +87,9 @@ impl Pattern {
         }
     }
 
-    pub fn mix(first: Pattern, second: Pattern) -> Pattern {
+    pub fn blend(first: Pattern, second: Pattern) -> Pattern {
         Pattern {
-            ty: PatternType::Mix(Box::new(first), Box::new(second)),
+            ty: PatternType::Blend(Box::new(first), Box::new(second)),
             transform: Matrix4D::identity()
         }
     }
@@ -103,7 +103,7 @@ impl Pattern {
             PatternType::Ring(_, _) => self.ring_at(p),
             PatternType::Checker(_, _) => self.checker_at(p),
             PatternType::Gradient(_, _) => self.gradient_at(p),
-            PatternType::Mix(_, _) => self.mix_at(p),
+            PatternType::Blend(_, _) => self.blend_at(p),
         }
     }
 
@@ -174,9 +174,9 @@ impl Pattern {
         primary + distance * fraction
     }
 
-    fn mix_at(&self, p: Tuple4D) -> Color {
+    fn blend_at(&self, p: Tuple4D) -> Color {
         let (first, second) =
-            if let PatternType::Mix(ref f, ref s) = self.ty {
+            if let PatternType::Blend(ref f, ref s) = self.ty {
                 (f, s)
             } else {
                 unreachable!();

@@ -25,7 +25,7 @@ fn main() {
     floor_pattern_02.transform
         = Matrix4D::rotation_y(std::f64::consts::PI / 4.0);
 
-    let mut floor_pattern = Pattern::mix(floor_pattern_01, floor_pattern_02);
+    let mut floor_pattern = Pattern::blend(floor_pattern_01, floor_pattern_02);
     floor_pattern.transform
         = Matrix4D::scaling(0.1, 0.1, 0.1)
         * Matrix4D::rotation_y(std::f64::consts::PI / 4.0);
