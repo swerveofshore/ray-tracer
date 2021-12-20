@@ -73,6 +73,18 @@ impl<'a> Intersections<'a> {
             a.t.partial_cmp(&b.t).unwrap_or(std::cmp::Ordering::Equal)
         );
     }
+
+    /// Aggregates several Intersections together.
+    pub fn aggregate<'b>(mut multi_is: Vec<Intersections<'b>>)
+        -> Intersections<'b> {
+        let mut combined_is = Intersections::new();
+        for is in multi_is.iter_mut() {
+            combined_is.intersections.append(&mut is.intersections);
+        }
+
+        combined_is.sort();
+        combined_is
+    }
 }
 
 /// A record for computations associated with an `Intersection`.

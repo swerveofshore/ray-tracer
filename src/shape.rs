@@ -1,4 +1,5 @@
-use std::rc::Weak;
+use std::rc::{ Rc, Weak };
+use std::cell::RefCell;
 
 use crate::consts::FEQ_EPSILON;
 use crate::tuple::Tuple4D;
@@ -28,19 +29,29 @@ pub enum ShapeType {
     Plane(Tuple4D),
 
     /// A group of shapes. Can include other groups of shapes.
-    Group(Vec<Shape>),
+    Group(Vec<Rc<RefCell<Shape>>>),
 }
 
 #[derive(Debug)]
 pub struct Shape {
     ty: ShapeType, 
-    parent: Weak<Shape>,
+    parent: Weak<RefCell<Shape>>,
 
     pub transform: Matrix4D,
     pub material: Material,
 }
 
 impl Shape {
+    /// Creates an empty shape which does nothing. Mostly for testing.
+    pub fn empty() -> Shape {
+        Shape {
+            ty: ShapeType::Empty,
+            parent: Weak::new(),
+            transform: Matrix4D::identity(),
+            material: Default::default(),
+        }
+    }
+
     /// Creates a unit sphere with identity transform and default material.
     pub fn sphere() -> Shape {
         Shape {
@@ -119,6 +130,15 @@ impl Shape {
         }
     }
 
+    pub fn group() -> Shape {
+        Shape {
+            ty: ShapeType::Group(Vec::new()),
+            parent: Weak::new(),
+            transform: Matrix4D::identity(),
+            material: Default::default(),
+        }
+    }
+
     pub fn transform(&self) -> &Matrix4D {
         &self.transform
     }
@@ -143,7 +163,8 @@ impl Shape {
             ShapeType::Cube => self.intersect_cube(ray),
             ShapeType::Cylinder(_, _, _) => self.intersect_cylinder(ray),
             ShapeType::Cone(_, _, _) => self.intersect_cone(ray),
-            _ => Intersections::new()
+            ShapeType::Group(_) => self.intersect_group(ray),
+            _ => Intersections::new(),
         }
     }
 
@@ -155,6 +176,7 @@ impl Shape {
             ShapeType::Cube => self.normal_at_cube(at),
             ShapeType::Cylinder(_, _, _) => self.normal_at_cylinder(at),
             ShapeType::Cone(_, _, _) => self.normal_at_cone(at),
+            ShapeType::Group(_) => self.normal_at_group(at),
             _ => Default::default(),
         }
     }
@@ -483,6 +505,38 @@ impl Shape {
         }
     }
 
+    fn intersect_group(&self, ray: &Ray4D) -> Intersections {
+        let children = match self.ty {
+            ShapeType::Group(ref c) => c,
+            _ => unreachable!(),
+        };
+
+        // If there are no children, return an empty list of intersections.
+        if children.is_empty() {
+            return Intersections::new()
+        }
+
+        let children_refs: Vec<_> = children.iter().map(
+            // Leak the child reference--we are *certain* that it will persist.
+            // As an aside, I'm not super familiar with what Ref::leak()
+            // really does, so this may need to be substituted later.
+            |child| std::cell::Ref::leak(child.borrow())
+        ).collect();
+
+        // Otherwise, for each child, collect its intersections and aggregate.
+        let mut all_intersections = Vec::new();
+        for cr in children_refs.iter() {
+            all_intersections.push(cr.local_intersect(ray));
+        }
+
+        Intersections::aggregate(all_intersections)
+    }
+
+    /// TODO implement this
+    fn normal_at_group(&self, at: &Tuple4D) -> Tuple4D {
+        Default::default()
+    }
+
     /// Gets the min and max intersection offsets along an axis of a cube.
     ///
     /// No particular axis is specified; this function takes a component from
@@ -579,6 +633,19 @@ impl Shape {
 
         x.powi(2) + z.powi(2) <= y.powi(2)
     }
+}
+
+pub fn add_child_to_group(group: Rc<RefCell<Shape>>,
+    child: Rc<RefCell<Shape>>) {
+
+    let mut gb = group.borrow_mut();
+    let children = match gb.ty {
+        ShapeType::Group(ref mut c) => c,
+        _ => panic!("Cannot add child to non-group shape."),
+    };
+
+    child.borrow_mut().parent = Rc::downgrade(&group);
+    children.push(child);
 }
 
 /// Intersects a ray with a `Shape`.
@@ -900,4 +967,47 @@ fn hit_should_offset_point() {
 
     assert!(comps.over_point.z < -FEQ_EPSILON / 2.0);
     assert!(comps.point.z > comps.over_point.z);
+}
+
+#[test]
+fn creating_a_shape_group() {
+    let g = Shape::group();
+    let children = match g.ty {
+        ShapeType::Group(ref c) => c,
+        _ => unreachable!(),
+    };
+
+    assert_eq!(g.transform, Matrix4D::identity());
+    assert_eq!(children.len(), 0);
+}
+
+#[test]
+fn shape_has_parent_attribute() {
+    let s = Shape::empty();
+    let parent = s.parent.upgrade();
+
+    assert!(parent.is_none());
+}
+
+#[test]
+fn adding_a_child_to_a_shape_group() {
+    let g = Rc::new(RefCell::new(Shape::group()));
+    let s = Rc::new(RefCell::new(Shape::empty()));
+
+    add_child_to_group(Rc::clone(&g), Rc::clone(&s));
+
+    let gb = g.borrow();
+    let children = match gb.ty {
+        ShapeType::Group(ref c) => c,
+        _ => unreachable!(),
+    };
+
+    // Check that a child has been appended to group g.
+    assert_eq!(children.len(), 1);
+
+    // Make sure that the child has the same allocation as its original Shape.
+    assert!(Rc::ptr_eq(&s, &children[0]));
+
+    // Check that the child points to the parent Group.
+    assert!(Weak::ptr_eq(&s.borrow().parent, &Rc::downgrade(&g)));
 }

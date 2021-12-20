@@ -1,3 +1,5 @@
+#![feature(cell_leak)]
+
 pub mod tuple;
 pub mod matrix;
 
