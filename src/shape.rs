@@ -164,7 +164,6 @@ impl Shape {
             ShapeType::Cylinder(_, _, _) => self.intersect_cylinder(ray),
             ShapeType::Cone(_, _, _) => self.intersect_cone(ray),
             ShapeType::Group(_) => self.intersect_group(ray),
-            _ => Intersections::new(),
         }
     }
 
@@ -176,8 +175,9 @@ impl Shape {
             ShapeType::Cube => self.normal_at_cube(at),
             ShapeType::Cylinder(_, _, _) => self.normal_at_cylinder(at),
             ShapeType::Cone(_, _, _) => self.normal_at_cone(at),
-            ShapeType::Group(_) => self.normal_at_group(at),
-            _ => Default::default(),
+            ShapeType::Group(_) => panic!(
+                "Local normal calculations should never occur on groups."
+            ),
         }
     }
 
@@ -534,11 +534,6 @@ impl Shape {
         Intersections::aggregate(all_intersections)
     }
 
-    /// TODO implement this
-    fn normal_at_group(&self, at: &Tuple4D) -> Tuple4D {
-        Default::default()
-    }
-
     /// Gets the min and max intersection offsets along an axis of a cube.
     ///
     /// No particular axis is specified; this function takes a component from
@@ -635,6 +630,39 @@ impl Shape {
 
         x.powi(2) + z.powi(2) <= y.powi(2)
     }
+
+    fn world_to_object(&self, mut point: Tuple4D) -> Tuple4D {
+        // If the current object has a parent, convert the parent point to
+        // object space first.
+        if let Some(parent) = self.parent.upgrade() {
+            point = parent.borrow().world_to_object(point);
+        }
+
+        let trans_inv = self.transform.inverse().expect(
+            "Shape transform should be invertible."
+        );
+
+        // Then, convert the leaf (youngest child) point to object space.
+        trans_inv * point
+    }
+
+    fn normal_to_world(&self, mut normal: Tuple4D) -> Tuple4D {
+        let trans_inv = self.transform.inverse().expect(
+            "Shape transform should be invertible."
+        );
+
+        normal = trans_inv.transposition() * normal;
+        normal.w = 0.0;
+        normal = normal.normalize();
+
+        // If the current object has a parent, convert the normal to the
+        // parent's world space.
+        if let Some(parent) = self.parent.upgrade() {
+            normal = parent.borrow().normal_to_world(normal);
+        }
+
+        normal
+    }
 }
 
 pub fn add_child_to_group(group: Rc<RefCell<Shape>>,
@@ -668,17 +696,10 @@ pub fn intersect(s: &Shape, r: Ray4D) -> Intersections {
     s.local_intersect(&transformed_ray)
 }
 
-pub fn normal_at(s: &Shape, p: Tuple4D) -> Tuple4D {
-    let trans_inv = s.transform.inverse().expect(
-        "Shape transform should be invertible."
-    );
-
-    let local_point = trans_inv * p;
+pub fn normal_at(s: &Shape, world_point: Tuple4D) -> Tuple4D {
+    let local_point = s.world_to_object(world_point);
     let local_normal = s.local_normal_at(&local_point);
-    let mut world_normal = trans_inv.transposition() * local_normal;
-    world_normal.w = 0.0;
-
-    world_normal.normalize()
+    s.normal_to_world(local_normal)
 }
 
 #[test]
@@ -1051,4 +1072,94 @@ fn intersecting_ray_with_nonempty_group() {
     assert!(std::ptr::eq(is.intersections[1].what, Ref::leak(s2.borrow())));
     assert!(std::ptr::eq(is.intersections[2].what, Ref::leak(s1.borrow())));
     assert!(std::ptr::eq(is.intersections[3].what, Ref::leak(s1.borrow())));
+}
+
+#[test]
+fn intersecting_a_transformed_group() {
+    let g = Rc::new(RefCell::new(Shape::group()));
+    g.borrow_mut().transform = Matrix4D::scaling(2.0, 2.0, 2.0);
+
+    let s1 = Rc::new(RefCell::new(Shape::sphere()));
+    s1.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
+
+    add_child_to_group(Rc::clone(&g), Rc::clone(&s1));
+
+    let r = Ray4D::new(
+        Tuple4D::point(10.0, 0.0, -10.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+
+    let gb = g.borrow();
+    let is = intersect(&gb, r);
+
+    assert_eq!(is.intersections.len(), 2);
+}
+
+#[test]
+fn converting_a_point_from_world_to_object_space() {
+    let g1 = Rc::new(RefCell::new(Shape::group()));
+    g1.borrow_mut().transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.);
+
+    let g2 = Rc::new(RefCell::new(Shape::group()));
+    g2.borrow_mut().transform = Matrix4D::scaling(2.0, 2.0, 2.0);
+
+    // Group g2 is a child of group g1.
+    add_child_to_group(Rc::clone(&g1), Rc::clone(&g2));
+
+    let s = Rc::new(RefCell::new(Shape::sphere()));
+    s.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
+
+    // Sphere s is a child of group g2.
+    add_child_to_group(Rc::clone(&g2), Rc::clone(&s));
+
+    let p = s.borrow().world_to_object(Tuple4D::point(-2.0, 0.0, -10.0));
+    assert_eq!(p, Tuple4D::point(0.0, 0.0, -1.0));
+}
+
+#[test]
+fn converting_a_normal_from_object_to_world_space() {
+    let g1 = Rc::new(RefCell::new(Shape::group()));
+    g1.borrow_mut().transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.);
+
+    let g2 = Rc::new(RefCell::new(Shape::group()));
+    g2.borrow_mut().transform = Matrix4D::scaling(1.0, 2.0, 3.0);
+
+    // Group g2 is a child of group g1.
+    add_child_to_group(Rc::clone(&g1), Rc::clone(&g2));
+
+    let s = Rc::new(RefCell::new(Shape::sphere()));
+    s.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
+
+    // Sphere s is a child of group g2.
+    add_child_to_group(Rc::clone(&g2), Rc::clone(&s));
+
+    let normal = s.borrow().normal_to_world(Tuple4D::vector(
+        3.0f64.sqrt() / 3.0, 3.0f64.sqrt() / 3.0, 3.0f64.sqrt() / 3.0
+    ));
+
+    assert_eq!(normal, Tuple4D::vector(0.2857, 0.4286, -0.8571));
+}
+
+#[test]
+fn finding_the_normal_on_a_child_object() {
+    let g1 = Rc::new(RefCell::new(Shape::group()));
+    g1.borrow_mut().transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.);
+
+    let g2 = Rc::new(RefCell::new(Shape::group()));
+    g2.borrow_mut().transform = Matrix4D::scaling(1.0, 2.0, 3.0);
+
+    // Group g2 is a child of group g1.
+    add_child_to_group(Rc::clone(&g1), Rc::clone(&g2));
+
+    let s = Rc::new(RefCell::new(Shape::sphere()));
+    s.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
+
+    // Sphere s is a child of group g2.
+    add_child_to_group(Rc::clone(&g2), Rc::clone(&s));
+
+    let normal = normal_at(
+        &s.borrow(),
+        Tuple4D::point(1.7321, 1.1547, -5.5774)
+    );
+    assert_eq!(normal, Tuple4D::vector(0.2857, 0.4286, -0.8571));
 }
