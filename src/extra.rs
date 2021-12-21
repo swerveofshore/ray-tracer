@@ -5,7 +5,7 @@ use std::cell::RefCell;
 
 use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
-use crate::shape::{ Shape, ShapeType };
+use crate::shape::{ ShapeNode, ShapeNodeType };
 
 #[derive(Copy, Clone, Default)]
 pub struct Projectile {
@@ -34,17 +34,17 @@ impl Environment {
     }
 }
 
-pub fn hexagon_corner() -> Shape {
-    let mut corner = Shape::sphere();
+pub fn hexagon_corner() -> ShapeNode {
+    let mut corner = ShapeNode::sphere();
     corner.transform = Matrix4D::translation(0.0, 0.0, -1.0)
         * Matrix4D::scaling(0.25, 0.25, 0.25);
 
     corner
 }
 
-pub fn hexagon_edge() -> Shape {
-    let mut edge = Shape::cylinder();
-    if let ShapeType::Cylinder(ref mut min, ref mut max, _) = edge.ty {
+pub fn hexagon_edge() -> ShapeNode {
+    let mut edge = ShapeNode::cylinder();
+    if let ShapeNodeType::Cylinder(ref mut min, ref mut max, _) = edge.ty {
         *min = 0.0;
         *max = 1.0;
     }
@@ -58,9 +58,9 @@ pub fn hexagon_edge() -> Shape {
 }
 
 /*
-// TODO: How to insert a Shape in a World, when the World needs to own the
-// Shape? (Can't use Rc<T>s without making the World use them).
-pub fn hexagon() -> Shape {
-    let hex = Rc::new(RefCell::new(Shape::group()));
+// TODO: How to insert a ShapeNode in a World, when the World needs to own the
+// ShapeNode? (Can't use Rc<T>s without making the World use them).
+pub fn hexagon() -> ShapeNode {
+    let hex = Rc::new(RefCell::new(ShapeNode::group()));
 }
 */

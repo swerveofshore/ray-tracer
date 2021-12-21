@@ -1,6 +1,6 @@
 use ray_tracer_challenge::tuple::Tuple4D;
 use ray_tracer_challenge::matrix::Matrix4D;
-use ray_tracer_challenge::shape::Shape;
+use ray_tracer_challenge::shape::ShapeNode;
 use ray_tracer_challenge::color::Color;
 use ray_tracer_challenge::pattern::Pattern;
 use ray_tracer_challenge::light::PointLight;
@@ -11,7 +11,7 @@ const CANVAS_WIDTH: usize = 960 * 4;
 const CANVAS_HEIGHT: usize = 540 * 4; 
 
 fn main() {
-    let mut backdrop = Shape::plane();
+    let mut backdrop = ShapeNode::plane();
     backdrop.transform = Matrix4D::translation(0.0, 0.0, 10.0)
         * Matrix4D::rotation_x(std::f64::consts::PI / 2.0);
     backdrop.material.pattern = Some(
@@ -22,7 +22,7 @@ fn main() {
     );
     backdrop.material.reflective = 0.8;
 
-    let mut parent = Shape::cube();
+    let mut parent = ShapeNode::cube();
     parent.transform = Matrix4D::scaling(4.0, 4.0, 4.0)
         * Matrix4D::rotation_x(std::f64::consts::PI / 8.0)
         * Matrix4D::rotation_y(std::f64::consts::PI / 4.0)
@@ -32,7 +32,7 @@ fn main() {
     parent.material.reflective = 0.2;
     parent.material.refractive_index = 2.0;
 
-    let mut child_01 = Shape::cube();
+    let mut child_01 = ShapeNode::cube();
     child_01.transform = Matrix4D::scaling(2.0, 2.0, 2.0)
         * Matrix4D::rotation_x(std::f64::consts::PI / 8.0)
         * Matrix4D::rotation_y(std::f64::consts::PI / 4.0)

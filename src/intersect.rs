@@ -1,8 +1,8 @@
 use crate::consts::FEQ_EPSILON;
 use crate::tuple::Tuple4D;
 use crate::ray::Ray4D;
-// use crate::geometry::{ ShapeDebug, normal_at };
-use crate::shape::{ Shape, normal_at };
+// use crate::geometry::{ ShapeNodeDebug, normal_at };
+use crate::shape::{ ShapeNode, normal_at };
 
 /// An intersection.
 ///
@@ -15,7 +15,7 @@ use crate::shape::{ Shape, normal_at };
 #[derive(Copy, Clone, Debug)]
 pub struct Intersection<'a> {
     pub t: f64,
-    pub what: &'a Shape,
+    pub what: &'a ShapeNode,
 }
 
 /// Implements partial equality on an Intersection.
@@ -96,7 +96,7 @@ pub struct IntersectionComputation<'a> {
     pub t: f64,
 
     /// The object being intersected.
-    pub obj: &'a Shape,
+    pub obj: &'a ShapeNode,
 
     /// The point where the intersection occurs.
     pub point: Tuple4D,
@@ -175,7 +175,7 @@ impl<'a> IntersectionComputation<'a> {
 
         // Contains all objects which have been encountered, but not yet exited
         // by the refracting ray.
-        let mut containers: Vec<&'a Shape> = Vec::new();
+        let mut containers: Vec<&'a ShapeNode> = Vec::new();
 
         for i in is.intersections.iter() {
             if i == hit {

@@ -2,7 +2,7 @@ use crate::feq;
 use crate::ray::Ray4D;
 use crate::tuple::Tuple4D;
 use crate::color::Color;
-use crate::shape::Shape;
+use crate::shape::ShapeNode;
 use crate::matrix::Matrix4D;
 use crate::light::{ PointLight, Material, lighting };
 use crate::intersect::{ Intersections, IntersectionComputation };
@@ -15,7 +15,7 @@ use crate::shape::intersect;
 /// Worlds collect all objects as well as light for rendering. Most logic is
 /// performed within worlds for the ray tracer.
 pub struct World {
-    pub objects: Vec<Shape>,
+    pub objects: Vec<ShapeNode>,
     pub light_source: PointLight,
 }
 
@@ -26,14 +26,14 @@ impl Default for World {
             Tuple4D::point(-10.0, 10.0, -10.0)
         );
 
-        let mut s1 = Shape::sphere();
+        let mut s1 = ShapeNode::sphere();
         let mut m1: Material = Default::default();
         m1.color = Color::rgb(0.8, 1.0, 0.6);
         m1.diffuse = 0.7;
         m1.specular = 0.2;
         *s1.material_mut() = m1;
 
-        let mut s2 = Shape::sphere();
+        let mut s2 = ShapeNode::sphere();
         *s2.transform_mut() = Matrix4D::scaling(0.5, 0.5, 0.5);
 
         World {
@@ -55,7 +55,7 @@ impl World {
     }
 
     /// Gets a reference to the first object in a world.
-    pub fn first(&self) -> Option<&Shape> {
+    pub fn first(&self) -> Option<&ShapeNode> {
         if self.objects.len() > 0 {
             Some(&self.objects[0])
         } else {
@@ -64,7 +64,7 @@ impl World {
     }
 
     /// Gets a mutable reference to the first object in a world.
-    pub fn first_mut(&mut self) -> Option<&mut Shape> {
+    pub fn first_mut(&mut self) -> Option<&mut ShapeNode> {
         if self.objects.len() > 0 {
             Some(&mut self.objects[0])
         } else {
@@ -73,7 +73,7 @@ impl World {
     }
 
     /// Gets a reference to the second object in a world.
-    pub fn second(&self) -> Option<&Shape> {
+    pub fn second(&self) -> Option<&ShapeNode> {
         if self.objects.len() > 1 {
             Some(&self.objects[1])
         } else {
@@ -82,7 +82,7 @@ impl World {
     }
 
     /// Gets a mutable reference to the second objet in a world.
-    pub fn second_mut(&mut self) -> Option<&mut Shape> {
+    pub fn second_mut(&mut self) -> Option<&mut ShapeNode> {
         if self.objects.len() > 1 {
             Some(&mut self.objects[1])
         } else {
@@ -316,10 +316,10 @@ fn shade_intersection_in_shadow() {
         Tuple4D::point(0.0, 0.0, -10.0),
     );
 
-    let s1 = Shape::sphere();
+    let s1 = ShapeNode::sphere();
     w.objects.push(s1);
 
-    let mut s2 = Shape::sphere();
+    let mut s2 = ShapeNode::sphere();
     s2.transform = Matrix4D::translation(0.0, 0.0, 10.0);
     w.objects.push(s2);
 
@@ -453,9 +453,9 @@ fn reflected_color_for_nonreflective_material() {
 fn reflected_color_for_reflective_material() {
     use crate::consts::REFLECTION_RECURSION_DEPTH;
     use crate::intersect::Intersection;
-    use crate::shape::Shape;
+    use crate::shape::ShapeNode;
 
-    let mut s = Shape::plane();
+    let mut s = ShapeNode::plane();
     s.material.reflective = 0.5;
     s.transform = Matrix4D::translation(0.0, -1.0, 0.0);
 
@@ -480,9 +480,9 @@ fn reflected_color_for_reflective_material() {
 fn shade_hit_with_reflective_material() {
     use crate::consts::REFLECTION_RECURSION_DEPTH;
     use crate::intersect::Intersection;
-    use crate::shape::Shape;
+    use crate::shape::ShapeNode;
 
-    let mut s = Shape::plane();
+    let mut s = ShapeNode::plane();
     s.material.reflective = 0.5;
     s.transform = Matrix4D::translation(0.0, -1.0, 0.0);
 
@@ -649,16 +649,16 @@ fn refracted_color_with_refracted_ray() {
 #[test]
 fn shade_hit_with_transparent_material() {
     use crate::intersect::Intersection;
-    use crate::shape::Shape;
+    use crate::shape::ShapeNode;
 
     let mut w: World = Default::default();
 
-    let mut floor = Shape::plane();
+    let mut floor = ShapeNode::plane();
     floor.transform = Matrix4D::translation(0.0, -1.0, 0.0);
     floor.material.transparency = 0.5;
     floor.material.refractive_index = 1.5;
 
-    let mut ball = Shape::sphere();
+    let mut ball = ShapeNode::sphere();
     ball.material.color = Color::red();
     ball.material.ambient = 0.5;
     ball.transform = Matrix4D::translation(0.0, -3.5, -0.5);
@@ -690,17 +690,17 @@ fn shade_hit_with_transparent_material() {
 #[test]
 fn shade_hit_with_reflective_transparent_material() {
     use crate::intersect::Intersection;
-    use crate::shape::Shape;
+    use crate::shape::ShapeNode;
 
     let mut w: World = Default::default();
 
-    let mut floor = Shape::plane();
+    let mut floor = ShapeNode::plane();
     floor.transform = Matrix4D::translation(0.0, -1.0, 0.0);
     floor.material.reflective = 0.5;
     floor.material.transparency = 0.5;
     floor.material.refractive_index = 1.5;
 
-    let mut ball = Shape::sphere();
+    let mut ball = ShapeNode::sphere();
     ball.material.color = Color::red();
     ball.material.ambient = 0.5;
     ball.transform = Matrix4D::translation(0.0, -3.5, -0.5);
