@@ -1,5 +1,5 @@
 use std::rc::{ Rc, Weak };
-use std::cell::RefCell;
+use std::cell::{ Ref, RefCell };
 
 use crate::consts::FEQ_EPSILON;
 use crate::tuple::Tuple4D;
@@ -520,13 +520,15 @@ impl Shape {
             // Leak the child reference--we are *certain* that it will persist.
             // As an aside, I'm not super familiar with what Ref::leak()
             // really does, so this may need to be substituted later.
-            |child| std::cell::Ref::leak(child.borrow())
+            |child| Ref::leak(child.borrow())
         ).collect();
 
         // Otherwise, for each child, collect its intersections and aggregate.
         let mut all_intersections = Vec::new();
         for cr in children_refs.iter() {
-            all_intersections.push(cr.local_intersect(ray));
+            // Use regular intersect, otherwise transforms won't be applied
+            let is = intersect(cr, *ray);
+            all_intersections.push(is)
         }
 
         Intersections::aggregate(all_intersections)
@@ -1010,4 +1012,43 @@ fn adding_a_child_to_a_shape_group() {
 
     // Check that the child points to the parent Group.
     assert!(Weak::ptr_eq(&s.borrow().parent, &Rc::downgrade(&g)));
+}
+
+#[test]
+fn intersecting_ray_with_empty_group() {
+    let g = Shape::group();
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, 0.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+
+    let is = g.local_intersect(&r);
+    assert!(is.intersections.is_empty())
+}
+
+#[test]
+fn intersecting_ray_with_nonempty_group() {
+    let g = Rc::new(RefCell::new(Shape::group()));
+    let s1 = Rc::new(RefCell::new(Shape::sphere()));
+    let s2 = Rc::new(RefCell::new(Shape::sphere()));
+    s2.borrow_mut().transform = Matrix4D::translation(0.0, 0.0, -3.0);
+    let s3 = Rc::new(RefCell::new(Shape::sphere()));
+    s3.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
+
+    add_child_to_group(Rc::clone(&g), Rc::clone(&s1));
+    add_child_to_group(Rc::clone(&g), Rc::clone(&s2));
+    add_child_to_group(Rc::clone(&g), Rc::clone(&s3));
+
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, -5.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+
+    let gb = g.borrow();
+    let is = gb.local_intersect(&r);
+    assert_eq!(is.intersections.len(), 4);
+    assert!(std::ptr::eq(is.intersections[0].what, Ref::leak(s2.borrow())));
+    assert!(std::ptr::eq(is.intersections[1].what, Ref::leak(s2.borrow())));
+    assert!(std::ptr::eq(is.intersections[2].what, Ref::leak(s1.borrow())));
+    assert!(std::ptr::eq(is.intersections[3].what, Ref::leak(s1.borrow())));
 }
