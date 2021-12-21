@@ -9,7 +9,7 @@ use crate::matrix::Matrix4D;
 use crate::intersect::{ Intersection, Intersections };
 
 #[derive(Debug)]
-pub enum ShapeNodeType {
+pub enum ShapeType {
     /// An empty shape which does nothing. Mostly for testing.
     Empty,
 
@@ -34,7 +34,7 @@ pub enum ShapeNodeType {
 
 #[derive(Debug)]
 pub struct ShapeNode {
-    pub ty: ShapeNodeType, 
+    pub ty: ShapeType, 
     parent: Weak<RefCell<ShapeNode>>,
 
     pub transform: Matrix4D,
@@ -45,7 +45,7 @@ impl ShapeNode {
     /// Creates an empty shape which does nothing. Mostly for testing.
     pub fn empty() -> ShapeNode {
         ShapeNode {
-            ty: ShapeNodeType::Empty,
+            ty: ShapeType::Empty,
             parent: Weak::new(),
             transform: Matrix4D::identity(),
             material: Default::default(),
@@ -55,7 +55,7 @@ impl ShapeNode {
     /// Creates a unit sphere with identity transform and default material.
     pub fn sphere() -> ShapeNode {
         ShapeNode {
-            ty: ShapeNodeType::Sphere,
+            ty: ShapeType::Sphere,
             parent: Weak::new(),
             transform: Matrix4D::identity(),
             material: Default::default(),
@@ -65,7 +65,7 @@ impl ShapeNode {
     /// Creates a plane with a normal pointing up along the Y axis.
     pub fn plane() -> ShapeNode {
         ShapeNode {
-            ty: ShapeNodeType::Plane(Tuple4D::vector(0.0, 1.0, 0.0)),
+            ty: ShapeType::Plane(Tuple4D::vector(0.0, 1.0, 0.0)),
             parent: Weak::new(),
             transform: Matrix4D::identity(),
             material: Default::default(),
@@ -75,7 +75,7 @@ impl ShapeNode {
     /// Creates a unit cube with identity transform and default material.
     pub fn cube() -> ShapeNode {
         ShapeNode {
-            ty: ShapeNodeType::Cube,
+            ty: ShapeType::Cube,
             parent: Weak::new(),
             transform: Matrix4D::identity(),
             material: Default::default(),
@@ -85,7 +85,7 @@ impl ShapeNode {
     /// Creates an infinitely long cylinder with no end caps.
     pub fn cylinder() -> ShapeNode {
         ShapeNode {
-            ty: ShapeNodeType::Cylinder(
+            ty: ShapeType::Cylinder(
                     -1.0 * std::f64::INFINITY,
                     std::f64::INFINITY,
                     false
@@ -99,7 +99,7 @@ impl ShapeNode {
     /// Creates a bounded cylinder without caps.
     pub fn bounded_cylinder(minimum: f64, maximum: f64) -> ShapeNode {
          ShapeNode {
-            ty: ShapeNodeType::Cylinder(minimum, maximum, false),
+            ty: ShapeType::Cylinder(minimum, maximum, false),
             parent: Weak::new(),
             transform: Matrix4D::identity(),
             material: Default::default(),
@@ -109,7 +109,7 @@ impl ShapeNode {
     /// Creates a bounded cylinder with caps.
     pub fn capped_cylinder(minimum: f64, maximum: f64) -> ShapeNode {
          ShapeNode {
-            ty: ShapeNodeType::Cylinder(minimum, maximum, true),
+            ty: ShapeType::Cylinder(minimum, maximum, true),
             parent: Weak::new(),
             transform: Matrix4D::identity(),
             material: Default::default(),
@@ -119,7 +119,7 @@ impl ShapeNode {
     /// Creates an infinitely long double-napped cone with no end caps.
     pub fn cone() -> ShapeNode {
         ShapeNode {
-            ty: ShapeNodeType::Cone(
+            ty: ShapeType::Cone(
                     -1.0 * std::f64::INFINITY,
                     std::f64::INFINITY,
                     false
@@ -132,7 +132,7 @@ impl ShapeNode {
 
     pub fn group() -> ShapeNode {
         ShapeNode {
-            ty: ShapeNodeType::Group(Vec::new()),
+            ty: ShapeType::Group(Vec::new()),
             parent: Weak::new(),
             transform: Matrix4D::identity(),
             material: Default::default(),
@@ -190,25 +190,25 @@ impl ShapeNode {
 
     pub fn local_intersect(&self, ray: &Ray4D) -> Intersections {
         match self.ty {
-            ShapeNodeType::Empty => Intersections::new(),
-            ShapeNodeType::Sphere => self.intersect_sphere(ray),
-            ShapeNodeType::Plane(_) => self.intersect_plane(ray),
-            ShapeNodeType::Cube => self.intersect_cube(ray),
-            ShapeNodeType::Cylinder(_, _, _) => self.intersect_cylinder(ray),
-            ShapeNodeType::Cone(_, _, _) => self.intersect_cone(ray),
-            ShapeNodeType::Group(_) => self.intersect_group(ray),
+            ShapeType::Empty => Intersections::new(),
+            ShapeType::Sphere => self.intersect_sphere(ray),
+            ShapeType::Plane(_) => self.intersect_plane(ray),
+            ShapeType::Cube => self.intersect_cube(ray),
+            ShapeType::Cylinder(_, _, _) => self.intersect_cylinder(ray),
+            ShapeType::Cone(_, _, _) => self.intersect_cone(ray),
+            ShapeType::Group(_) => self.intersect_group(ray),
         }
     }
 
     pub fn local_normal_at(&self, at: &Tuple4D) -> Tuple4D {
         match self.ty {
-            ShapeNodeType::Empty => Tuple4D { w: 0.0, ..*at },
-            ShapeNodeType::Sphere => self.normal_at_sphere(at),
-            ShapeNodeType::Plane(_) => self.normal_at_plane(at),
-            ShapeNodeType::Cube => self.normal_at_cube(at),
-            ShapeNodeType::Cylinder(_, _, _) => self.normal_at_cylinder(at),
-            ShapeNodeType::Cone(_, _, _) => self.normal_at_cone(at),
-            ShapeNodeType::Group(_) => panic!(
+            ShapeType::Empty => Tuple4D { w: 0.0, ..*at },
+            ShapeType::Sphere => self.normal_at_sphere(at),
+            ShapeType::Plane(_) => self.normal_at_plane(at),
+            ShapeType::Cube => self.normal_at_cube(at),
+            ShapeType::Cylinder(_, _, _) => self.normal_at_cylinder(at),
+            ShapeType::Cone(_, _, _) => self.normal_at_cone(at),
+            ShapeType::Group(_) => panic!(
                 "Local normal calculations should never occur on groups."
             ),
         }
@@ -225,7 +225,7 @@ impl ShapeNode {
     fn intersect_sphere(&self, ray: &Ray4D) -> Intersections {
         // Panic if intersect_sphere is being called on a non-sphere.
         match self.ty {
-            ShapeNodeType::Sphere => (),
+            ShapeType::Sphere => (),
             _ => unreachable!(),
         }
 
@@ -266,7 +266,7 @@ impl ShapeNode {
     fn normal_at_sphere(&self, at: &Tuple4D) -> Tuple4D {
         // Panic if normal_at_sphere is being called on a non-sphere.
         match self.ty {
-            ShapeNodeType::Sphere => (),
+            ShapeType::Sphere => (),
             _ => unreachable!(),
         }
 
@@ -276,7 +276,7 @@ impl ShapeNode {
     fn intersect_plane(&self, ray: &Ray4D) -> Intersections {
         // Extract plane normal, panic if this isn't a plane.
         let _normal = match self.ty {
-            ShapeNodeType::Plane(n) => n,
+            ShapeType::Plane(n) => n,
             _ => unreachable!(),
         };
 
@@ -295,7 +295,7 @@ impl ShapeNode {
     fn normal_at_plane(&self, _at: &Tuple4D) -> Tuple4D {
         // Extract plane normal, panic if this isn't a plane.
         match self.ty {
-            ShapeNodeType::Plane(n) => n.clone(),
+            ShapeType::Plane(n) => n.clone(),
             _ => unreachable!(),
         }
     }
@@ -303,7 +303,7 @@ impl ShapeNode {
     fn intersect_cube(&self, ray: &Ray4D) -> Intersections {
         // Panic if this isn't a cube.
         match self.ty {
-            ShapeNodeType::Cube => (),
+            ShapeType::Cube => (),
             _ => unreachable!(),
         }
 
@@ -333,7 +333,7 @@ impl ShapeNode {
     fn normal_at_cube(&self, p: &Tuple4D) -> Tuple4D {
         // Panic if this isn't a cube.
         match self.ty {
-            ShapeNodeType::Cube => (),
+            ShapeType::Cube => (),
             _ => unreachable!(),
         }
 
@@ -353,7 +353,7 @@ impl ShapeNode {
 
     fn intersect_cylinder(&self, ray: &Ray4D) -> Intersections {
         let (minimum, maximum) = match self.ty {
-            ShapeNodeType::Cylinder(min, max, _) => (min, max),
+            ShapeType::Cylinder(min, max, _) => (min, max),
             _ => unreachable!(),
         };
 
@@ -414,7 +414,7 @@ impl ShapeNode {
 
     fn normal_at_cylinder(&self, at: &Tuple4D) -> Tuple4D {
         let (minimum, maximum) = match self.ty {
-            ShapeNodeType::Cylinder(min, max, _) => (min, max),
+            ShapeType::Cylinder(min, max, _) => (min, max),
             _ => unreachable!(),
         };
 
@@ -437,7 +437,7 @@ impl ShapeNode {
 
     fn intersect_cone(&self, ray: &Ray4D) -> Intersections {
         let (minimum, maximum) = match self.ty {
-            ShapeNodeType::Cone(min, max, _) => (min, max),
+            ShapeType::Cone(min, max, _) => (min, max),
             _ => unreachable!(),
         };
 
@@ -512,7 +512,7 @@ impl ShapeNode {
 
     fn normal_at_cone(&self, at: &Tuple4D) -> Tuple4D {
         let (minimum, maximum) = match self.ty {
-            ShapeNodeType::Cone(min, max, _) => (min, max),
+            ShapeType::Cone(min, max, _) => (min, max),
             _ => unreachable!(),
         };
 
@@ -540,7 +540,7 @@ impl ShapeNode {
 
     fn intersect_group(&self, ray: &Ray4D) -> Intersections {
         let children = match self.ty {
-            ShapeNodeType::Group(ref c) => c,
+            ShapeType::Group(ref c) => c,
             _ => unreachable!(),
         };
 
@@ -601,7 +601,7 @@ impl ShapeNode {
     fn intersect_cylinder_caps<'a>(&'a self, ray: &Ray4D,
         is: &mut Intersections<'a>) {
         let (minimum, maximum, closed) = match self.ty {
-            ShapeNodeType::Cylinder(min, max, c) => (min, max, c),
+            ShapeType::Cylinder(min, max, c) => (min, max, c),
             _ => unreachable!(),
         };
 
@@ -635,7 +635,7 @@ impl ShapeNode {
     fn intersect_cone_caps<'a>(&'a self, ray: &Ray4D,
         is: &mut Intersections<'a>) {
         let (minimum, maximum, closed) = match self.ty {
-            ShapeNodeType::Cone(min, max, c) => (min, max, c),
+            ShapeType::Cone(min, max, c) => (min, max, c),
             _ => unreachable!(),
         };
 
@@ -670,7 +670,7 @@ pub fn add_child_to_group(group: Rc<RefCell<ShapeNode>>,
 
     let mut gb = group.borrow_mut();
     let children = match gb.ty {
-        ShapeNodeType::Group(ref mut c) => c,
+        ShapeType::Group(ref mut c) => c,
         _ => panic!("Cannot add child to non-group shape."),
     };
 
@@ -996,7 +996,7 @@ fn hit_should_offset_point() {
 fn creating_a_shape_group() {
     let g = ShapeNode::group();
     let children = match g.ty {
-        ShapeNodeType::Group(ref c) => c,
+        ShapeType::Group(ref c) => c,
         _ => unreachable!(),
     };
 
@@ -1021,7 +1021,7 @@ fn adding_a_child_to_a_shape_group() {
 
     let gb = g.borrow();
     let children = match gb.ty {
-        ShapeNodeType::Group(ref c) => c,
+        ShapeType::Group(ref c) => c,
         _ => unreachable!(),
     };
 

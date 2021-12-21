@@ -5,7 +5,7 @@ use std::cell::RefCell;
 
 use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
-use crate::shape::{ ShapeNode, ShapeNodeType };
+use crate::shape::{ ShapeNode, ShapeType };
 
 #[derive(Copy, Clone, Default)]
 pub struct Projectile {
@@ -44,7 +44,7 @@ pub fn hexagon_corner() -> ShapeNode {
 
 pub fn hexagon_edge() -> ShapeNode {
     let mut edge = ShapeNode::cylinder();
-    if let ShapeNodeType::Cylinder(ref mut min, ref mut max, _) = edge.ty {
+    if let ShapeType::Cylinder(ref mut min, ref mut max, _) = edge.ty {
         *min = 0.0;
         *max = 1.0;
     }
