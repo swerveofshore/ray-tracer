@@ -34,7 +34,7 @@ pub enum ShapeType {
 
 #[derive(Debug)]
 pub struct Shape {
-    ty: ShapeType, 
+    pub ty: ShapeType, 
     parent: Weak<RefCell<Shape>>,
 
     pub transform: Matrix4D,
