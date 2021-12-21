@@ -155,6 +155,39 @@ impl Shape {
         &mut self.material
     }
 
+    pub fn world_to_object(&self, mut point: Tuple4D) -> Tuple4D {
+        // If the current object has a parent, convert the parent point to
+        // object space first.
+        if let Some(parent) = self.parent.upgrade() {
+            point = parent.borrow().world_to_object(point);
+        }
+
+        let trans_inv = self.transform.inverse().expect(
+            "Shape transform should be invertible."
+        );
+
+        // Then, convert the leaf (youngest child) point to object space.
+        trans_inv * point
+    }
+
+    pub fn normal_to_world(&self, mut normal: Tuple4D) -> Tuple4D {
+        let trans_inv = self.transform.inverse().expect(
+            "Shape transform should be invertible."
+        );
+
+        normal = trans_inv.transposition() * normal;
+        normal.w = 0.0;
+        normal = normal.normalize();
+
+        // If the current object has a parent, convert the normal to the
+        // parent's world space.
+        if let Some(parent) = self.parent.upgrade() {
+            normal = parent.borrow().normal_to_world(normal);
+        }
+
+        normal
+    }
+
     pub fn local_intersect(&self, ray: &Ray4D) -> Intersections {
         match self.ty {
             ShapeType::Empty => Intersections::new(),
@@ -629,39 +662,6 @@ impl Shape {
         let z = ray.origin.z + t * ray.direction.z;
 
         x.powi(2) + z.powi(2) <= y.powi(2)
-    }
-
-    fn world_to_object(&self, mut point: Tuple4D) -> Tuple4D {
-        // If the current object has a parent, convert the parent point to
-        // object space first.
-        if let Some(parent) = self.parent.upgrade() {
-            point = parent.borrow().world_to_object(point);
-        }
-
-        let trans_inv = self.transform.inverse().expect(
-            "Shape transform should be invertible."
-        );
-
-        // Then, convert the leaf (youngest child) point to object space.
-        trans_inv * point
-    }
-
-    fn normal_to_world(&self, mut normal: Tuple4D) -> Tuple4D {
-        let trans_inv = self.transform.inverse().expect(
-            "Shape transform should be invertible."
-        );
-
-        normal = trans_inv.transposition() * normal;
-        normal.w = 0.0;
-        normal = normal.normalize();
-
-        // If the current object has a parent, convert the normal to the
-        // parent's world space.
-        if let Some(parent) = self.parent.upgrade() {
-            normal = parent.borrow().normal_to_world(normal);
-        }
-
-        normal
     }
 }
 

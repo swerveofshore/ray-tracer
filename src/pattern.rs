@@ -196,15 +196,12 @@ impl Pattern {
     /// `Shape`).
     pub fn pattern_at_object(&self, object: &Shape, p: Tuple4D)
         -> Color {
-        let oti = object.transform().inverse().expect(
-            "Object transform should be invertible."
-        );
-
         let pti = self.transform.inverse().expect(
             "Pattern transform should be invertible."
         );
 
-        let object_point = oti * p;
+        // Note that we need to use `world_to_object` for shape groups.
+        let object_point = object.world_to_object(p);
         let pattern_point = pti * object_point;
 
         self.pattern_at(pattern_point)
