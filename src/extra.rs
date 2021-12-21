@@ -5,7 +5,7 @@ use std::cell::RefCell;
 
 use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
-use crate::shape::{ ShapeNode, ShapeType };
+use crate::shape::{ add_child_to_group, ShapePtr, ShapeNode, ShapeType };
 
 #[derive(Copy, Clone, Default)]
 pub struct Projectile {
@@ -57,10 +57,32 @@ pub fn hexagon_edge() -> ShapeNode {
     edge
 }
 
-/*
-// TODO: How to insert a ShapeNode in a World, when the World needs to own the
-// ShapeNode? (Can't use Rc<T>s without making the World use them).
-pub fn hexagon() -> ShapeNode {
-    let hex = Rc::new(RefCell::new(ShapeNode::group()));
+pub fn hexagon_side() -> ShapePtr {
+    let side = Rc::new(RefCell::new(ShapeNode::group()));
+
+    add_child_to_group(
+        Rc::clone(&side),
+        Rc::new(RefCell::new(hexagon_corner()))
+    );
+
+    add_child_to_group(
+        Rc::clone(&side),
+        Rc::new(RefCell::new(hexagon_edge()))
+    );
+
+    side
 }
-*/
+
+pub fn hexagon() -> ShapePtr {
+    let hex = Rc::new(RefCell::new(ShapeNode::group()));
+
+    for n in 0..=5 {
+        let side = hexagon_side();
+        side.borrow_mut().transform
+            = Matrix4D::rotation_y(n as f64 * std::f64::consts::PI / 3.0);
+        
+        add_child_to_group(Rc::clone(&hex), Rc::clone(&side));
+    }
+
+    hex
+}
