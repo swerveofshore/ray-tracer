@@ -1,3 +1,6 @@
+use std::rc::Rc;
+use std::cell::RefCell;
+
 use ray_tracer_challenge::tuple::Tuple4D;
 use ray_tracer_challenge::matrix::Matrix4D;
 use ray_tracer_challenge::shape::ShapeNode;
@@ -51,9 +54,9 @@ fn main() {
     );
 
     world.objects = vec![
-        backdrop,
-        parent,
-        child_01
+        Rc::new(RefCell::new(backdrop)),
+        Rc::new(RefCell::new(parent)),
+        Rc::new(RefCell::new(child_01))
     ];
 
     let mut camera = Camera::new(CANVAS_WIDTH, CANVAS_HEIGHT,

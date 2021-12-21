@@ -1,8 +1,11 @@
+use std::rc::Rc;
+use std::cell::{ Ref, RefCell };
+
 use crate::feq;
 use crate::ray::Ray4D;
 use crate::tuple::Tuple4D;
 use crate::color::Color;
-use crate::shape::ShapeNode;
+use crate::shape::{ ShapePtr, ShapeNode };
 use crate::matrix::Matrix4D;
 use crate::light::{ PointLight, Material, lighting };
 use crate::intersect::{ Intersections, IntersectionComputation };
@@ -15,7 +18,7 @@ use crate::shape::intersect;
 /// Worlds collect all objects as well as light for rendering. Most logic is
 /// performed within worlds for the ray tracer.
 pub struct World {
-    pub objects: Vec<ShapeNode>,
+    pub objects: Vec<ShapePtr>,
     pub light_source: PointLight,
 }
 
@@ -37,7 +40,10 @@ impl Default for World {
         *s2.transform_mut() = Matrix4D::scaling(0.5, 0.5, 0.5);
 
         World {
-            objects: vec![s1, s2],
+            objects: vec![
+                Rc::new(RefCell::new(s1)),
+                Rc::new(RefCell::new(s2))
+            ],
             light_source
         }
     }
@@ -55,36 +61,18 @@ impl World {
     }
 
     /// Gets a reference to the first object in a world.
-    pub fn first(&self) -> Option<&ShapeNode> {
+    pub fn first(&self) -> Option<ShapePtr> {
         if self.objects.len() > 0 {
-            Some(&self.objects[0])
-        } else {
-            None
-        }
-    }
-
-    /// Gets a mutable reference to the first object in a world.
-    pub fn first_mut(&mut self) -> Option<&mut ShapeNode> {
-        if self.objects.len() > 0 {
-            Some(&mut self.objects[0])
+            Some(Rc::clone(&self.objects[0]))
         } else {
             None
         }
     }
 
     /// Gets a reference to the second object in a world.
-    pub fn second(&self) -> Option<&ShapeNode> {
+    pub fn second(&self) -> Option<ShapePtr> {
         if self.objects.len() > 1 {
-            Some(&self.objects[1])
-        } else {
-            None
-        }
-    }
-
-    /// Gets a mutable reference to the second objet in a world.
-    pub fn second_mut(&mut self) -> Option<&mut ShapeNode> {
-        if self.objects.len() > 1 {
-            Some(&mut self.objects[1])
+            Some(Rc::clone(&self.objects[1]))
         } else {
             None
         }
@@ -98,7 +86,8 @@ impl World {
     pub fn intersect(&self, r: Ray4D) -> Intersections {
         let mut intersections: Intersections = Intersections::new();
         for obj in self.objects.iter() {
-            let mut is: Intersections = intersect(&obj, r);
+            // Note: leak has to occur here due to lifetime on Ref struct.
+            let mut is: Intersections = intersect(Ref::leak(obj.borrow()), r);
             intersections.intersections.append(&mut is.intersections);
         }
 
@@ -272,7 +261,7 @@ fn shade_intersection_from_outside() {
     );
 
     let shape = w.first().expect("Default world should contain objects.");
-    let i = Intersection { t: 4.0, what: shape };
+    let i = Intersection { t: 4.0, what: Ref::leak(shape.borrow()) };
 
     let comps = IntersectionComputation::new(&r, &i, None);
     let c = w.shade_hit(&comps, REFLECTION_RECURSION_DEPTH);
@@ -297,7 +286,7 @@ fn shade_intersection_from_inside() {
     );
 
     let shape = w.second().expect("Default world should contain objects.");
-    let i = Intersection { t: 0.5, what: shape };
+    let i = Intersection { t: 0.5, what: Ref::leak(shape.borrow()) };
 
     let comps = IntersectionComputation::new(&r, &i, None);
     let c = w.shade_hit(&comps, REFLECTION_RECURSION_DEPTH);
@@ -317,18 +306,22 @@ fn shade_intersection_in_shadow() {
     );
 
     let s1 = ShapeNode::sphere();
-    w.objects.push(s1);
+    w.objects.push(Rc::new(RefCell::new(s1)));
 
     let mut s2 = ShapeNode::sphere();
     s2.transform = Matrix4D::translation(0.0, 0.0, 10.0);
-    w.objects.push(s2);
+    w.objects.push(Rc::new(RefCell::new(s2)));
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, 5.0),
         Tuple4D::vector(0.0, 0.0, 1.0),
     );
 
-    let i = Intersection { t: 4.0, what: w.second().unwrap() };
+    let temp = w.second().unwrap();
+    let i = Intersection {
+        t: 4.0,
+        what: Ref::leak(temp.borrow())
+    };
     let comps = IntersectionComputation::new(&r, &i, None);
     let c = w.shade_hit(&comps, REFLECTION_RECURSION_DEPTH);
 
@@ -370,12 +363,12 @@ fn color_behind_ray() {
 
     let mut w: World = Default::default();
     {
-        let outer = w.first_mut().unwrap();
-        outer.material_mut().ambient = 1.0;
+        let outer = w.first().unwrap();
+        outer.borrow_mut().material_mut().ambient = 1.0;
     }
     {
-        let inner_mut = w.second_mut().unwrap();
-        inner_mut.material_mut().ambient = 1.0;
+        let inner_mut = w.second().unwrap();
+        inner_mut.borrow_mut().material_mut().ambient = 1.0;
     }
 
     let r = Ray4D::new(
@@ -385,7 +378,8 @@ fn color_behind_ray() {
 
     let inner_color = {
         let inner = w.second().unwrap();
-        inner.material().color
+        let c = inner.borrow().material().color;
+        c
     };
     assert_eq!(w.color_at(r, REFLECTION_RECURSION_DEPTH), inner_color);
 }
@@ -435,12 +429,15 @@ fn reflected_color_for_nonreflective_material() {
     );
 
     {
-        let s = w.second_mut().unwrap();
-        s.material_mut().ambient = 1.0;
+        let s = w.second().unwrap();
+        s.borrow_mut().material_mut().ambient = 1.0;
     }
 
     let s = w.second().unwrap();
-    let i = Intersection { t: 1.0, what: s };
+    let i = Intersection {
+        t: 1.0,
+        what: Ref::leak(s.borrow())
+    };
     let comps = IntersectionComputation::new(&r, &i, None);
 
     assert_eq!(
@@ -460,14 +457,17 @@ fn reflected_color_for_reflective_material() {
     s.transform = Matrix4D::translation(0.0, -1.0, 0.0);
 
     let mut w: World = Default::default();
-    w.objects.push(s);
+    w.objects.push(Rc::new(RefCell::new(s)));
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -3.0),
         Tuple4D::vector(0.0, -(2.0f64.sqrt()) / 2.0, (2.0f64.sqrt()) / 2.0)
     );
 
-    let i = Intersection { t: 2.0f64.sqrt(), what: &w.objects[2] };
+    let i = Intersection {
+        t: 2.0f64.sqrt(),
+        what: Ref::leak(w.objects[2].borrow())
+    };
     let comps = IntersectionComputation::new(&r, &i, None);
 
     assert_eq!(
@@ -487,14 +487,17 @@ fn shade_hit_with_reflective_material() {
     s.transform = Matrix4D::translation(0.0, -1.0, 0.0);
 
     let mut w: World = Default::default();
-    w.objects.push(s);
+    w.objects.push(Rc::new(RefCell::new(s)));
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -3.0),
         Tuple4D::vector(0.0, -(2.0f64.sqrt()) / 2.0, (2.0f64.sqrt()) / 2.0)
     );
 
-    let i = Intersection { t: 2.0f64.sqrt(), what: &w.objects[2] };
+    let i = Intersection {
+        t: 2.0f64.sqrt(),
+        what: Ref::leak(w.objects[2].borrow())
+    };
     let comps = IntersectionComputation::new(&r, &i, None);
 
     assert_eq!(
@@ -518,8 +521,8 @@ fn refracted_color_on_opaque_material() {
 
     let is = Intersections {
         intersections: vec![
-            Intersection { t: 4.0, what: s },
-            Intersection { t: 6.0, what: s },
+            Intersection { t: 4.0, what: Ref::leak(s.borrow()) },
+            Intersection { t: 6.0, what: Ref::leak(s.borrow()) },
         ]
     };
 
@@ -539,9 +542,9 @@ fn refracted_color_at_max_recursion_depth() {
 
     let mut w: World = Default::default();
     {
-        let s = w.first_mut().unwrap();
-        s.material_mut().transparency = 1.0;
-        s.material_mut().refractive_index = 1.5;
+        let s = w.first().unwrap();
+        s.borrow_mut().material_mut().transparency = 1.0;
+        s.borrow_mut().material_mut().refractive_index = 1.5;
     }
     let s = w.first().unwrap();
 
@@ -552,8 +555,8 @@ fn refracted_color_at_max_recursion_depth() {
 
     let is = Intersections {
         intersections: vec![
-            Intersection { t: 4.0, what: s },
-            Intersection { t: 6.0, what: s },
+            Intersection { t: 4.0, what: Ref::leak(s.borrow()) },
+            Intersection { t: 6.0, what: Ref::leak(s.borrow()) },
         ]
     };
 
@@ -574,9 +577,9 @@ fn refracted_color_under_total_internal_reflection() {
 
     let mut w: World = Default::default();
     {
-        let s = w.first_mut().unwrap();
-        s.material_mut().transparency = 1.0;
-        s.material_mut().refractive_index = 1.5;
+        let s = w.first().unwrap();
+        s.borrow_mut().material_mut().transparency = 1.0;
+        s.borrow_mut().material_mut().refractive_index = 1.5;
     }
     let s = w.first().unwrap();
 
@@ -587,8 +590,14 @@ fn refracted_color_under_total_internal_reflection() {
 
     let is = Intersections {
         intersections: vec![
-            Intersection { t: -(2.0f64.sqrt()) / 2.0, what: s },
-            Intersection { t: 2.0f64.sqrt() / 2.0, what: s },
+            Intersection {
+                t: -(2.0f64.sqrt()) / 2.0,
+                what: Ref::leak(s.borrow())
+            },
+            Intersection {
+                t: 2.0f64.sqrt() / 2.0,
+                what: Ref::leak(s.borrow())
+            },
         ]
     };
 
@@ -609,14 +618,14 @@ fn refracted_color_with_refracted_ray() {
 
     let mut w: World = Default::default();
     {
-        let a = w.first_mut().unwrap();
-        a.material_mut().ambient = 1.0;
-        a.material_mut().pattern = Some(Pattern::point());
+        let a = w.first().unwrap();
+        a.borrow_mut().material_mut().ambient = 1.0;
+        a.borrow_mut().material_mut().pattern = Some(Pattern::point());
     }
     {
-        let b = w.second_mut().unwrap();
-        b.material_mut().transparency = 1.0;
-        b.material_mut().refractive_index = 1.5;
+        let b = w.second().unwrap();
+        b.borrow_mut().material_mut().transparency = 1.0;
+        b.borrow_mut().material_mut().refractive_index = 1.5;
     }
 
     let a = w.first().unwrap();
@@ -629,10 +638,10 @@ fn refracted_color_with_refracted_ray() {
 
     let is = Intersections {
         intersections: vec![
-            Intersection { t: -0.9899, what: a },
-            Intersection { t: -0.4899, what: b },
-            Intersection { t:  0.4899, what: b },
-            Intersection { t:  0.9899, what: a },
+            Intersection { t: -0.9899, what: Ref::leak(a.borrow()) },
+            Intersection { t: -0.4899, what: Ref::leak(b.borrow()) },
+            Intersection { t:  0.4899, what: Ref::leak(b.borrow()) },
+            Intersection { t:  0.9899, what: Ref::leak(a.borrow()) },
         ]
     };
 
@@ -663,8 +672,8 @@ fn shade_hit_with_transparent_material() {
     ball.material.ambient = 0.5;
     ball.transform = Matrix4D::translation(0.0, -3.5, -0.5);
 
-    w.objects.push(floor);
-    w.objects.push(ball);
+    w.objects.push(Rc::new(RefCell::new(floor)));
+    w.objects.push(Rc::new(RefCell::new(ball)));
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -3.0),
@@ -673,7 +682,10 @@ fn shade_hit_with_transparent_material() {
 
     let is = Intersections {
         intersections: vec![
-            Intersection { t: 2.0f64.sqrt(), what: &w.objects[2] }
+            Intersection {
+                t: 2.0f64.sqrt(),
+                what: Ref::leak(w.objects[2].borrow())
+            }
         ]
     };
 
@@ -705,8 +717,8 @@ fn shade_hit_with_reflective_transparent_material() {
     ball.material.ambient = 0.5;
     ball.transform = Matrix4D::translation(0.0, -3.5, -0.5);
 
-    w.objects.push(floor);
-    w.objects.push(ball);
+    w.objects.push(Rc::new(RefCell::new(floor)));
+    w.objects.push(Rc::new(RefCell::new(ball)));
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -3.0),
@@ -715,7 +727,10 @@ fn shade_hit_with_reflective_transparent_material() {
 
     let is = Intersections {
         intersections: vec![
-            Intersection { t: 2.0f64.sqrt(), what: &w.objects[2] }
+            Intersection {
+                t: 2.0f64.sqrt(),
+                what: Ref::leak(w.objects[2].borrow())
+            }
         ]
     };
 

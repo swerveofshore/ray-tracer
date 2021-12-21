@@ -8,6 +8,8 @@ use crate::light::Material;
 use crate::matrix::Matrix4D;
 use crate::intersect::{ Intersection, Intersections };
 
+pub type ShapePtr = Rc<RefCell<ShapeNode>>;
+
 #[derive(Debug)]
 pub enum ShapeType {
     /// An empty shape which does nothing. Mostly for testing.
@@ -116,14 +118,20 @@ impl ShapeNode {
         }       
     }
 
-    /// Creates an infinitely long double-napped cone with no end caps.
-    pub fn cone() -> ShapeNode {
+    /// Creates an bounded double-napped cone with no end caps.
+    pub fn bounded_cone(minimum: f64, maximum: f64) -> ShapeNode {
         ShapeNode {
-            ty: ShapeType::Cone(
-                    -1.0 * std::f64::INFINITY,
-                    std::f64::INFINITY,
-                    false
-                ),
+            ty: ShapeType::Cone(minimum, maximum, false),
+            parent: Weak::new(),
+            transform: Matrix4D::identity(),
+            material: Default::default(),
+        }
+    }
+
+    /// Creates a double-napped cone with end caps.
+    pub fn capped_cone(minimum: f64, maximum: f64) -> ShapeNode {
+        ShapeNode {
+            ty: ShapeType::Cone(minimum, maximum, true),
             parent: Weak::new(),
             transform: Matrix4D::identity(),
             material: Default::default(),
