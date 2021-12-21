@@ -1,13 +1,18 @@
-use crate::tuple::Tuple4D;
+#![allow(unused)]
 
-#[allow(unused)]
+use std::rc::Rc;
+use std::cell::RefCell;
+
+use crate::tuple::Tuple4D;
+use crate::matrix::Matrix4D;
+use crate::shape::{ Shape, ShapeType };
+
 #[derive(Copy, Clone, Default)]
 pub struct Projectile {
     pub pos: Tuple4D,
     pub vel: Tuple4D,
 }
 
-#[allow(unused)]
 #[derive(Copy, Clone, Default)]
 pub struct Environment {
     pub grav: Tuple4D,
@@ -28,3 +33,34 @@ impl Environment {
         Projectile { pos, vel }
     }
 }
+
+pub fn hexagon_corner() -> Shape {
+    let mut corner = Shape::sphere();
+    corner.transform = Matrix4D::translation(0.0, 0.0, -1.0)
+        * Matrix4D::scaling(0.25, 0.25, 0.25);
+
+    corner
+}
+
+pub fn hexagon_edge() -> Shape {
+    let mut edge = Shape::cylinder();
+    if let ShapeType::Cylinder(ref mut min, ref mut max, _) = edge.ty {
+        *min = 0.0;
+        *max = 1.0;
+    }
+
+    edge.transform = Matrix4D::translation(0.0, 0.0, -1.0)
+        * Matrix4D::rotation_y(-std::f64::consts::PI / 6.0)
+        * Matrix4D::rotation_z(-std::f64::consts::PI / 2.0)
+        * Matrix4D::scaling(0.25, 1.0, 0.25);
+
+    edge
+}
+
+/*
+// TODO: How to insert a Shape in a World, when the World needs to own the
+// Shape? (Can't use Rc<T>s without making the World use them).
+pub fn hexagon() -> Shape {
+    let hex = Rc::new(RefCell::new(Shape::group()));
+}
+*/
