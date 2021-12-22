@@ -13,7 +13,7 @@ fn main() {
     let mut world = World::empty();
 
     world.light_source = PointLight::new(
-        Color::rgb(1.0, 0.8, 0.6),
+        Color::rgb(0.6, 0.8, 1.0),
         Tuple4D::point(-10.0, 10.0, -10.0),
     );
 
