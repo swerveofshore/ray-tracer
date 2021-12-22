@@ -16,6 +16,7 @@ pub mod world;
 pub mod camera;
 pub mod canvas;
 
+pub mod obj;
 pub mod extra;
 pub mod consts;
 
