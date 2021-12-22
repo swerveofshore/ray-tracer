@@ -10,6 +10,34 @@ use crate::intersect::{ Intersection, Intersections };
 
 pub type ShapePtr = Rc<RefCell<ShapeNode>>;
 
+/// Info associated with a Triangle shape.
+///
+/// Fields `p1`, `p2` and `p3` define the points of the `Triangle` in space.
+/// These fields are supplied by the entity instantiating the `Triangle`.
+///
+/// Fields `e1`, `e2` and `normal` are calculated on instantiation. The `e1`
+/// and `e2  fields are edges of the triangle, and `normal` is normal to the
+/// face of the triangle.
+#[derive(Debug)]
+pub struct TriangleInfo {
+    pub p1: Tuple4D,
+    pub p2: Tuple4D,
+    pub p3: Tuple4D,
+
+    e1: Tuple4D,
+    e2: Tuple4D,
+    normal: Tuple4D,
+}
+
+impl TriangleInfo {
+    fn new(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D) -> TriangleInfo {
+        let e1 = p2 - p1;
+        let e2 = p3 - p1;
+        let normal = e2.cross(&e1).normalize();
+        TriangleInfo { p1, p2, p3, e1, e2, normal }
+    }
+}
+
 #[derive(Debug)]
 pub enum ShapeType {
     /// An empty shape which does nothing. Mostly for testing.
@@ -29,6 +57,11 @@ pub enum ShapeType {
 
     /// A plane with a normal vector which stretches indefinitely along X and Y.
     Plane(Tuple4D),
+
+    /// A triangle. See TriangleInfo for further explanation.
+    // NOTE: As an aside, this is kind of a downside of using enums; it's not
+    // easy to associate data with new variants.
+    Triangle(TriangleInfo),
 
     /// A group of shapes. Can include other groups of shapes.
     Group(Vec<Rc<RefCell<ShapeNode>>>),
@@ -138,6 +171,16 @@ impl ShapeNode {
         }
     }
 
+    /// Creates a triangle, defined by three points in space.
+    pub fn triangle(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D) -> ShapeNode {
+        ShapeNode {
+            ty: ShapeType::Triangle(TriangleInfo::new(p1, p2, p3)),
+            parent: Weak::new(),
+            transform: Matrix4D::identity(),
+            material: Default::default(),
+        }
+    }
+
     pub fn group() -> ShapeNode {
         ShapeNode {
             ty: ShapeType::Group(Vec::new()),
@@ -204,6 +247,7 @@ impl ShapeNode {
             ShapeType::Cube => self.intersect_cube(ray),
             ShapeType::Cylinder(_, _, _) => self.intersect_cylinder(ray),
             ShapeType::Cone(_, _, _) => self.intersect_cone(ray),
+            ShapeType::Triangle(_) => self.intersect_triangle(ray),
             ShapeType::Group(_) => self.intersect_group(ray),
         }
     }
@@ -216,6 +260,7 @@ impl ShapeNode {
             ShapeType::Cube => self.normal_at_cube(at),
             ShapeType::Cylinder(_, _, _) => self.normal_at_cylinder(at),
             ShapeType::Cone(_, _, _) => self.normal_at_cone(at),
+            ShapeType::Triangle(_) => self.normal_at_triangle(at),
             ShapeType::Group(_) => panic!(
                 "Local normal calculations should never occur on groups."
             ),
@@ -573,6 +618,52 @@ impl ShapeNode {
         }
 
         Intersections::aggregate(all_intersections)
+    }
+
+    fn intersect_triangle(&self, ray: &Ray4D) -> Intersections {
+        let triangle_info = match self.ty {
+            ShapeType::Triangle(ref ti) => ti,
+            _ => unreachable!(),
+        };
+
+        let dir_cross_e2 = ray.direction.cross(&triangle_info.e2);
+        let determinant = triangle_info.e1.dot(&dir_cross_e2);
+
+        // If the ray is parallel to the triangle, return no intersections.
+        if determinant.abs() < FEQ_EPSILON {
+            return Intersections::new();
+        }
+
+        let f = 1.0 / determinant;
+        let p1_to_origin = ray.origin - triangle_info.p1;
+        let u = f * p1_to_origin.dot(&dir_cross_e2);
+        if u < 0.0 {
+            return Intersections::new();
+        }
+
+        let origin_cross_e1 = p1_to_origin.cross(&triangle_info.e1);
+        let v = f * ray.direction.dot(&origin_cross_e1);
+        if v < 0.0 || u + v > 1.0 {
+            return Intersections::new();
+        }
+
+        // If an intersection has occurred, return it.
+        // Note that triangles can only be intersected on one side.
+        let t = f * triangle_info.e2.dot(&origin_cross_e1);
+        Intersections {
+            intersections: vec![
+                Intersection { t, what: &self }
+            ],
+        }
+    }
+
+    fn normal_at_triangle(&self, _at: &Tuple4D) -> Tuple4D {
+        let triangle_info = match self.ty {
+            ShapeType::Triangle(ref ti) => ti,
+            _ => unreachable!(),
+        };
+
+        triangle_info.normal
     }
 
     /// Gets the min and max intersection offsets along an axis of a cube.
@@ -1170,4 +1261,122 @@ fn finding_the_normal_on_a_child_object() {
         Tuple4D::point(1.7321, 1.1547, -5.5774)
     );
     assert_eq!(normal, Tuple4D::vector(0.2857, 0.4286, -0.8571));
+}
+
+#[test]
+fn constructing_a_triangle() {
+    let p1 = Tuple4D::point(0.0, 1.0, 0.0);
+    let p2 = Tuple4D::point(-1.0, 0.0, 0.0);
+    let p3 = Tuple4D::point(1.0, 0.0, 0.0);
+    let t = ShapeNode::triangle(p1, p2, p3);
+
+    if let ShapeType::Triangle(ti) = t.ty {
+        assert_eq!(ti.p1, p1);
+        assert_eq!(ti.p2, p2);
+        assert_eq!(ti.p3, p3);
+        assert_eq!(ti.e1, Tuple4D::vector(-1.0, -1.0, 0.0));
+        assert_eq!(ti.e2, Tuple4D::vector(1.0, -1.0, 0.0));
+        assert_eq!(ti.normal, Tuple4D::vector(0.0, 0.0, -1.0));
+    } else {
+        unreachable!();
+    }
+}
+
+#[test]
+fn finding_the_normal_on_a_triangle() {
+    let p1 = Tuple4D::point(0.0, 1.0, 0.0);
+    let p2 = Tuple4D::point(-1.0, 0.0, 0.0);
+    let p3 = Tuple4D::point(1.0, 0.0, 0.0);
+    let t = ShapeNode::triangle(p1, p2, p3);
+
+    if let ShapeType::Triangle(ref ti) = t.ty {
+        assert_eq!(ti.normal, normal_at(&t, Tuple4D::point(0.0, 0.5, 0.0)));
+        assert_eq!(ti.normal, normal_at(&t, Tuple4D::point(-0.5, 0.75, 0.0)));
+        assert_eq!(ti.normal, normal_at(&t, Tuple4D::point(0.5, 0.25, 0.0)));
+    } else {
+        unreachable!();
+    }
+}
+
+#[test]
+fn intersecting_a_ray_parallel_to_a_triangle() {
+    let p1 = Tuple4D::point(0.0, 1.0, 0.0);
+    let p2 = Tuple4D::point(-1.0, 0.0, 0.0);
+    let p3 = Tuple4D::point(1.0, 0.0, 0.0);
+    let t = ShapeNode::triangle(p1, p2, p3);
+
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, -1.0, -2.0),
+        Tuple4D::vector(0.0, 1.0, 0.0)
+    );
+
+    let is = t.intersect_triangle(&r);
+    assert!(is.intersections.is_empty())
+}
+
+#[test]
+fn a_ray_misses_the_p1_p3_edge() {
+    let p1 = Tuple4D::point(0.0, 1.0, 0.0);
+    let p2 = Tuple4D::point(-1.0, 0.0, 0.0);
+    let p3 = Tuple4D::point(1.0, 0.0, 0.0);
+    let t = ShapeNode::triangle(p1, p2, p3);   
+
+    let r = Ray4D::new(
+        Tuple4D::point(1.0, 1.0, -2.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+
+    let is = t.intersect_triangle(&r);
+    assert!(is.intersections.is_empty())
+}
+
+#[test]
+fn a_ray_misses_the_p1_p2_edge() {
+    let p1 = Tuple4D::point(0.0, 1.0, 0.0);
+    let p2 = Tuple4D::point(-1.0, 0.0, 0.0);
+    let p3 = Tuple4D::point(1.0, 0.0, 0.0);
+    let t = ShapeNode::triangle(p1, p2, p3);   
+
+    let r = Ray4D::new(
+        Tuple4D::point(-1.0, 1.0, -2.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+
+    let is = t.intersect_triangle(&r);
+    assert!(is.intersections.is_empty())
+}
+
+#[test]
+fn a_ray_misses_the_p2_p3_edge() {
+    let p1 = Tuple4D::point(0.0, 1.0, 0.0);
+    let p2 = Tuple4D::point(-1.0, 0.0, 0.0);
+    let p3 = Tuple4D::point(1.0, 0.0, 0.0);
+    let t = ShapeNode::triangle(p1, p2, p3);   
+
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, -1.0, -2.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+
+    let is = t.intersect_triangle(&r);
+    assert!(is.intersections.is_empty())
+}
+
+#[test]
+fn a_ray_strikes_a_triangle() {
+    use crate::feq;
+
+    let p1 = Tuple4D::point(0.0, 1.0, 0.0);
+    let p2 = Tuple4D::point(-1.0, 0.0, 0.0);
+    let p3 = Tuple4D::point(1.0, 0.0, 0.0);
+    let t = ShapeNode::triangle(p1, p2, p3);   
+
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.5, -2.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+
+    let is = t.intersect_triangle(&r);
+    assert_eq!(is.intersections.len(), 1);
+    assert!(feq(is.intersections[0].t, 2.0));
 }
