@@ -181,12 +181,31 @@ impl ShapeNode {
         }
     }
 
+    /// Creates a group, which holds a list of other shapes (possibly groups).
     pub fn group() -> ShapeNode {
         ShapeNode {
             ty: ShapeType::Group(Vec::new()),
             parent: Weak::new(),
             transform: Matrix4D::identity(),
             material: Default::default(),
+        }
+    }
+
+    /// Returns a reference to a list of child `ShapeNode`s if this is a group.
+    pub fn children(&self) -> Option<&Vec<ShapePtr>> {
+        if let ShapeType::Group(ref children) = self.ty {
+            Some(children)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a reference to the `TriangleInfo` if this is a triangle.
+    pub fn triangle_info(&self) -> Option<&TriangleInfo> {
+        if let ShapeType::Triangle(ref info) = self.ty {
+            Some(info)
+        } else {
+            None
         }
     }
 
