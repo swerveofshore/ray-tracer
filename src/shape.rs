@@ -63,6 +63,9 @@ pub enum ShapeType {
     // easy to associate data with new variants.
     Triangle(TriangleInfo),
 
+    /// A smooth triangle. See TriangleInfo for further explanation.
+    SmoothTriangle(TriangleInfo),
+
     /// A group of shapes. Can include other groups of shapes.
     Group(Vec<Rc<RefCell<ShapeNode>>>),
 }
@@ -267,6 +270,7 @@ impl ShapeNode {
             ShapeType::Cylinder(_, _, _) => self.intersect_cylinder(ray),
             ShapeType::Cone(_, _, _) => self.intersect_cone(ray),
             ShapeType::Triangle(_) => self.intersect_triangle(ray),
+            ShapeType::SmoothTriangle(_) => self.intersect_smooth_triangle(ray),
             ShapeType::Group(_) => self.intersect_group(ray),
         }
     }
@@ -280,6 +284,7 @@ impl ShapeNode {
             ShapeType::Cylinder(_, _, _) => self.normal_at_cylinder(at),
             ShapeType::Cone(_, _, _) => self.normal_at_cone(at),
             ShapeType::Triangle(_) => self.normal_at_triangle(at),
+            ShapeType::SmoothTriangle(_) => self.normal_at_smooth_triangle(at),
             ShapeType::Group(_) => panic!(
                 "Local normal calculations should never occur on groups."
             ),
@@ -676,6 +681,10 @@ impl ShapeNode {
         }
     }
 
+    fn intersect_smooth_triangle(&self, ray: &Ray4D) -> Intersections {
+        Intersections::new()
+    }
+
     fn normal_at_triangle(&self, _at: &Tuple4D) -> Tuple4D {
         let triangle_info = match self.ty {
             ShapeType::Triangle(ref ti) => ti,
@@ -683,6 +692,10 @@ impl ShapeNode {
         };
 
         triangle_info.normal
+    }
+
+    fn normal_at_smooth_triangle(&self, at: &Tuple4D) -> Tuple4D {
+        Default::default()
     }
 
     /// Gets the min and max intersection offsets along an axis of a cube.
