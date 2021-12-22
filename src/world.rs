@@ -361,7 +361,7 @@ fn color_ray_hit() {
 fn color_behind_ray() {
     use crate::consts::REFLECTION_RECURSION_DEPTH;
 
-    let mut w: World = Default::default();
+    let w: World = Default::default();
     {
         let outer = w.first().unwrap();
         outer.borrow_mut().material_mut().ambient = 1.0;
@@ -421,7 +421,7 @@ fn reflected_color_for_nonreflective_material() {
     use crate::consts::REFLECTION_RECURSION_DEPTH;
     use crate::intersect::Intersection;
 
-    let mut w: World = Default::default();
+    let w: World = Default::default();
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, 0.0),
@@ -540,7 +540,7 @@ fn refracted_color_on_opaque_material() {
 fn refracted_color_at_max_recursion_depth() {
     use crate::intersect::{ Intersection, Intersections };
 
-    let mut w: World = Default::default();
+    let w: World = Default::default();
     {
         let s = w.first().unwrap();
         s.borrow_mut().material_mut().transparency = 1.0;
@@ -575,7 +575,7 @@ fn refracted_color_under_total_internal_reflection() {
     use crate::consts::REFRACTION_RECURSION_DEPTH;
     use crate::intersect::Intersection;
 
-    let mut w: World = Default::default();
+    let w: World = Default::default();
     {
         let s = w.first().unwrap();
         s.borrow_mut().material_mut().transparency = 1.0;
@@ -616,7 +616,7 @@ fn refracted_color_with_refracted_ray() {
     use crate::intersect::Intersection;
     use crate::pattern::Pattern;
 
-    let mut w: World = Default::default();
+    let w: World = Default::default();
     {
         let a = w.first().unwrap();
         a.borrow_mut().material_mut().ambient = 1.0;
