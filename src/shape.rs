@@ -8,6 +8,7 @@ use crate::light::Material;
 use crate::matrix::Matrix4D;
 use crate::intersect::{ Intersection, Intersections };
 
+/// A pointer to a ShapeNode cell. Effectively a shape.
 pub type ShapePtr = Rc<RefCell<ShapeNode>>;
 
 /// Info associated with a Triangle shape.
@@ -35,6 +36,124 @@ impl TriangleInfo {
         let e2 = p3 - p1;
         let normal = e2.cross(&e1).normalize();
         TriangleInfo { p1, p2, p3, e1, e2, normal }
+    }
+}
+
+/// A bounding box for a shape.
+///
+/// Helps prevent unnecessary intersection calculations by immediately telling
+/// a ray that it lies outside of a valid intersection region.
+///
+/// For example, imagine a scene with a single sphere (nothing else). Without 
+/// bounding boxes, rays would attempt to intersect every pixel in the scene,
+/// even though only one sphere is provided. With bounding boxes, rays would
+/// terminate intersection calculations immediately if they are unable to find a
+/// bounding box.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Bounds {
+    minimum: Tuple4D,
+    maximum: Tuple4D,
+}
+
+impl Bounds {
+    pub fn new(min_x: f64, min_y: f64, min_z: f64,
+        max_x: f64, max_y: f64, max_z: f64) -> Bounds {
+        Bounds {
+            minimum: Tuple4D::point(min_x, min_y, min_z),
+            maximum: Tuple4D::point(max_x, max_y, max_z)
+        }
+    }
+
+    /// Creates bounds which encapsulate nothing.
+    pub fn empty() -> Bounds {
+        Bounds {
+            minimum: Tuple4D::point(0.0, 0.0, 0.0),
+            maximum: Tuple4D::point(0.0, 0.0, 0.0)
+        }
+    }
+
+    /// Transforms a bounding box.
+    ///
+    /// Certain transformations (e.g. rotations) can cause the bounding box to
+    /// expand, as we want the box to be aligned to axis.
+    ///
+    /// As a result, this function not only transforms the corners of the
+    /// existing bounds (represented by `self`), but it also selects the minimum
+    /// and maximum components of the transformed corners, producing new bounds.
+    pub fn transform(&self, m: &Matrix4D) -> Bounds {
+        let corners = [
+            *m * self.minimum,
+            *m * Tuple4D::point(self.minimum.x, self.minimum.y, self.maximum.z),
+            *m * Tuple4D::point(self.minimum.x, self.maximum.y, self.minimum.z),
+            *m * Tuple4D::point(self.minimum.x, self.maximum.y, self.maximum.z),
+            *m * Tuple4D::point(self.maximum.x, self.minimum.y, self.minimum.z),
+            *m * Tuple4D::point(self.maximum.x, self.minimum.y, self.maximum.z),
+            *m * Tuple4D::point(self.maximum.x, self.maximum.y, self.minimum.z),
+            *m * self.maximum,
+        ];
+
+        let mut min_x = -1.0 * std::f64::INFINITY;
+        let mut min_y = -1.0 * std::f64::INFINITY;
+        let mut min_z = -1.0 * std::f64::INFINITY;
+        let mut max_x = std::f64::INFINITY;
+        let mut max_y = std::f64::INFINITY;
+        let mut max_z = std::f64::INFINITY;
+
+        for corner in corners.iter() {
+            min_x = min_x.min(corner.x);
+            min_y = min_y.min(corner.y);
+            min_z = min_z.min(corner.z);
+            max_x = max_x.min(corner.x);
+            max_y = max_y.min(corner.y);
+            max_z = max_z.min(corner.z);
+        }
+
+        Bounds {
+            minimum: Tuple4D::point(min_x, min_y, min_z),
+            maximum: Tuple4D::point(max_x, max_y, max_z)
+        }
+    }
+
+    /// Gets the min and max intersection offsets along an axis of a bound.
+    ///
+    /// No particular axis is specified; this function takes a component from
+    /// the `origin` and `direction` fields of a `Ray4D` (e.g. `origin.x` and
+    /// `direction.x`) and returns where the `Ray4D` intersects planes on a cube
+    /// for a single axis.
+    ///
+    /// The smaller `t` is first in the tuple, the larger `t` is second.
+    pub fn check_axis(min: f64, max: f64, origin: f64, direction: f64)
+        -> (f64, f64) {
+        let tmin_numerator = min - origin;
+        let tmax_numerator = max - origin;
+
+        // Make sure that the direction is non-zero. If it is, assign INFINITY.
+        let (tmin, tmax) = if direction.abs() >= FEQ_EPSILON {
+            (tmin_numerator / direction, tmax_numerator / direction) 
+        } else {
+            (tmin_numerator * std::f64::INFINITY,
+             tmax_numerator * std::f64::INFINITY)
+        };
+
+        // If tmin is actually greater than tmax, return tmax first.
+        if tmin > tmax {
+            (tmax, tmin)
+        } else {
+            (tmin, tmax)
+        }
+    }
+}
+
+/// The default bounding box should encompass everything.
+impl Default for Bounds {
+    fn default() -> Bounds {
+        let neg_inf = -1.0 * std::f64::INFINITY;
+        let pos_inf = std::f64::INFINITY;
+
+        Bounds {
+            minimum: Tuple4D::point(neg_inf, neg_inf, neg_inf),
+            maximum: Tuple4D::point(pos_inf, pos_inf, pos_inf)
+        }
     }
 }
 
@@ -191,6 +310,70 @@ impl ShapeNode {
             parent: Weak::new(),
             transform: Matrix4D::identity(),
             material: Default::default(),
+        }
+    }
+
+    /// Gets the bounds for different shape types.
+    pub fn bounds(&self) -> Bounds {
+        match self.ty {
+            ShapeType::Empty => Bounds::empty(),
+            ShapeType::Sphere => Bounds::new(-1.0, -1.0, -1.0, 1.0, 1.0, 1.0),
+            ShapeType::Cube => Bounds::new(-1.0, -1.0, -1.0, 1.0, 1.0, 1.0),
+            ShapeType::Cone(min, max, _)
+                => Bounds::new(min, min, min, max, max, max),
+            ShapeType::Cylinder(min, max, _)
+                => Bounds::new(min, min, min, max, max, max),
+            ShapeType::Triangle(ref ti) => {
+                let min_x = ti.p1.x.min(ti.p2.x.min(ti.p3.x));
+                let min_y = ti.p1.y.min(ti.p2.y.min(ti.p3.y));
+                let min_z = ti.p1.z.min(ti.p2.z.min(ti.p3.z));
+                let max_x = ti.p1.x.max(ti.p2.x.max(ti.p3.x));
+                let max_y = ti.p1.y.max(ti.p2.y.max(ti.p3.y));
+                let max_z = ti.p1.z.max(ti.p2.z.max(ti.p3.z));
+
+                Bounds::new(min_x, min_y, min_z, max_x, max_y, max_z)
+            },
+            ShapeType::SmoothTriangle(ref ti) => {
+                let min_x = ti.p1.x.min(ti.p2.x.min(ti.p3.x));
+                let min_y = ti.p1.y.min(ti.p2.y.min(ti.p3.y));
+                let min_z = ti.p1.z.min(ti.p2.z.min(ti.p3.z));
+                let max_x = ti.p1.x.max(ti.p2.x.max(ti.p3.x));
+                let max_y = ti.p1.y.max(ti.p2.y.max(ti.p3.y));
+                let max_z = ti.p1.z.max(ti.p2.z.max(ti.p3.z));
+
+                Bounds::new(min_x, min_y, min_z, max_x, max_y, max_z)
+            },
+            ShapeType::Group(ref children) => {
+                // Collect the bounds of each child.
+                let child_bounds: Vec<Bounds> = children.iter().map(|child|
+                    // Transform each child bounds into group space.
+                    child.borrow().bounds().transform(&self.transform)
+                ).collect();
+
+                let mut min_x = -1.0 * std::f64::INFINITY;
+                let mut min_y = -1.0 * std::f64::INFINITY;
+                let mut min_z = -1.0 * std::f64::INFINITY;
+                let mut max_x = std::f64::INFINITY;
+                let mut max_y = std::f64::INFINITY;
+                let mut max_z = std::f64::INFINITY;
+
+                // Using the child bounds, find the minimum and maximum bounds
+                // which will encapsulate all child bounds.
+                for bounds in child_bounds {
+                    min_x = min_x.min(bounds.minimum.x);
+                    min_y = min_y.min(bounds.minimum.y);
+                    min_z = min_z.min(bounds.minimum.z);
+                    max_x = max_x.min(bounds.maximum.x);
+                    max_y = max_y.min(bounds.maximum.y);
+                    max_z = max_z.min(bounds.maximum.z);
+                }
+
+                Bounds::new(min_x, min_y, min_z, max_x, max_y, max_z)
+            },
+
+            // TODO: How to handle planes? Should we assume that normal always
+            // points up?
+            _ => Default::default(),
         }
     }
 
@@ -623,6 +806,29 @@ impl ShapeNode {
 
         // If there are no children, return an empty list of intersections.
         if children.is_empty() {
+            return Intersections::new()
+        }
+
+        // Get the bounds to see if anything in this group will be intersected.
+        let bounds = self.bounds();
+
+        let (xtmin, xtmax) = Bounds::check_axis(
+            bounds.minimum.x, bounds.maximum.x, ray.origin.x, ray.direction.x
+        );
+        let (ytmin, ytmax) = Bounds::check_axis(
+            bounds.minimum.y, bounds.maximum.y, ray.origin.y, ray.direction.y
+        );
+        let (ztmin, ztmax) = Bounds::check_axis(
+            bounds.minimum.z, bounds.maximum.z, ray.origin.z, ray.direction.z
+        );
+
+        // Calculate the minimum t and maximum t along the bounds box.
+        let tmin = xtmin.max(ytmin).max(ztmin);
+        let tmax = xtmax.min(ytmax).min(ztmax);
+
+        // If the ray doesn't hit the bounds box, return no intersections for
+        // this group. (No children can be hit).
+        if tmin > tmax {
             return Intersections::new()
         }
 
