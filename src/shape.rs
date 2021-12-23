@@ -92,12 +92,12 @@ impl Bounds {
             *m * self.maximum,
         ];
 
-        let mut min_x = -1.0 * std::f64::INFINITY;
-        let mut min_y = -1.0 * std::f64::INFINITY;
-        let mut min_z = -1.0 * std::f64::INFINITY;
-        let mut max_x = std::f64::INFINITY;
-        let mut max_y = std::f64::INFINITY;
-        let mut max_z = std::f64::INFINITY;
+        let mut min_x = std::f64::INFINITY;
+        let mut min_y = std::f64::INFINITY;
+        let mut min_z = std::f64::INFINITY;
+        let mut max_x = -1.0 * std::f64::INFINITY;
+        let mut max_y = -1.0 * std::f64::INFINITY;
+        let mut max_z = -1.0 * std::f64::INFINITY;
 
         for corner in corners.iter() {
             min_x = min_x.min(corner.x);
@@ -350,12 +350,12 @@ impl ShapeNode {
                     child.borrow().bounds().transform(&self.transform)
                 ).collect();
 
-                let mut min_x = -1.0 * std::f64::INFINITY;
-                let mut min_y = -1.0 * std::f64::INFINITY;
-                let mut min_z = -1.0 * std::f64::INFINITY;
-                let mut max_x = std::f64::INFINITY;
-                let mut max_y = std::f64::INFINITY;
-                let mut max_z = std::f64::INFINITY;
+                let mut min_x = std::f64::INFINITY;
+                let mut min_y = std::f64::INFINITY;
+                let mut min_z = std::f64::INFINITY;
+                let mut max_x = -1.0 * std::f64::INFINITY;
+                let mut max_y = -1.0 * std::f64::INFINITY;
+                let mut max_z = -1.0 * std::f64::INFINITY;
 
                 // Using the child bounds, find the minimum and maximum bounds
                 // which will encapsulate all child bounds.
