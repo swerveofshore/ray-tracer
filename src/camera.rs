@@ -1,3 +1,5 @@
+// use rayon::prelude::*; 
+
 use crate::ray::Ray4D;
 use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
@@ -81,6 +83,18 @@ impl Camera {
 
     pub fn render(&self, w: &mut World) -> Canvas {
         let mut image = Canvas::new(self.hsize, self.vsize);
+
+        /*
+        let pixels: Vec<_> = (0..(self.vsize * self.hsize)).collect();
+        pixels.par_iter().for_each(|pixel| {
+            let x = pixel % self.hsize;
+            let y = pixel / self.hsize;
+
+            let ray = self.ray_for_pixel(x, y);
+            let color = w.color_at(ray, REFLECTION_RECURSION_DEPTH);
+            image.write_pixel(x, y, &color);
+        });
+        */
 
         for y in 0..self.vsize {
             for x in 0..self.hsize {
