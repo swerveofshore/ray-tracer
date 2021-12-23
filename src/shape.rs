@@ -103,9 +103,9 @@ impl Bounds {
             min_x = min_x.min(corner.x);
             min_y = min_y.min(corner.y);
             min_z = min_z.min(corner.z);
-            max_x = max_x.min(corner.x);
-            max_y = max_y.min(corner.y);
-            max_z = max_z.min(corner.z);
+            max_x = max_x.max(corner.x);
+            max_y = max_y.max(corner.y);
+            max_z = max_z.max(corner.z);
         }
 
         Bounds {
@@ -363,9 +363,9 @@ impl ShapeNode {
                     min_x = min_x.min(bounds.minimum.x);
                     min_y = min_y.min(bounds.minimum.y);
                     min_z = min_z.min(bounds.minimum.z);
-                    max_x = max_x.min(bounds.maximum.x);
-                    max_y = max_y.min(bounds.maximum.y);
-                    max_z = max_z.min(bounds.maximum.z);
+                    max_x = max_x.max(bounds.maximum.x);
+                    max_y = max_y.max(bounds.maximum.y);
+                    max_z = max_z.max(bounds.maximum.z);
                 }
 
                 Bounds::new(min_x, min_y, min_z, max_x, max_y, max_z)
