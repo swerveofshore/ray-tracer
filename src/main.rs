@@ -9,9 +9,9 @@ use ray_tracer_challenge::camera::Camera;
 // use ray_tracer_challenge::extra::hexagon;
 use ray_tracer_challenge::obj::ObjParser;
 
-const CANVAS_WIDTH: usize = 240 * 16;
-const CANVAS_HEIGHT: usize = 135 * 16; 
-const OBJ_FILE: &'static str = "./models/teapot.obj";
+const CANVAS_WIDTH: usize = 125; // 1000; // 240 * 8;
+const CANVAS_HEIGHT: usize = 100; // 800; // 135 * 8; 
+const OBJ_FILE: &'static str = "./models/teddy.obj";
 const OUT_FILE: &'static str = "./out.ppm";
 
 fn main() {
@@ -20,15 +20,18 @@ fn main() {
     obj_parser.parse();
     println!("...done.");
 
-    let mut world = World::empty();
+    let model = obj_parser.groups.get("").unwrap();
+    model.borrow_mut().transform
+        = Matrix4D::rotation_y(5.0 * std::f64::consts::PI / 4.0);
 
+    let mut world = World::empty();
     world.light_source = PointLight::new(
         Color::rgb(0.6, 0.8, 1.0),
         Tuple4D::point(-10.0, 10.0, -10.0),
     );
 
     world.objects = vec![
-        Rc::clone(obj_parser.groups.get("").unwrap())
+        Rc::clone(&model)
     ];
 
     let mut camera = Camera::new(CANVAS_WIDTH, CANVAS_HEIGHT,
@@ -37,7 +40,7 @@ fn main() {
         Tuple4D::point(0.0, 1.5, -5.0),
         Tuple4D::point(0.0, 1.0,  0.0),
         Tuple4D::vector(0.0, 1.0, 0.0),
-    ) * Matrix4D::translation(0.0, -2.0, 8.0);
+    ) * Matrix4D::translation(0.0, -16.0, 120.0);
 
     println!("Rendering...");
     let canvas = camera.render(&mut world);
