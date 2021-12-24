@@ -9,15 +9,15 @@ use std::collections::BTreeMap;
 use crate::tuple::Tuple4D;
 use crate::shape::{ ShapeNode, ShapePtr, add_child_to_group };
 
-type ObjVertex = Tuple4D;
-type ObjFace = Vec<usize>;
+type ObjFace = Vec<(usize, Option<usize>, Option<usize>)>;
 
 #[derive(Clone, Debug)]
 pub struct ObjParser {
     pub path: PathBuf,
     pub ignored_lines: usize,
 
-    pub vertices: Vec<ObjVertex>,
+    pub vertices: Vec<Tuple4D>,
+    pub normals: Vec<Tuple4D>,
     pub faces: Vec<ObjFace>,
     pub groups: BTreeMap<String, ShapePtr>,
 }
@@ -32,6 +32,7 @@ impl ObjParser {
             ignored_lines: 0,
 
             vertices: Vec::new(),
+            normals: Vec::new(),
             faces: Vec::new(),
             groups,
         }
@@ -105,15 +106,52 @@ impl ObjParser {
                     params[3].parse().unwrap()
                 )
             );
+        } else if params[0] == "vn" {
+            if params.len() < 4 {
+                self.ignored_lines += 1;
+                return;
+            }
+
+            // TODO implement better error handling
+            self.normals.push(
+                Tuple4D::vector(
+                    params[1].parse().unwrap(),
+                    params[2].parse().unwrap(),
+                    params[3].parse().unwrap()
+                )
+            );
         } else if params[0] == "f" {
             // Collect the face specified by this line.
-            // TODO implement better error handling
-            let face: ObjFace = params.into_iter().skip(1)
-                .map(|x| x.parse().unwrap()).collect();
+            let mut face: ObjFace = Vec::new();
+            for vertex in params.into_iter().skip(1) {
+                // If the face involves vertex indices only, parse those.
+                if let Ok(v) = vertex.parse() {
+                    face.push((v, None, None));
+                }
+                // Otherwise, extract vertex, texture and normal indices.
+                else {
+                    let attributes: Vec<_> = vertex.split('/').collect();
+
+                    // If there are more than 3 attributes, ignore this line.
+                    if attributes.len() > 3 {
+                        self.ignored_lines += 1;
+                        return;
+                    }
+
+                    // TODO implement better error handling (don't unwrap,
+                    // raise an error or ignore at truly malformed attributes).
+                    face.push((
+                        attributes[0].parse().unwrap(),
+                        attributes[1].parse().ok(),
+                        attributes[2].parse().ok()
+                    ));
+                }
+            }
 
             // If any vertex index of the face is larger than the amount of
-            // registered vertices, ignore this line.
-            if face.iter().any(|&vi| vi > self.vertices.len()) {
+            // registered vertices, same with each normal index, ignore line.
+            if face.iter().any(|&vi| { vi.0 > self.vertices.len() || 
+                vi.2.unwrap_or(0) > self.normals.len() }) {
                 self.ignored_lines += 1;
                 return;
             }
@@ -202,14 +240,37 @@ impl ObjParser {
         // Note that the book uses one-based indexing for vertices; this
         // implementation uses zero-based indexing.
         for i in 1..(face.len() - 1) {
-            triangles.push(
-                ShapeNode::triangle(
-                    // The face contains one-based indices into the vertices.
-                    self.vertices[face[0]   - 1],
-                    self.vertices[face[i]   - 1],
-                    self.vertices[face[i+1] - 1]
-                )
-            );
+            match (face[0].2, face[i].2, face[i+1].2) {
+                (Some(n1), Some(n2), Some(n3)) => {
+                    triangles.push(
+                        ShapeNode::smooth_triangle(
+                            // The face contains one-based indices into the
+                            // vertices.
+                            self.vertices[face[0].0   - 1],
+                            self.vertices[face[i].0   - 1],
+                            self.vertices[face[i+1].0 - 1],
+
+                            // Each normal is an index as well. TODO implement
+                            // better error handling for missing normals.
+                            self.normals[n1 - 1],
+                            self.normals[n2 - 1],
+                            self.normals[n3 - 1]
+                        )
+                    );
+                },
+
+                _ => {
+                    triangles.push(
+                        ShapeNode::triangle(
+                            // The face contains one-based indices into the
+                            // vertices.
+                            self.vertices[face[0].0   - 1],
+                            self.vertices[face[i].0   - 1],
+                            self.vertices[face[i+1].0 - 1]
+                        )
+                    );
+                }
+            }
         }
 
         triangles
@@ -289,4 +350,36 @@ fn triangles_in_groups() {
 
     assert!(obj_parser.groups.contains_key("FirstGroup"));
     assert!(obj_parser.groups.contains_key("SecondGroup"));
+}
+
+#[test]
+fn vertex_normal_records() {
+    let mut obj_parser = ObjParser::new("./models/normal-record.obj");
+    obj_parser.parse();
+
+    assert_eq!(obj_parser.normals[0], Tuple4D::vector(0.0, 0.0, 1.0));
+    assert_eq!(obj_parser.normals[1], Tuple4D::vector(0.707, 0.0, -0.707));
+    assert_eq!(obj_parser.normals[2], Tuple4D::vector(1.0, 2.0, 3.0));
+}
+
+#[test]
+fn faces_with_normals() {
+    let mut obj_parser = ObjParser::new("./models/faces-with-normals.obj");
+    obj_parser.parse();
+
+    let default_group = obj_parser.groups.get("").unwrap().borrow();
+    let children = default_group.children().unwrap();
+
+    let t1b = children[0].borrow();
+    let t2b = children[1].borrow();
+    let t1 = t1b.smooth_triangle_info().unwrap();
+    let t2 = t2b.smooth_triangle_info().unwrap();
+
+    assert_eq!(t1.triangle_info.p1, obj_parser.vertices[0]);
+    assert_eq!(t1.triangle_info.p2, obj_parser.vertices[1]);
+    assert_eq!(t1.triangle_info.p3, obj_parser.vertices[2]);
+    assert_eq!(t1.n1, obj_parser.normals[2]);
+    assert_eq!(t1.n2, obj_parser.normals[0]);
+    assert_eq!(t1.n3, obj_parser.normals[1]);
+    assert_eq!(t1, t2);
 }
