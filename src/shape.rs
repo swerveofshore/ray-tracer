@@ -19,7 +19,7 @@ pub type ShapePtr = Rc<RefCell<ShapeNode>>;
 /// Fields `e1`, `e2` and `normal` are calculated on instantiation. The `e1`
 /// and `e2  fields are edges of the triangle, and `normal` is normal to the
 /// face of the triangle.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct TriangleInfo {
     pub p1: Tuple4D,
     pub p2: Tuple4D,
@@ -39,7 +39,7 @@ impl TriangleInfo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct SmoothTriangleInfo {
     pub triangle_info: TriangleInfo,
 
@@ -209,6 +209,46 @@ pub enum ShapeType {
     Group(Vec<Rc<RefCell<ShapeNode>>>),
 }
 
+/// Checks that two ShapeTypes are equal.
+///
+/// Value comparisons are made for each variant of `ShapeType` except for
+/// `Group`, which compares the *pointers* of each group child.
+///
+/// See the `eq` implementation for more information.
+impl PartialEq for ShapeType {
+    fn eq(&self, other: &Self) -> bool {
+        use ShapeType::*;
+        match (self, other) {
+            (Empty, Empty) => true,
+            (Sphere, Sphere) => true,
+            (Cube, Cube) => true,
+
+            (Cone(lmin, lmax, lc), Cone(rmin, rmax, rc))
+                => (lmin == rmin) && (lmax == rmax) && (lc == rc),
+
+            (Cylinder(lmin, lmax, lc), Cylinder(rmin, rmax, rc))
+                => (lmin == rmin) && (lmax == rmax) && (lc == rc),
+
+            (Plane(ln), Plane(rn)) => ln == rn,
+            (Triangle(lti), Triangle(rti)) => lti == rti,
+            (SmoothTriangle(lsti), SmoothTriangle(rsti)) => lsti == rsti,
+
+            (Group(ref lg), Group(ref rg)) => {
+                if lg.len() != rg.len() {
+                    false
+                } else {
+                    // Check that all children in the group are pointer-equal.
+                    lg.iter().zip(rg.iter()).all(|(l, r)| {
+                        Rc::ptr_eq(l, r)
+                    })
+                }
+            },
+
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct ShapeNode {
     pub ty: ShapeType, 
@@ -216,6 +256,20 @@ pub struct ShapeNode {
 
     pub transform: Matrix4D,
     pub material: Material,
+}
+
+/// Checks that two ShapeNodes are equal.
+///
+/// Note that the `parent` field is not checked for equality; two equivalent
+/// shapes can have different parents.
+///
+/// This may be fixed in a later commit.
+impl PartialEq for ShapeNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.ty == other.ty
+            && self.transform == other.transform
+            && self.material == other.material
+    }
 }
 
 impl ShapeNode {
@@ -427,6 +481,14 @@ impl ShapeNode {
     pub fn triangle_info(&self) -> Option<&TriangleInfo> {
         if let ShapeType::Triangle(ref info) = self.ty {
             Some(info)
+        } else {
+            None
+        }
+    }
+
+    pub fn smooth_triangle_info(&self) -> Option<&SmoothTriangleInfo> {
+        if let ShapeType::SmoothTriangle(ref smooth_info) = self.ty {
+            Some(smooth_info)
         } else {
             None
         }
