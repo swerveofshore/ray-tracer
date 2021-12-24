@@ -16,6 +16,19 @@ use crate::shape::{ ShapeNode, normal_at };
 pub struct Intersection<'a> {
     pub t: f64,
     pub what: &'a ShapeNode,
+
+    pub uv: Option<(f64, f64)>,
+}
+
+impl<'a> Intersection<'a> {
+    pub fn new(t: f64, what: &'a ShapeNode) -> Intersection<'a> {
+        Intersection { t, what, uv: None }
+    }
+
+    pub fn new_uv(t: f64, what: &'a ShapeNode, u: f64, v: f64)
+        -> Intersection<'a> {
+        Intersection { t, what, uv: Some((u, v)) }
+    }
 }
 
 /// Implements partial equality on an Intersection.

@@ -39,6 +39,24 @@ impl TriangleInfo {
     }
 }
 
+#[derive(Debug)]
+pub struct SmoothTriangleInfo {
+    pub p1: Tuple4D,
+    pub p2: Tuple4D,
+    pub p3: Tuple4D,
+
+    pub n1: Tuple4D,
+    pub n2: Tuple4D,
+    pub n3: Tuple4D,
+}
+
+impl SmoothTriangleInfo {
+    fn new(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D,
+        n1: Tuple4D, n2: Tuple4D, n3: Tuple4D) -> SmoothTriangleInfo {
+        SmoothTriangleInfo { p1, p2, p3, n1, n2, n3 }
+    }
+}
+
 /// A bounding box for a shape.
 ///
 /// Helps prevent unnecessary intersection calculations by immediately telling
@@ -183,7 +201,7 @@ pub enum ShapeType {
     Triangle(TriangleInfo),
 
     /// A smooth triangle. See TriangleInfo for further explanation.
-    SmoothTriangle(TriangleInfo),
+    SmoothTriangle(SmoothTriangleInfo),
 
     /// A group of shapes. Can include other groups of shapes.
     Group(Vec<Rc<RefCell<ShapeNode>>>),
@@ -300,6 +318,19 @@ impl ShapeNode {
             parent: Weak::new(),
             transform: Matrix4D::identity(),
             material: Default::default(),
+        }
+    }
+
+    /// Creates a "smooth" triangle with normals at each vertex.
+    pub fn smooth_triangle(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D,
+        n1: Tuple4D, n2: Tuple4D, n3: Tuple4D) -> ShapeNode {
+        ShapeNode {
+            ty: ShapeType::SmoothTriangle(
+                SmoothTriangleInfo::new(p1, p2, p3, n1, n2, n3)
+            ),
+            parent: Weak::new(),
+            transform: Matrix4D::identity(),
+            material: Default::default()
         }
     }
 
@@ -506,8 +537,8 @@ impl ShapeNode {
         let t1 = (-b - discriminant.sqrt()) / (2.0 * a);
         let t2 = (-b + discriminant.sqrt()) / (2.0 * a);
 
-        let i1 = Intersection { t: t1, what: self };
-        let i2 = Intersection { t: t2, what: self };
+        let i1 = Intersection::new(t1, self);
+        let i2 = Intersection::new(t2, self);
         Intersections { intersections: vec![i1, i2] }
     }
 
@@ -547,7 +578,7 @@ impl ShapeNode {
 
         // Calculate the offset of the ray with its Y component.
         let t = -ray.origin.y / ray.direction.y;
-        let i = Intersection { t, what: self };
+        let i = Intersection::new(t, self);
 
         Intersections { intersections: vec![i] }
     }
@@ -584,8 +615,8 @@ impl ShapeNode {
 
         Intersections {
             intersections: vec![
-                Intersection { t: tmin, what: self },
-                Intersection { t: tmax, what: self }
+                Intersection::new(tmin, self),
+                Intersection::new(tmax, self) 
             ]
         }
     }
@@ -653,7 +684,7 @@ impl ShapeNode {
         let y0 = ray.origin.y + t0 * ray.direction.y;
         if minimum < y0 && y0 < maximum {
             is.intersections.push(
-                Intersection { t: t0, what: self }
+                Intersection::new(t0, self)
             );
         }
 
@@ -661,7 +692,7 @@ impl ShapeNode {
         let y1 = ray.origin.y + t1 * ray.direction.y;
         if minimum < y1 && y1 < maximum {
             is.intersections.push(
-                Intersection { t: t1, what: self }
+                Intersection::new(t1, self)
             );
         }
 
@@ -724,7 +755,7 @@ impl ShapeNode {
             // If only a is 0, then there's a single point of intersection.
             else {
                 let t = -c / (2.0 * b);
-                is.intersections.push(Intersection { t, what: self });
+                is.intersections.push(Intersection::new(t, self));
                 return is;
             }
         }
@@ -751,7 +782,7 @@ impl ShapeNode {
         let y0 = ray.origin.y + t0 * ray.direction.y;
         if minimum < y0 && y0 < maximum {
             is.intersections.push(
-                Intersection { t: t0, what: self }
+                Intersection::new(t0, self)
             );
         }
 
@@ -759,7 +790,7 @@ impl ShapeNode {
         let y1 = ray.origin.y + t1 * ray.direction.y;
         if minimum < y1 && y1 < maximum {
             is.intersections.push(
-                Intersection { t: t1, what: self }
+                Intersection::new(t1, self)
             );
         }
 
@@ -882,7 +913,7 @@ impl ShapeNode {
         let t = f * triangle_info.e2.dot(&origin_cross_e1);
         Intersections {
             intersections: vec![
-                Intersection { t, what: &self }
+                Intersection::new(t, &self)
             ],
         }
     }
@@ -950,13 +981,13 @@ impl ShapeNode {
         // Check for an intersection with the lower end cap.
         let tl = (minimum - ray.origin.y) / ray.direction.y;
         if Self::check_cylinder_cap(ray, tl) {
-            is.intersections.push(Intersection { t: tl, what: self });
+            is.intersections.push(Intersection::new(tl, self));
         }
 
         // Check for an intersection with the upper end cap.
         let tu = (maximum - ray.origin.y) / ray.direction.y;
         if Self::check_cylinder_cap(ray, tu) {
-            is.intersections.push(Intersection { t: tu, what: self });
+            is.intersections.push(Intersection::new(tu, self));
         }
     }
 
@@ -984,13 +1015,13 @@ impl ShapeNode {
         // Check for an intersection with the lower end cap.
         let tl = (minimum - ray.origin.y) / ray.direction.y;
         if Self::check_cone_cap(ray, tl, minimum) {
-            is.intersections.push(Intersection { t: tl, what: self });
+            is.intersections.push(Intersection::new(tl, self));
         }
 
         // Check for an intersection with the upper end cap.
         let tu = (maximum - ray.origin.y) / ray.direction.y;
         if Self::check_cone_cap(ray, tu, maximum) {
-            is.intersections.push(Intersection { t: tu, what: self });
+            is.intersections.push(Intersection::new(tu, self));
         }
     }
 
@@ -1147,8 +1178,8 @@ fn sphere_is_behind_ray() {
 #[test]
 fn hit_with_all_positive() {
     let s  = ShapeNode::sphere();
-    let i1 = Intersection { t: 1.0, what: &s }; 
-    let i2 = Intersection { t: 2.0, what: &s };
+    let i1 = Intersection::new(1.0, &s); 
+    let i2 = Intersection::new(2.0, &s);
     let mut is = Intersections { intersections: vec![i1, i2] };
 
     assert_eq!(is.hit().unwrap(), i1);
@@ -1157,8 +1188,8 @@ fn hit_with_all_positive() {
 #[test]
 fn hit_with_some_negative() {
     let s  = ShapeNode::sphere();
-    let i1 = Intersection { t: -1.0, what: &s }; 
-    let i2 = Intersection { t: 1.0, what: &s };
+    let i1 = Intersection::new(-1.0, &s); 
+    let i2 = Intersection::new( 1.0, &s);
     let mut is = Intersections { intersections: vec![i1, i2] };
 
     assert_eq!(is.hit().unwrap(), i2);
@@ -1167,8 +1198,8 @@ fn hit_with_some_negative() {
 #[test]
 fn hit_with_all_negative() {
     let s  = ShapeNode::sphere();
-    let i1 = Intersection { t: -2.0, what: &s };
-    let i2 = Intersection { t: -1.0, what: &s };
+    let i1 = Intersection::new(-2.0, &s);
+    let i2 = Intersection::new(-1.0, &s);
     let mut is = Intersections { intersections: vec![i1, i2] };
 
     assert_eq!(is.hit(), None);
@@ -1177,10 +1208,10 @@ fn hit_with_all_negative() {
 #[test]
 fn hit_multiple() {
     let s  = ShapeNode::sphere();
-    let i1 = Intersection { t: 5.0,  what: &s }; 
-    let i2 = Intersection { t: 7.0,  what: &s };
-    let i3 = Intersection { t: -3.0, what: &s };
-    let i4 = Intersection { t: 2.0,  what: &s };
+    let i1 = Intersection::new(5.0,  &s); 
+    let i2 = Intersection::new(7.0,  &s);
+    let i3 = Intersection::new(-3.0, &s);
+    let i4 = Intersection::new(2.0,  &s);
     let mut is = Intersections { intersections: vec![i1, i2, i3, i4] };
 
     assert_eq!(is.hit().unwrap(), i4);
@@ -1261,7 +1292,7 @@ fn precompute_intersection_state() {
     );
 
     let shape = ShapeNode::sphere();
-    let i = Intersection { t: 4.0, what: &shape };
+    let i = Intersection::new(4.0, &shape);
 
     let comps = IntersectionComputation::new(&r, &i, None);
 
@@ -1282,7 +1313,7 @@ fn precompute_outside_intersection() {
     );
 
     let shape = ShapeNode::sphere();
-    let i = Intersection { t: 4.0, what: &shape };
+    let i = Intersection::new(4.0, &shape);
 
     let comps = IntersectionComputation::new(&r, &i, None);
     assert!(!comps.inside);
@@ -1298,7 +1329,7 @@ fn precompute_inside_intersection() {
     );
 
     let shape = ShapeNode::sphere();
-    let i = Intersection { t: 1.0, what: &shape };
+    let i = Intersection::new(1.0, &shape);
 
     let comps = IntersectionComputation::new(&r, &i, None);
 
@@ -1322,7 +1353,7 @@ fn hit_should_offset_point() {
     let mut shape = ShapeNode::sphere();
     shape.transform = Matrix4D::translation(0.0, 0.0, 1.0);
 
-    let i = Intersection { t: 5.0, what: &shape };
+    let i = Intersection::new(5.0, &shape);
     let comps = IntersectionComputation::new(&r, &i, None);
 
     assert!(comps.over_point.z < -FEQ_EPSILON / 2.0);
@@ -1617,4 +1648,22 @@ fn a_ray_strikes_a_triangle() {
     let is = t.intersect_triangle(&r);
     assert_eq!(is.intersections.len(), 1);
     assert!(feq(is.intersections[0].t, 2.0));
+}
+
+#[test]
+fn an_intersection_can_encapsulate_u_and_v() {
+    let s = ShapeNode::triangle(
+        Tuple4D::point(0.0, 1.0, 0.0),
+        Tuple4D::point(-1.0, 0.0, 0.0),
+        Tuple4D::point(1.0, 0.0, 0.0)
+    );
+
+    let i = Intersection::new_uv(3.5, &s, 0.2, 0.4);
+    
+    if let Some((u, v)) = i.uv {
+        assert_eq!(u, 0.2);
+        assert_eq!(v, 0.4);
+    } else {
+        unreachable!();
+    }
 }

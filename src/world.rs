@@ -261,7 +261,7 @@ fn shade_intersection_from_outside() {
     );
 
     let shape = w.first().expect("Default world should contain objects.");
-    let i = Intersection { t: 4.0, what: Ref::leak(shape.borrow()) };
+    let i = Intersection::new(4.0, Ref::leak(shape.borrow()));
 
     let comps = IntersectionComputation::new(&r, &i, None);
     let c = w.shade_hit(&comps, REFLECTION_RECURSION_DEPTH);
@@ -286,7 +286,7 @@ fn shade_intersection_from_inside() {
     );
 
     let shape = w.second().expect("Default world should contain objects.");
-    let i = Intersection { t: 0.5, what: Ref::leak(shape.borrow()) };
+    let i = Intersection::new(0.5, Ref::leak(shape.borrow()));
 
     let comps = IntersectionComputation::new(&r, &i, None);
     let c = w.shade_hit(&comps, REFLECTION_RECURSION_DEPTH);
@@ -318,10 +318,7 @@ fn shade_intersection_in_shadow() {
     );
 
     let temp = w.second().unwrap();
-    let i = Intersection {
-        t: 4.0,
-        what: Ref::leak(temp.borrow())
-    };
+    let i = Intersection::new(4.0, Ref::leak(temp.borrow()));
     let comps = IntersectionComputation::new(&r, &i, None);
     let c = w.shade_hit(&comps, REFLECTION_RECURSION_DEPTH);
 
@@ -434,10 +431,7 @@ fn reflected_color_for_nonreflective_material() {
     }
 
     let s = w.second().unwrap();
-    let i = Intersection {
-        t: 1.0,
-        what: Ref::leak(s.borrow())
-    };
+    let i = Intersection::new(1.0, Ref::leak(s.borrow()));
     let comps = IntersectionComputation::new(&r, &i, None);
 
     assert_eq!(
@@ -464,10 +458,7 @@ fn reflected_color_for_reflective_material() {
         Tuple4D::vector(0.0, -(2.0f64.sqrt()) / 2.0, (2.0f64.sqrt()) / 2.0)
     );
 
-    let i = Intersection {
-        t: 2.0f64.sqrt(),
-        what: Ref::leak(w.objects[2].borrow())
-    };
+    let i = Intersection::new(2.0f64.sqrt(), Ref::leak(w.objects[2].borrow()));
     let comps = IntersectionComputation::new(&r, &i, None);
 
     assert_eq!(
@@ -494,10 +485,7 @@ fn shade_hit_with_reflective_material() {
         Tuple4D::vector(0.0, -(2.0f64.sqrt()) / 2.0, (2.0f64.sqrt()) / 2.0)
     );
 
-    let i = Intersection {
-        t: 2.0f64.sqrt(),
-        what: Ref::leak(w.objects[2].borrow())
-    };
+    let i = Intersection::new(2.0f64.sqrt(), Ref::leak(w.objects[2].borrow()));
     let comps = IntersectionComputation::new(&r, &i, None);
 
     assert_eq!(
@@ -521,8 +509,8 @@ fn refracted_color_on_opaque_material() {
 
     let is = Intersections {
         intersections: vec![
-            Intersection { t: 4.0, what: Ref::leak(s.borrow()) },
-            Intersection { t: 6.0, what: Ref::leak(s.borrow()) },
+            Intersection::new(4.0, Ref::leak(s.borrow())),
+            Intersection::new(6.0, Ref::leak(s.borrow())),
         ]
     };
 
@@ -555,8 +543,8 @@ fn refracted_color_at_max_recursion_depth() {
 
     let is = Intersections {
         intersections: vec![
-            Intersection { t: 4.0, what: Ref::leak(s.borrow()) },
-            Intersection { t: 6.0, what: Ref::leak(s.borrow()) },
+            Intersection::new(4.0, Ref::leak(s.borrow())),
+            Intersection::new(6.0, Ref::leak(s.borrow())),
         ]
     };
 
@@ -590,14 +578,8 @@ fn refracted_color_under_total_internal_reflection() {
 
     let is = Intersections {
         intersections: vec![
-            Intersection {
-                t: -(2.0f64.sqrt()) / 2.0,
-                what: Ref::leak(s.borrow())
-            },
-            Intersection {
-                t: 2.0f64.sqrt() / 2.0,
-                what: Ref::leak(s.borrow())
-            },
+            Intersection::new(-(2.0f64.sqrt()) / 2.0, Ref::leak(s.borrow())),
+            Intersection::new(2.0f64.sqrt() / 2.0, Ref::leak(s.borrow())),
         ]
     };
 
@@ -638,10 +620,10 @@ fn refracted_color_with_refracted_ray() {
 
     let is = Intersections {
         intersections: vec![
-            Intersection { t: -0.9899, what: Ref::leak(a.borrow()) },
-            Intersection { t: -0.4899, what: Ref::leak(b.borrow()) },
-            Intersection { t:  0.4899, what: Ref::leak(b.borrow()) },
-            Intersection { t:  0.9899, what: Ref::leak(a.borrow()) },
+            Intersection::new(-0.9899, Ref::leak(a.borrow())),
+            Intersection::new(-0.4899, Ref::leak(b.borrow())),
+            Intersection::new( 0.4899, Ref::leak(b.borrow())),
+            Intersection::new( 0.9899, Ref::leak(a.borrow())),
         ]
     };
 
@@ -682,10 +664,7 @@ fn shade_hit_with_transparent_material() {
 
     let is = Intersections {
         intersections: vec![
-            Intersection {
-                t: 2.0f64.sqrt(),
-                what: Ref::leak(w.objects[2].borrow())
-            }
+            Intersection::new(2.0f64.sqrt(), Ref::leak(w.objects[2].borrow()))
         ]
     };
 
@@ -727,10 +706,7 @@ fn shade_hit_with_reflective_transparent_material() {
 
     let is = Intersections {
         intersections: vec![
-            Intersection {
-                t: 2.0f64.sqrt(),
-                what: Ref::leak(w.objects[2].borrow())
-            }
+            Intersection::new(2.0f64.sqrt(), Ref::leak(w.objects[2].borrow()))
         ]
     };
 
