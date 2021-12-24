@@ -6,7 +6,7 @@ use crate::tuple::Tuple4D;
 use crate::ray::Ray4D;
 use crate::light::Material;
 use crate::matrix::Matrix4D;
-use crate::intersect::{ Intersection, Intersections };
+use crate::intersect::{ Intersection, Intersections, filter_intersections };
 
 /// A pointer to a ShapeNode cell. Effectively a shape.
 pub type ShapePtr = Rc<RefCell<ShapeNode>>;
@@ -206,7 +206,16 @@ pub enum ShapeType {
     SmoothTriangle(SmoothTriangleInfo),
 
     /// A group of shapes. Can include other groups of shapes.
-    Group(Vec<Rc<RefCell<ShapeNode>>>),
+    Group(Vec<ShapePtr>),
+
+    /// A union of two shapes.
+    Union(ShapePtr, ShapePtr),
+
+    /// An intersection of two shapes.
+    Intersection(ShapePtr, ShapePtr),
+
+    /// A difference of two shapes.
+    Difference(ShapePtr, ShapePtr),
 }
 
 /// Checks that two ShapeTypes are equal.
@@ -400,6 +409,128 @@ impl ShapeNode {
         }
     }
 
+    pub fn csg_union(s1: ShapePtr, s2: ShapePtr) -> ShapePtr {
+        let union_shape = Rc::new(RefCell::new(
+            ShapeNode {
+                // Temporarily set type to empty so that child shapes can have
+                // some parent to refer to.
+                ty: ShapeType::Empty,
+                parent: Weak::new(),
+                transform: Matrix4D::identity(),
+                material: Default::default(),
+            }
+        ));
+
+        s1.borrow_mut().parent = Rc::downgrade(&union_shape);
+        s2.borrow_mut().parent = Rc::downgrade(&union_shape);
+
+        // Set the type to a union of the two shapes, then return the union.
+        union_shape.borrow_mut().ty = ShapeType::Union(s1, s2);
+        union_shape
+    }
+
+    pub fn csg_intersection(s1: ShapePtr, s2: ShapePtr) -> ShapePtr {
+        let intersection = Rc::new(RefCell::new(
+            ShapeNode {
+                // Temporarily set type to empty so that child shapes can have
+                // some parent to refer to.
+                ty: ShapeType::Empty,
+                parent: Weak::new(),
+                transform: Matrix4D::identity(),
+                material: Default::default(),
+            }
+        ));
+
+        s1.borrow_mut().parent = Rc::downgrade(&intersection);
+        s2.borrow_mut().parent = Rc::downgrade(&intersection);
+
+        // Set the type to a intersection of the two shapes, then return it..
+        intersection.borrow_mut().ty = ShapeType::Intersection(s1, s2);
+        intersection 
+    }
+
+    pub fn csg_difference(s1: ShapePtr, s2: ShapePtr) -> ShapePtr {
+        let difference = Rc::new(RefCell::new(
+            ShapeNode {
+                // Temporarily set type to empty so that child shapes can have
+                // some parent to refer to.
+                ty: ShapeType::Empty,
+                parent: Weak::new(),
+                transform: Matrix4D::identity(),
+                material: Default::default(),
+            }
+        ));
+
+        s1.borrow_mut().parent = Rc::downgrade(&difference);
+        s2.borrow_mut().parent = Rc::downgrade(&difference);
+
+        // Set the type to a difference of the two shapes, then return it..
+        difference.borrow_mut().ty = ShapeType::Difference(s1, s2);
+        difference 
+    }
+
+    /// Gets the left operand of a CSG operator.
+    ///
+    /// Panics if `self` is not a CSG operator (types `Union`, `Intersection`
+    /// and `Difference`).
+    pub fn csg_left(&self) -> ShapePtr {
+        Rc::clone(
+            match self.ty {
+                ShapeType::Union(ref l, _) => l,
+                ShapeType::Intersection(ref l, _) => l,
+                ShapeType::Difference(ref l, _) => l,
+                _ => panic!("csg_left called on non-CSG type shape."),
+            }
+        )
+    }
+
+    /// Gets the right operand of a CSG operator.
+    ///
+    /// Panics if `self` is not a CSG operator (types `Union`, `Intersection`
+    /// and `Difference`).
+    pub fn csg_right(&self) -> ShapePtr {
+        Rc::clone(
+            match self.ty {
+                ShapeType::Union(_, ref r) => r,
+                ShapeType::Intersection(_, ref r) => r,
+                ShapeType::Difference(_, ref r) => r,
+                _ => panic!("csg_right called on non_CSG type shape."),
+            }
+        )
+    }
+
+    /// Deduces whether a shape includes another shape.
+    ///
+    /// If `self` is a `Group`, then this function will return true if any
+    /// child of the `Group` satisfies `child.borrow().includes(other)`.
+    ///
+    /// If `self` is a CSG object (e.g. `Union`, `Intersection`), this function
+    /// will return if either child of `self` includes `other`.
+    ///
+    /// If `self` is any other shape type, this function returns true if `self`
+    /// is equal to `other`.
+    pub fn includes(&self, other: &Self) -> bool {
+        match self.ty {
+            // Groups
+            ShapeType::Group(ref children)
+                => children.iter().any(|c| c.borrow().includes(other)),
+
+            // CSG operations
+            ShapeType::Union(ref left, ref right)
+                => left.borrow().includes(other)
+                    || right.borrow().includes(other),
+            ShapeType::Intersection(ref left, ref right)
+                => left.borrow().includes(other)
+                    || right.borrow().includes(other),
+            ShapeType::Difference(ref left, ref right)
+                => left.borrow().includes(other)
+                    || right.borrow().includes(other),
+
+            // Other objects
+            _ => self == other,
+        }
+    }
+
     /// Gets the bounds for different shape types.
     pub fn bounds(&self) -> Bounds {
         match self.ty {
@@ -554,6 +685,9 @@ impl ShapeNode {
             ShapeType::Triangle(_) => self.intersect_triangle(ray),
             ShapeType::SmoothTriangle(_) => self.intersect_smooth_triangle(ray),
             ShapeType::Group(_) => self.intersect_group(ray),
+            ShapeType::Union(_,_)
+                | ShapeType::Intersection(_,_)
+                | ShapeType::Difference(_,_) => self.intersect_csg(ray),
         }
     }
 
@@ -571,6 +705,14 @@ impl ShapeNode {
                 => self.normal_at_smooth_triangle(at, hit),
             ShapeType::Group(_) => panic!(
                 "Local normal calculations should never occur on groups."
+            ),
+
+            // CSG operations always defer intersections to their children
+            // objects, so no normals will ever be calculated on CSGs.
+            ShapeType::Union(_,_)
+                | ShapeType::Intersection(_,_)
+                | ShapeType::Difference(_,_) => panic!(
+                "Local normal calculations should never occur on CSG ops."
             ),
         }
     }
@@ -1055,6 +1197,32 @@ impl ShapeNode {
         } else {
             smooth_triangle_info.triangle_info.normal
         }
+    }
+
+    /// Intersects a CSG operator.
+    ///
+    /// Each CSG operator gives two operands, of which each holds a pointer to
+    /// some child shapes. These shapes are coalesced as expected through each
+    /// CSG operation.
+    fn intersect_csg(&self, ray: &Ray4D) -> Intersections {
+        let (left_csg, right_csg) = match self.ty {
+            ShapeType::Union(ref lc, ref rc) => (lc, rc),
+            ShapeType::Intersection(ref lc, ref rc) => (lc, rc),
+            ShapeType::Difference(ref lc, ref rc) => (lc, rc),
+            _ => unreachable!(),
+        };
+
+        // TODO: fix ref leaking, only needs to occur due to temporary
+        // (not really temporary) pointer resultant of .borrow()
+        let left_csg_ptr = left_csg.borrow();
+        let right_csg_ptr = right_csg.borrow();
+        let left_is = intersect(Ref::leak(left_csg_ptr), *ray);
+        let right_is = intersect(Ref::leak(right_csg_ptr), *ray);
+
+        // Function aggregate sorts all intersections provided.
+        let all_is = Intersections::aggregate(vec![left_is, right_is]);
+
+        filter_intersections(self, &all_is) 
     }
 
     /// Gets the min and max intersection offsets along an axis of a cube.
@@ -1881,4 +2049,60 @@ fn a_smooth_triangle_uses_uv_to_interpolate_the_normal() {
     let n = normal_at(&s, Tuple4D::point(0.0, 0.0, 0.0), &i);
 
     assert_eq!(n, Tuple4D::vector(-0.5547, 0.83205, 0.0));
+}
+
+#[test]
+fn csg_is_created_with_an_operation_and_two_shapes() {
+    let s1 = Rc::new(RefCell::new(ShapeNode::sphere()));
+    let s2 = Rc::new(RefCell::new(ShapeNode::cube()));
+
+    let c = ShapeNode::csg_union(Rc::clone(&s1), Rc::clone(&s2));
+    let c_ref = c.borrow();
+    if let ShapeType::Union(ref s1_ptr, ref s2_ptr) = c_ref.ty {
+        assert!(Rc::ptr_eq(s1_ptr, &s1));
+        assert!(Rc::ptr_eq(s2_ptr, &s2));
+        assert!(Weak::ptr_eq(&Rc::downgrade(&c), &s1.borrow().parent));
+        assert!(Weak::ptr_eq(&Rc::downgrade(&c), &s2.borrow().parent));
+    }
+}
+
+#[test]
+fn a_ray_misses_a_csg_object() {
+    let s1 = Rc::new(RefCell::new(ShapeNode::sphere()));
+    let s2 = Rc::new(RefCell::new(ShapeNode::cube()));
+    let c = ShapeNode::csg_union(s1, s2);
+
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 2.0, -5.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+
+    let c_ref = c.borrow();
+    let is = c_ref.local_intersect(&r);
+    assert!(is.intersections.is_empty());
+}
+
+#[test]
+fn a_ray_hits_a_csg_object() {
+    use crate::feq;
+
+    let s1 = Rc::new(RefCell::new(ShapeNode::sphere()));
+    let s2 = Rc::new(RefCell::new(ShapeNode::sphere()));
+    s2.borrow_mut().transform = Matrix4D::translation(0.0, 0.0, 0.5);
+
+    let c = ShapeNode::csg_union(Rc::clone(&s1), Rc::clone(&s2));
+
+    let r = Ray4D::new(
+        Tuple4D::point(0.0, 0.0, -5.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+
+    let c_ref = c.borrow();
+    let is = c_ref.local_intersect(&r);
+
+    assert_eq!(is.intersections.len(), 2);
+    assert!(feq(is.intersections[0].t, 4.0));
+    assert!(std::ptr::eq(is.intersections[0].what, Ref::leak(s1.borrow())));
+    assert!(feq(is.intersections[1].t, 6.5));
+    assert!(std::ptr::eq(is.intersections[1].what, Ref::leak(s2.borrow())));
 }

@@ -1,8 +1,7 @@
 use crate::consts::FEQ_EPSILON;
 use crate::tuple::Tuple4D;
 use crate::ray::Ray4D;
-// use crate::geometry::{ ShapeNodeDebug, normal_at };
-use crate::shape::{ ShapeNode, normal_at };
+use crate::shape::{ ShapeNode, ShapeType, normal_at };
 
 /// An intersection.
 ///
@@ -88,6 +87,8 @@ impl<'a> Intersections<'a> {
     }
 
     /// Aggregates several Intersections together.
+    ///
+    /// Sorts the combined intersections.
     pub fn aggregate<'b>(mut multi_is: Vec<Intersections<'b>>)
         -> Intersections<'b> {
         let mut combined_is = Intersections::new();
@@ -251,5 +252,161 @@ impl<'a> IntersectionComputation<'a> {
 
         let r0 = ((self.n1 - self.n2) / (self.n1 + self.n2)).powi(2);
         r0 + (1.0 - r0) * (1.0 - cos).powi(5)
+    }
+}
+
+/// Checks whether an intersection is allowed for a CSG operation.
+///
+/// This function assumes that `op.borrow().ty` is either a `Union`,
+/// `Intersection` or `Difference`.
+///
+/// For nomenclature, this function assumes the existence of two shapes, a
+/// "left shape" and a "right shape" (these map to the left and right operands
+/// of argument `op`). If `which_hit` is true, the intersection hit the left
+/// shape, otherwise the intersection hit the right shape.
+///
+/// Variable `inside_left` is true if there's an intersection within the left
+/// shape, and variable `inside_right` if there's an intersection within the
+/// right shape.
+///
+/// This function returns whether an intersection is allowed for the CSG node.
+pub fn intersection_allowed(op: &ShapeNode, which_hit: bool, inside_left: bool,
+    inside_right: bool) -> bool {
+    match op.ty {
+        ShapeType::Union(_, _) =>
+            (which_hit && !inside_right) || (!which_hit && !inside_left),
+        ShapeType::Intersection(_, _) =>
+            (which_hit && inside_right) || (!which_hit && inside_left),
+        ShapeType::Difference(_, _) =>
+            (which_hit && !inside_right) || (!which_hit && inside_left),
+        // By default, disallow intersection
+        _ => false,
+    }
+}
+
+pub fn filter_intersections<'a>(op: &ShapeNode, is: &Intersections<'a>)
+    -> Intersections<'a> {
+    // Start outside of both child pointers
+    let mut inside_left = false;
+    let mut inside_right = false;
+
+    // Prepare an Intersections to collect filtered intersections
+    let mut res_is = Intersections::new();
+
+    for i in is.intersections.iter() {
+        // If i.what is part of the left child, which_hit is true (for left)
+        let which_hit = op.csg_left().borrow().includes(i.what);
+
+        if intersection_allowed(op, which_hit, inside_left, inside_right) {
+            res_is.intersections.push(i.clone());
+        }
+
+        // Depending on which object was hit, toggle either inside_left or
+        // inside_right
+        if which_hit {
+            inside_left = !inside_left;
+        } else {
+            inside_right = !inside_right;
+        }
+    }
+   
+    // Return the filtered intersections
+    res_is
+}
+
+#[test]
+fn evaluating_rule_for_a_csg_operation() {
+    use std::rc::Rc;
+    use std::cell::RefCell;
+    
+    use crate::shape::ShapePtr;
+
+    // Dummy shapes for union CSG.
+    let s1 = Rc::new(RefCell::new(ShapeNode::empty()));
+    let s2 = Rc::new(RefCell::new(ShapeNode::empty()));
+
+    let args: [(ShapePtr, bool, bool, bool); 24] = [
+        // Unions
+        (ShapeNode::csg_union(Rc::clone(&s1),Rc::clone(&s2)),true,true,true),
+        (ShapeNode::csg_union(Rc::clone(&s1),Rc::clone(&s2)),true,true,false),
+        (ShapeNode::csg_union(Rc::clone(&s1),Rc::clone(&s2)),true,false,true),
+        (ShapeNode::csg_union(Rc::clone(&s1),Rc::clone(&s2)),true,false,false),
+        (ShapeNode::csg_union(Rc::clone(&s1),Rc::clone(&s2)),false,true,true),
+        (ShapeNode::csg_union(Rc::clone(&s1),Rc::clone(&s2)),false,true,false),
+        (ShapeNode::csg_union(Rc::clone(&s1),Rc::clone(&s2)),false,false,true),
+        (ShapeNode::csg_union(Rc::clone(&s1),Rc::clone(&s2)),false,false,false),
+
+        // Intersections
+        (ShapeNode::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
+            true,true,true),
+        (ShapeNode::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
+            true,true,false),
+        (ShapeNode::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
+            true,false,true),
+        (ShapeNode::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
+            true,false,false),
+        (ShapeNode::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
+            false,true,true),
+        (ShapeNode::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
+            false,true,false),
+        (ShapeNode::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
+            false,false,true),
+        (ShapeNode::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
+            false,false,false),
+
+        // Differences
+        (ShapeNode::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
+            true,true,true),
+        (ShapeNode::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
+            true,true,false),
+        (ShapeNode::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
+            true,false,true),
+        (ShapeNode::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
+            true,false,false),
+        (ShapeNode::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
+            false,true,true),
+        (ShapeNode::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
+            false,true,false),
+        (ShapeNode::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
+            false,false,true),
+        (ShapeNode::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
+            false,false,false),
+    ];
+
+    let results: [bool; 24] = [
+        // Unions
+        false,
+        true,
+        false,
+        true,
+        false,
+        false,
+        true,
+        true,
+
+        // Intersections
+        true,
+        false,
+        true,
+        false,
+        true,
+        true,
+        false,
+        false,
+
+        // Differences
+        false,
+        true,
+        false,
+        true,
+        true,
+        true,
+        false,
+        false
+    ];
+
+    for (arg, res) in args.iter().zip(results.iter()) {
+        assert_eq!(intersection_allowed(&arg.0.borrow(),
+            arg.1, arg.2, arg.3), *res);
     }
 }
