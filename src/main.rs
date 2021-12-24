@@ -11,8 +11,8 @@ use ray_tracer_challenge::world::World;
 use ray_tracer_challenge::camera::Camera;
 use ray_tracer_challenge::obj::ObjParser;
 
-const CANVAS_WIDTH: usize = 500; // * 8; // 240 * 8;
-const CANVAS_HEIGHT: usize = 400; // * 8; // 135 * 8; 
+const CANVAS_WIDTH: usize = 125; // * 8; // 240 * 8;
+const CANVAS_HEIGHT: usize = 100; // * 8; // 135 * 8; 
 const OBJ_FILE: &'static str = "./models/old-teapot.obj";
 const OUT_FILE: &'static str = "./out.ppm";
 
@@ -42,16 +42,32 @@ fn main() {
         = Matrix4D::translation(0.0, -4.0, 0.0);
     floor.borrow_mut().material.pattern
         = Some(Pattern::checker(Color::black(), Color::white()));
+    floor.borrow_mut().material.reflective = 0.8;
+
+    let cube = Rc::new(RefCell::new(ShapeNode::cube()));
+    cube.borrow_mut().transform = Matrix4D::scaling(1.5, 1.5, 1.5)
+        * Matrix4D::rotation_y(std::f64::consts::PI / 8.0)
+        * Matrix4D::rotation_z(std::f64::consts::PI / 8.0);
+    cube.borrow_mut().material.color = Color::rgb(1.0, 1.0, 0.0);
+
+    let sphere = Rc::new(RefCell::new(ShapeNode::sphere()));
+    sphere.borrow_mut().transform =
+        Matrix4D::rotation_y(std::f64::consts::PI / 8.0)
+        * Matrix4D::translation(0.5, 0.0, 0.0);
+    sphere.borrow_mut().material.color = Color::red();
+
+    let difference = ShapeNode::csg_difference(cube, sphere);
+    difference.borrow_mut().transform = Matrix4D::translation(-5.0, 0.0, 0.0);
 
     let mut world = World::empty();
     world.light_source = PointLight::new(
-        Color::rgb(0.9, 0.9, 0.7),
+        Color::rgb(0.85, 0.8, 0.65),
         Tuple4D::point(-10.0, 10.0, -10.0),
     );
 
     world.objects = vec![
-        // Rc::clone(&model),
         Rc::clone(&floor),
+        Rc::clone(&difference),
     ];
     world.objects.append(&mut models);
 
@@ -61,7 +77,7 @@ fn main() {
         Tuple4D::point(0.0, 1.5, -5.0),
         Tuple4D::point(0.0, 1.0,  0.0),
         Tuple4D::vector(0.0, 1.0, 0.0),
-    ) * Matrix4D::translation(1.0, 0.0, 16.0);
+    ) * Matrix4D::translation(2.0, 0.0, 12.0);
 
     println!("Rendering...");
     let canvas = camera.render(&mut world);
