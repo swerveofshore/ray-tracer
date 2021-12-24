@@ -41,9 +41,7 @@ impl TriangleInfo {
 
 #[derive(Debug)]
 pub struct SmoothTriangleInfo {
-    pub p1: Tuple4D,
-    pub p2: Tuple4D,
-    pub p3: Tuple4D,
+    pub triangle_info: TriangleInfo,
 
     pub n1: Tuple4D,
     pub n2: Tuple4D,
@@ -53,7 +51,11 @@ pub struct SmoothTriangleInfo {
 impl SmoothTriangleInfo {
     fn new(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D,
         n1: Tuple4D, n2: Tuple4D, n3: Tuple4D) -> SmoothTriangleInfo {
-        SmoothTriangleInfo { p1, p2, p3, n1, n2, n3 }
+
+        SmoothTriangleInfo {
+            triangle_info: TriangleInfo::new(p1, p2, p3),
+            n1, n2, n3
+        }
     }
 }
 
@@ -364,13 +366,17 @@ impl ShapeNode {
 
                 Bounds::new(min_x, min_y, min_z, max_x, max_y, max_z)
             },
-            ShapeType::SmoothTriangle(ref ti) => {
-                let min_x = ti.p1.x.min(ti.p2.x.min(ti.p3.x));
-                let min_y = ti.p1.y.min(ti.p2.y.min(ti.p3.y));
-                let min_z = ti.p1.z.min(ti.p2.z.min(ti.p3.z));
-                let max_x = ti.p1.x.max(ti.p2.x.max(ti.p3.x));
-                let max_y = ti.p1.y.max(ti.p2.y.max(ti.p3.y));
-                let max_z = ti.p1.z.max(ti.p2.z.max(ti.p3.z));
+            ShapeType::SmoothTriangle(ref sti) => {
+                let p1 = sti.triangle_info.p1;
+                let p2 = sti.triangle_info.p2;
+                let p3 = sti.triangle_info.p3;
+
+                let min_x = p1.x.min(p2.x.min(p3.x));
+                let min_y = p1.y.min(p2.y.min(p3.y));
+                let min_z = p1.z.min(p2.z.min(p3.z));
+                let max_x = p1.x.max(p2.x.max(p3.x));
+                let max_y = p1.y.max(p2.y.max(p3.y));
+                let max_z = p1.z.max(p2.z.max(p3.z));
 
                 Bounds::new(min_x, min_y, min_z, max_x, max_y, max_z)
             },
@@ -489,7 +495,8 @@ impl ShapeNode {
         }
     }
 
-    pub fn local_normal_at(&self, at: &Tuple4D) -> Tuple4D {
+    pub fn local_normal_at<'a>(&self, at: &Tuple4D, hit: &Intersection<'a>)
+        -> Tuple4D {
         match self.ty {
             ShapeType::Empty => Tuple4D { w: 0.0, ..*at },
             ShapeType::Sphere => self.normal_at_sphere(at),
@@ -498,7 +505,8 @@ impl ShapeNode {
             ShapeType::Cylinder(_, _, _) => self.normal_at_cylinder(at),
             ShapeType::Cone(_, _, _) => self.normal_at_cone(at),
             ShapeType::Triangle(_) => self.normal_at_triangle(at),
-            ShapeType::SmoothTriangle(_) => self.normal_at_smooth_triangle(at),
+            ShapeType::SmoothTriangle(_)
+                => self.normal_at_smooth_triangle(at, hit),
             ShapeType::Group(_) => panic!(
                 "Local normal calculations should never occur on groups."
             ),
@@ -918,10 +926,6 @@ impl ShapeNode {
         }
     }
 
-    fn intersect_smooth_triangle(&self, ray: &Ray4D) -> Intersections {
-        Intersections::new()
-    }
-
     fn normal_at_triangle(&self, _at: &Tuple4D) -> Tuple4D {
         let triangle_info = match self.ty {
             ShapeType::Triangle(ref ti) => ti,
@@ -931,8 +935,64 @@ impl ShapeNode {
         triangle_info.normal
     }
 
-    fn normal_at_smooth_triangle(&self, at: &Tuple4D) -> Tuple4D {
-        Default::default()
+    fn intersect_smooth_triangle(&self, ray: &Ray4D) -> Intersections {
+        // TODO reduce code duplication with `intersect_triangle`
+
+        let smooth_triangle_info = match self.ty {
+            ShapeType::SmoothTriangle(ref sti) => sti,
+            _ => unreachable!(),
+        };
+
+        let dir_cross_e2 = ray.direction.cross(
+            &smooth_triangle_info.triangle_info.e2
+        );
+        let determinant =
+            smooth_triangle_info.triangle_info.e1.dot(&dir_cross_e2);
+
+        // If the ray is parallel to the triangle, return no intersections.
+        if determinant.abs() < FEQ_EPSILON {
+            return Intersections::new();
+        }
+
+        let f = 1.0 / determinant;
+        let p1_to_origin = ray.origin - smooth_triangle_info.triangle_info.p1;
+        let u = f * p1_to_origin.dot(&dir_cross_e2);
+        if u < 0.0 {
+            return Intersections::new();
+        }
+
+        let origin_cross_e1 = p1_to_origin.cross(
+            &smooth_triangle_info.triangle_info.e1
+        );
+        let v = f * ray.direction.dot(&origin_cross_e1);
+        if v < 0.0 || u + v > 1.0 {
+            return Intersections::new();
+        }
+
+        // If an intersection has occurred, return it.
+        // Note that triangles can only be intersected on one side.
+        let t = f * smooth_triangle_info.triangle_info.e2.dot(&origin_cross_e1);
+        Intersections {
+            intersections: vec![
+                Intersection::new_uv(t, &self, u, v)
+            ],
+        }
+    }
+
+    fn normal_at_smooth_triangle<'a>(&self, _at: &Tuple4D,
+        hit: &Intersection<'a>) -> Tuple4D {
+        let smooth_triangle_info = match self.ty {
+            ShapeType::SmoothTriangle(ref sti) => sti,
+            _ => unreachable!(),
+        };
+
+        if let Some((u,v)) = hit.uv {
+            smooth_triangle_info.n2 * u
+                + smooth_triangle_info.n3 * v
+                + smooth_triangle_info.n1 * (1.0 - u - v)
+        } else {
+            smooth_triangle_info.triangle_info.normal
+        }
     }
 
     /// Gets the min and max intersection offsets along an axis of a cube.
@@ -1064,9 +1124,11 @@ pub fn intersect(s: &ShapeNode, r: Ray4D) -> Intersections {
     s.local_intersect(&transformed_ray)
 }
 
-pub fn normal_at(s: &ShapeNode, world_point: Tuple4D) -> Tuple4D {
+pub fn normal_at<'a>(s: &ShapeNode, world_point: Tuple4D,
+    hit: &Intersection<'a>) -> Tuple4D {
+
     let local_point = s.world_to_object(world_point);
-    let local_normal = s.local_normal_at(&local_point);
+    let local_normal = s.local_normal_at(&local_point, hit);
     s.normal_to_world(local_normal)
 }
 
@@ -1076,7 +1138,7 @@ fn compute_normal_on_translated_sphere() {
     s.transform = Matrix4D::translation(0.0, 1.0, 0.0);
 
     let p = Tuple4D::point(0.0, 1.70711, -0.70711);
-    let n = normal_at(&s, p);
+    let n = normal_at(&s, p, &Intersection::new(0.0, &s));
 
     assert_eq!(n, Tuple4D::vector(0.0, 0.70711, -0.70711));
 }
@@ -1088,7 +1150,7 @@ fn compute_normal_on_transformed_sphere() {
         * Matrix4D::rotation_z(std::f64::consts::PI / 5.0);
     
     let p = Tuple4D::point(0.0, 2.0f64.sqrt() / 2.0, -(2.0f64.sqrt()) / 2.0);
-    let n = normal_at(&s, p);
+    let n = normal_at(&s, p, &Intersection::new(0.0, &s));
 
     assert_eq!(n, Tuple4D::vector(0.0, 0.97014, -0.24254));
 }
@@ -1097,9 +1159,18 @@ fn compute_normal_on_transformed_sphere() {
 fn normal_on_plane() {
     let p = ShapeNode::plane();
 
-    let n1 = p.local_normal_at(&Tuple4D::point(0.0, 0.0, 0.0));
-    let n2 = p.local_normal_at(&Tuple4D::point(10.0, 0.0, -10.0));
-    let n3 = p.local_normal_at(&Tuple4D::point(-5.0, 0.0, 150.0));
+    let n1 = p.local_normal_at(
+        &Tuple4D::point(0.0, 0.0, 0.0),
+        &Intersection::new(0.0, &p)
+    );
+    let n2 = p.local_normal_at(
+        &Tuple4D::point(10.0, 0.0, -10.0),
+        &Intersection::new(0.0, &p)
+    );
+    let n3 = p.local_normal_at(
+        &Tuple4D::point(-5.0, 0.0, 150.0),
+        &Intersection::new(0.0, &p)
+    );
 
     assert_eq!(n1, Tuple4D::vector(0.0, 1.0, 0.0));
     assert_eq!(n2, Tuple4D::vector(0.0, 1.0, 0.0));
@@ -1220,7 +1291,9 @@ fn hit_multiple() {
 #[test]
 fn normal_on_sphere_x() {
     let s = ShapeNode::sphere();
-    let n = normal_at(&s, Tuple4D::point(1.0, 0.0, 0.0));
+    let n = normal_at(
+        &s, Tuple4D::point(1.0, 0.0, 0.0), &Intersection::new(0.0, &s)
+    );
 
     assert_eq!(n, Tuple4D::vector(1.0, 0.0, 0.0));
 }
@@ -1228,7 +1301,9 @@ fn normal_on_sphere_x() {
 #[test]
 fn normal_on_sphere_y() {
     let s = ShapeNode::sphere();
-    let n = normal_at(&s, Tuple4D::point(0.0, 1.0, 0.0));
+    let n = normal_at(
+        &s, Tuple4D::point(0.0, 1.0, 0.0), &Intersection::new(0.0, &s)
+    );
 
     assert_eq!(n, Tuple4D::vector(0.0, 1.0, 0.0));
 }
@@ -1236,7 +1311,9 @@ fn normal_on_sphere_y() {
 #[test]
 fn normal_on_sphere_z() {
     let s = ShapeNode::sphere();
-    let n = normal_at(&s, Tuple4D::point(0.0, 0.0, 1.0));
+    let n = normal_at(
+        &s, Tuple4D::point(0.0, 0.0, 1.0), &Intersection::new(0.0, &s)
+    );
 
     assert_eq!(n, Tuple4D::vector(0.0, 0.0, 1.0));
 }
@@ -1249,7 +1326,8 @@ fn normal_on_sphere_nonaxial() {
             3.0f64.sqrt() / 3.0,
             3.0f64.sqrt() / 3.0,
             3.0f64.sqrt() / 3.0
-        )
+        ),
+        &Intersection::new(0.0, &s)
     );
 
     assert_eq!(n,
@@ -1265,7 +1343,9 @@ fn normal_on_sphere_nonaxial() {
 fn normal_on_sphere_translated() {
     let mut s = ShapeNode::sphere();
     s.transform = Matrix4D::translation(0.0, 1.0, 0.0);
-    let n = normal_at(&s, Tuple4D::point(0.0, 1.70711, -0.70711));
+    let n = normal_at(
+        &s, Tuple4D::point(0.0, 1.70711, -0.70711), &Intersection::new(0.0, &s)
+    );
     
     assert_eq!(n, Tuple4D::vector(0.0, 0.70711, -0.70711));
 }
@@ -1276,7 +1356,8 @@ fn normal_on_sphere_transformed() {
     s.transform = Matrix4D::scaling(1.0, 0.5, 1.0)
         * Matrix4D::rotation_z(std::f64::consts::PI / 5.0);
     let n = normal_at(&s,
-        Tuple4D::point(0.0, 2.0f64.sqrt() / 2.0, -(2.0f64.sqrt() / 2.0))
+        Tuple4D::point(0.0, 2.0f64.sqrt() / 2.0, -(2.0f64.sqrt() / 2.0)),
+        &Intersection::new(0.0, &s)
     );
 
     assert_eq!(n, Tuple4D::vector(0.0, 0.97014, -0.24254));
@@ -1527,7 +1608,8 @@ fn finding_the_normal_on_a_child_object() {
 
     let normal = normal_at(
         &s.borrow(),
-        Tuple4D::point(1.7321, 1.1547, -5.5774)
+        Tuple4D::point(1.7321, 1.1547, -5.5774),
+        &Intersection::new(0.0, &ShapeNode::sphere())
     );
     assert_eq!(normal, Tuple4D::vector(0.2857, 0.4286, -0.8571));
 }
@@ -1558,10 +1640,14 @@ fn finding_the_normal_on_a_triangle() {
     let p3 = Tuple4D::point(1.0, 0.0, 0.0);
     let t = ShapeNode::triangle(p1, p2, p3);
 
+    let i = Intersection::new(0.0, &t);
     if let ShapeType::Triangle(ref ti) = t.ty {
-        assert_eq!(ti.normal, normal_at(&t, Tuple4D::point(0.0, 0.5, 0.0)));
-        assert_eq!(ti.normal, normal_at(&t, Tuple4D::point(-0.5, 0.75, 0.0)));
-        assert_eq!(ti.normal, normal_at(&t, Tuple4D::point(0.5, 0.25, 0.0)));
+        assert_eq!(ti.normal,
+            normal_at(&t, Tuple4D::point(0.0, 0.5, 0.0), &i));
+        assert_eq!(ti.normal,
+            normal_at(&t, Tuple4D::point(-0.5, 0.75, 0.0), &i));
+        assert_eq!(ti.normal,
+            normal_at(&t, Tuple4D::point(0.5, 0.25, 0.0), &i));
     } else {
         unreachable!();
     }
@@ -1651,6 +1737,29 @@ fn a_ray_strikes_a_triangle() {
 }
 
 #[test]
+fn constructing_a_smooth_triangle() {
+    let p1 = Tuple4D::point(0.0, 1.0, 0.0);
+    let p2 = Tuple4D::point(-1.0, 0.0, 0.0);
+    let p3 = Tuple4D::point(1.0, 0.0, 0.0);
+    let n1 = Tuple4D::vector(1.0, 0.0, 0.0);
+    let n2 = Tuple4D::vector(-1.0, 0.0, 0.0);
+    let n3 = Tuple4D::vector(1.0, 0.0, 0.0);
+
+    let s = ShapeNode::smooth_triangle(p1, p2, p3, n1, n2, n3);
+    let smooth_triangle_info = match s.ty {
+        ShapeType::SmoothTriangle(sti) => sti,
+        _ => unreachable!(),
+    };
+
+    assert_eq!(smooth_triangle_info.triangle_info.p1, p1);
+    assert_eq!(smooth_triangle_info.triangle_info.p2, p2);
+    assert_eq!(smooth_triangle_info.triangle_info.p3, p3);
+    assert_eq!(smooth_triangle_info.n1, n1);
+    assert_eq!(smooth_triangle_info.n2, n2);
+    assert_eq!(smooth_triangle_info.n3, n3);
+}
+
+#[test]
 fn an_intersection_can_encapsulate_u_and_v() {
     let s = ShapeNode::triangle(
         Tuple4D::point(0.0, 1.0, 0.0),
@@ -1666,4 +1775,48 @@ fn an_intersection_can_encapsulate_u_and_v() {
     } else {
         unreachable!();
     }
+}
+
+#[test]
+fn an_intersection_with_a_smooth_triangle_stores_uv() {
+    use crate::feq;
+
+    let s = ShapeNode::smooth_triangle(
+        Tuple4D::point(0.0, 1.0, 0.0),
+        Tuple4D::point(-1.0, 0.0, 0.0),
+        Tuple4D::point(1.0, 0.0, 0.0),
+        Tuple4D::vector(1.0, 0.0, 0.0),
+        Tuple4D::vector(-1.0, 0.0, 0.0),
+        Tuple4D::vector(1.0, 0.0, 0.0)
+    );
+
+    let r = Ray4D::new(
+        Tuple4D::point(-0.2, 0.3, -2.0),
+        Tuple4D::vector(0.0, 0.0, 1.0)
+    );
+
+    let is = s.local_intersect(&r);
+    if let Some((u, v)) = is.intersections[0].uv {
+        assert!(feq(u, 0.45));
+        assert!(feq(v, 0.25));
+    } else {
+        unreachable!();
+    }
+}
+
+#[test]
+fn a_smooth_triangle_uses_uv_to_interpolate_the_normal() {
+    let s = ShapeNode::smooth_triangle(
+        Tuple4D::point(0.0, 1.0, 0.0),
+        Tuple4D::point(-1.0, 0.0, 0.0),
+        Tuple4D::point(1.0, 0.0, 0.0),
+        Tuple4D::vector(0.0, 1.0, 0.0),
+        Tuple4D::vector(-1.0, 0.0, 0.0),
+        Tuple4D::vector(1.0, 0.0, 0.0)
+    );
+
+    let i = Intersection::new_uv(1.0, &s, 0.45, 0.25);
+    let n = normal_at(&s, Tuple4D::point(0.0, 0.0, 0.0), &i);
+
+    assert_eq!(n, Tuple4D::vector(-0.5547, 0.83205, 0.0));
 }

@@ -152,7 +152,7 @@ impl<'a> IntersectionComputation<'a> {
         let obj = hit.what;
         let point = r.position(t);
         let eyev = -r.direction;
-        let mut normalv = normal_at(obj, point);
+        let mut normalv = normal_at(obj, point, hit);
 
         let inside = if normalv.dot(&eyev) < 0.0 {
             normalv = -normalv;
