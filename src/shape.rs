@@ -92,6 +92,15 @@ impl Bounds {
         }
     }
 
+    /// Creates bounds which encapsulate everything.
+    pub fn infinite() -> Bounds {
+        let inf = std::f64::INFINITY;
+        Bounds {
+            minimum: Tuple4D::point(-inf, -inf, -inf),
+            maximum: Tuple4D::point( inf,  inf,  inf)
+        }
+    }
+
     /// Transforms a bounding box.
     ///
     /// Certain transformations (e.g. rotations) can cause the bounding box to
@@ -265,6 +274,19 @@ pub struct ShapeNode {
 
     pub transform: Matrix4D,
     pub material: Material,
+    saved_bounds: Option<Bounds>,
+}
+
+impl Default for ShapeNode {
+    fn default() -> ShapeNode {
+        ShapeNode {
+            ty: ShapeType::Empty,
+            parent: Weak::new(),
+            transform: Matrix4D::identity(),
+            material: Default::default(),
+            saved_bounds: None,
+        }
+    }
 }
 
 /// Checks that two ShapeNodes are equal.
@@ -286,9 +308,7 @@ impl ShapeNode {
     pub fn empty() -> ShapeNode {
         ShapeNode {
             ty: ShapeType::Empty,
-            parent: Weak::new(),
-            transform: Matrix4D::identity(),
-            material: Default::default(),
+            ..Default::default()
         }
     }
 
@@ -296,9 +316,7 @@ impl ShapeNode {
     pub fn sphere() -> ShapeNode {
         ShapeNode {
             ty: ShapeType::Sphere,
-            parent: Weak::new(),
-            transform: Matrix4D::identity(),
-            material: Default::default(),
+            ..Default::default()
         }
     }
 
@@ -306,9 +324,7 @@ impl ShapeNode {
     pub fn plane() -> ShapeNode {
         ShapeNode {
             ty: ShapeType::Plane(Tuple4D::vector(0.0, 1.0, 0.0)),
-            parent: Weak::new(),
-            transform: Matrix4D::identity(),
-            material: Default::default(),
+            ..Default::default()
         }
     }
 
@@ -316,9 +332,7 @@ impl ShapeNode {
     pub fn cube() -> ShapeNode {
         ShapeNode {
             ty: ShapeType::Cube,
-            parent: Weak::new(),
-            transform: Matrix4D::identity(),
-            material: Default::default(),
+            ..Default::default()
         }
     }
 
@@ -330,9 +344,7 @@ impl ShapeNode {
                     std::f64::INFINITY,
                     false
                 ),
-            parent: Weak::new(),
-            transform: Matrix4D::identity(),
-            material: Default::default(),
+            ..Default::default()
         }
     }
 
@@ -340,29 +352,23 @@ impl ShapeNode {
     pub fn bounded_cylinder(minimum: f64, maximum: f64) -> ShapeNode {
          ShapeNode {
             ty: ShapeType::Cylinder(minimum, maximum, false),
-            parent: Weak::new(),
-            transform: Matrix4D::identity(),
-            material: Default::default(),
-        }       
+            ..Default::default()
+         }
     }
 
     /// Creates a bounded cylinder with caps.
     pub fn capped_cylinder(minimum: f64, maximum: f64) -> ShapeNode {
          ShapeNode {
             ty: ShapeType::Cylinder(minimum, maximum, true),
-            parent: Weak::new(),
-            transform: Matrix4D::identity(),
-            material: Default::default(),
-        }       
+            ..Default::default()
+         }
     }
 
     /// Creates an bounded double-napped cone with no end caps.
     pub fn bounded_cone(minimum: f64, maximum: f64) -> ShapeNode {
         ShapeNode {
             ty: ShapeType::Cone(minimum, maximum, false),
-            parent: Weak::new(),
-            transform: Matrix4D::identity(),
-            material: Default::default(),
+            ..Default::default()
         }
     }
 
@@ -370,9 +376,7 @@ impl ShapeNode {
     pub fn capped_cone(minimum: f64, maximum: f64) -> ShapeNode {
         ShapeNode {
             ty: ShapeType::Cone(minimum, maximum, true),
-            parent: Weak::new(),
-            transform: Matrix4D::identity(),
-            material: Default::default(),
+            ..Default::default()
         }
     }
 
@@ -380,9 +384,7 @@ impl ShapeNode {
     pub fn triangle(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D) -> ShapeNode {
         ShapeNode {
             ty: ShapeType::Triangle(TriangleInfo::new(p1, p2, p3)),
-            parent: Weak::new(),
-            transform: Matrix4D::identity(),
-            material: Default::default(),
+            ..Default::default()
         }
     }
 
@@ -393,9 +395,7 @@ impl ShapeNode {
             ty: ShapeType::SmoothTriangle(
                 SmoothTriangleInfo::new(p1, p2, p3, n1, n2, n3)
             ),
-            parent: Weak::new(),
-            transform: Matrix4D::identity(),
-            material: Default::default()
+            ..Default::default()
         }
     }
 
@@ -403,9 +403,7 @@ impl ShapeNode {
     pub fn group() -> ShapeNode {
         ShapeNode {
             ty: ShapeType::Group(Vec::new()),
-            parent: Weak::new(),
-            transform: Matrix4D::identity(),
-            material: Default::default(),
+            ..Default::default()
         }
     }
 
@@ -415,9 +413,7 @@ impl ShapeNode {
                 // Temporarily set type to empty so that child shapes can have
                 // some parent to refer to.
                 ty: ShapeType::Empty,
-                parent: Weak::new(),
-                transform: Matrix4D::identity(),
-                material: Default::default(),
+                ..Default::default()
             }
         ));
 
@@ -435,9 +431,7 @@ impl ShapeNode {
                 // Temporarily set type to empty so that child shapes can have
                 // some parent to refer to.
                 ty: ShapeType::Empty,
-                parent: Weak::new(),
-                transform: Matrix4D::identity(),
-                material: Default::default(),
+                ..Default::default()
             }
         ));
 
@@ -455,9 +449,7 @@ impl ShapeNode {
                 // Temporarily set type to empty so that child shapes can have
                 // some parent to refer to.
                 ty: ShapeType::Empty,
-                parent: Weak::new(),
-                transform: Matrix4D::identity(),
-                material: Default::default(),
+                ..Default::default()
             }
         ));
 
