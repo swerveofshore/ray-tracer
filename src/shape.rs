@@ -1,5 +1,4 @@
-use std::rc::{ Rc, Weak };
-use std::cell::{ Ref, RefCell };
+use std::sync::{ Arc, Mutex, Weak };
 
 use crate::consts::FEQ_EPSILON;
 use crate::tuple::Tuple4D;
@@ -7,184 +6,9 @@ use crate::ray::Ray4D;
 use crate::light::Material;
 use crate::matrix::Matrix4D;
 use crate::intersect::{ Intersection, Intersections, filter_intersections };
+use crate::geometry::{ TriangleInfo, SmoothTriangleInfo, Bounds };
 
-/// A pointer to a ShapeNode cell. Effectively a shape.
-pub type ShapePtr = Rc<RefCell<ShapeNode>>;
-
-/// Info associated with a Triangle shape.
-///
-/// Fields `p1`, `p2` and `p3` define the points of the `Triangle` in space.
-/// These fields are supplied by the entity instantiating the `Triangle`.
-///
-/// Fields `e1`, `e2` and `normal` are calculated on instantiation. The `e1`
-/// and `e2  fields are edges of the triangle, and `normal` is normal to the
-/// face of the triangle.
-#[derive(Debug, PartialEq)]
-pub struct TriangleInfo {
-    pub p1: Tuple4D,
-    pub p2: Tuple4D,
-    pub p3: Tuple4D,
-
-    e1: Tuple4D,
-    e2: Tuple4D,
-    normal: Tuple4D,
-}
-
-impl TriangleInfo {
-    fn new(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D) -> TriangleInfo {
-        let e1 = p2 - p1;
-        let e2 = p3 - p1;
-        let normal = e2.cross(&e1).normalize();
-        TriangleInfo { p1, p2, p3, e1, e2, normal }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct SmoothTriangleInfo {
-    pub triangle_info: TriangleInfo,
-
-    pub n1: Tuple4D,
-    pub n2: Tuple4D,
-    pub n3: Tuple4D,
-}
-
-impl SmoothTriangleInfo {
-    fn new(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D,
-        n1: Tuple4D, n2: Tuple4D, n3: Tuple4D) -> SmoothTriangleInfo {
-
-        SmoothTriangleInfo {
-            triangle_info: TriangleInfo::new(p1, p2, p3),
-            n1, n2, n3
-        }
-    }
-}
-
-/// A bounding box for a shape.
-///
-/// Helps prevent unnecessary intersection calculations by immediately telling
-/// a ray that it lies outside of a valid intersection region.
-///
-/// For example, imagine a scene with a single sphere (nothing else). Without 
-/// bounding boxes, rays would attempt to intersect every pixel in the scene,
-/// even though only one sphere is provided. With bounding boxes, rays would
-/// terminate intersection calculations immediately if they are unable to find a
-/// bounding box.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Bounds {
-    minimum: Tuple4D,
-    maximum: Tuple4D,
-}
-
-impl Bounds {
-    pub fn new(min_x: f64, min_y: f64, min_z: f64,
-        max_x: f64, max_y: f64, max_z: f64) -> Bounds {
-        Bounds {
-            minimum: Tuple4D::point(min_x, min_y, min_z),
-            maximum: Tuple4D::point(max_x, max_y, max_z)
-        }
-    }
-
-    /// Creates bounds which encapsulate nothing.
-    pub fn empty() -> Bounds {
-        Bounds {
-            minimum: Tuple4D::point(0.0, 0.0, 0.0),
-            maximum: Tuple4D::point(0.0, 0.0, 0.0)
-        }
-    }
-
-    /// Creates bounds which encapsulate everything.
-    pub fn infinite() -> Bounds {
-        let inf = std::f64::INFINITY;
-        Bounds {
-            minimum: Tuple4D::point(-inf, -inf, -inf),
-            maximum: Tuple4D::point( inf,  inf,  inf)
-        }
-    }
-
-    /// Transforms a bounding box.
-    ///
-    /// Certain transformations (e.g. rotations) can cause the bounding box to
-    /// expand, as we want the box to be aligned to axis.
-    ///
-    /// As a result, this function not only transforms the corners of the
-    /// existing bounds (represented by `self`), but it also selects the minimum
-    /// and maximum components of the transformed corners, producing new bounds.
-    pub fn transform(&self, m: &Matrix4D) -> Bounds {
-        let corners = [
-            *m * self.minimum,
-            *m * Tuple4D::point(self.minimum.x, self.minimum.y, self.maximum.z),
-            *m * Tuple4D::point(self.minimum.x, self.maximum.y, self.minimum.z),
-            *m * Tuple4D::point(self.minimum.x, self.maximum.y, self.maximum.z),
-            *m * Tuple4D::point(self.maximum.x, self.minimum.y, self.minimum.z),
-            *m * Tuple4D::point(self.maximum.x, self.minimum.y, self.maximum.z),
-            *m * Tuple4D::point(self.maximum.x, self.maximum.y, self.minimum.z),
-            *m * self.maximum,
-        ];
-
-        let mut min_x = std::f64::INFINITY;
-        let mut min_y = std::f64::INFINITY;
-        let mut min_z = std::f64::INFINITY;
-        let mut max_x = -1.0 * std::f64::INFINITY;
-        let mut max_y = -1.0 * std::f64::INFINITY;
-        let mut max_z = -1.0 * std::f64::INFINITY;
-
-        for corner in corners.iter() {
-            min_x = min_x.min(corner.x);
-            min_y = min_y.min(corner.y);
-            min_z = min_z.min(corner.z);
-            max_x = max_x.max(corner.x);
-            max_y = max_y.max(corner.y);
-            max_z = max_z.max(corner.z);
-        }
-
-        Bounds {
-            minimum: Tuple4D::point(min_x, min_y, min_z),
-            maximum: Tuple4D::point(max_x, max_y, max_z)
-        }
-    }
-
-    /// Gets the min and max intersection offsets along an axis of a bound.
-    ///
-    /// No particular axis is specified; this function takes a component from
-    /// the `origin` and `direction` fields of a `Ray4D` (e.g. `origin.x` and
-    /// `direction.x`) and returns where the `Ray4D` intersects planes on a cube
-    /// for a single axis.
-    ///
-    /// The smaller `t` is first in the tuple, the larger `t` is second.
-    pub fn check_axis(min: f64, max: f64, origin: f64, direction: f64)
-        -> (f64, f64) {
-        let tmin_numerator = min - origin;
-        let tmax_numerator = max - origin;
-
-        // Make sure that the direction is non-zero. If it is, assign INFINITY.
-        let (tmin, tmax) = if direction.abs() >= FEQ_EPSILON {
-            (tmin_numerator / direction, tmax_numerator / direction) 
-        } else {
-            (tmin_numerator * std::f64::INFINITY,
-             tmax_numerator * std::f64::INFINITY)
-        };
-
-        // If tmin is actually greater than tmax, return tmax first.
-        if tmin > tmax {
-            (tmax, tmin)
-        } else {
-            (tmin, tmax)
-        }
-    }
-}
-
-/// The default bounding box should encompass everything.
-impl Default for Bounds {
-    fn default() -> Bounds {
-        let neg_inf = -1.0 * std::f64::INFINITY;
-        let pos_inf = std::f64::INFINITY;
-
-        Bounds {
-            minimum: Tuple4D::point(neg_inf, neg_inf, neg_inf),
-            maximum: Tuple4D::point(pos_inf, pos_inf, pos_inf)
-        }
-    }
-}
+pub type ShapePtr = Arc<Mutex<ShapeNode>>;
 
 #[derive(Debug)]
 pub enum ShapeType {
@@ -257,7 +81,7 @@ impl PartialEq for ShapeType {
                 } else {
                     // Check that all children in the group are pointer-equal.
                     lg.iter().zip(rg.iter()).all(|(l, r)| {
-                        Rc::ptr_eq(l, r)
+                        Arc::ptr_eq(l, r)
                     })
                 }
             },
@@ -270,7 +94,7 @@ impl PartialEq for ShapeType {
 #[derive(Debug)]
 pub struct ShapeNode {
     pub ty: ShapeType, 
-    parent: Weak<RefCell<ShapeNode>>,
+    parent: Weak<Mutex<ShapeNode>>,
 
     pub transform: Matrix4D,
     pub material: Material,
@@ -408,7 +232,7 @@ impl ShapeNode {
     }
 
     pub fn csg_union(s1: ShapePtr, s2: ShapePtr) -> ShapePtr {
-        let union_shape = Rc::new(RefCell::new(
+        let union_shape = Arc::new(Mutex::new(
             ShapeNode {
                 // Temporarily set type to empty so that child shapes can have
                 // some parent to refer to.
@@ -417,16 +241,16 @@ impl ShapeNode {
             }
         ));
 
-        s1.borrow_mut().parent = Rc::downgrade(&union_shape);
-        s2.borrow_mut().parent = Rc::downgrade(&union_shape);
+        s1.lock().unwrap().parent = Arc::downgrade(&union_shape);
+        s2.lock().unwrap().parent = Arc::downgrade(&union_shape);
 
         // Set the type to a union of the two shapes, then return the union.
-        union_shape.borrow_mut().ty = ShapeType::Union(s1, s2);
+        union_shape.lock().unwrap().ty = ShapeType::Union(s1, s2);
         union_shape
     }
 
     pub fn csg_intersection(s1: ShapePtr, s2: ShapePtr) -> ShapePtr {
-        let intersection = Rc::new(RefCell::new(
+        let intersection = Arc::new(Mutex::new(
             ShapeNode {
                 // Temporarily set type to empty so that child shapes can have
                 // some parent to refer to.
@@ -435,16 +259,16 @@ impl ShapeNode {
             }
         ));
 
-        s1.borrow_mut().parent = Rc::downgrade(&intersection);
-        s2.borrow_mut().parent = Rc::downgrade(&intersection);
+        s1.lock().unwrap().parent = Arc::downgrade(&intersection);
+        s2.lock().unwrap().parent = Arc::downgrade(&intersection);
 
         // Set the type to a intersection of the two shapes, then return it..
-        intersection.borrow_mut().ty = ShapeType::Intersection(s1, s2);
+        intersection.lock().unwrap().ty = ShapeType::Intersection(s1, s2);
         intersection 
     }
 
     pub fn csg_difference(s1: ShapePtr, s2: ShapePtr) -> ShapePtr {
-        let difference = Rc::new(RefCell::new(
+        let difference = Arc::new(Mutex::new(
             ShapeNode {
                 // Temporarily set type to empty so that child shapes can have
                 // some parent to refer to.
@@ -453,11 +277,11 @@ impl ShapeNode {
             }
         ));
 
-        s1.borrow_mut().parent = Rc::downgrade(&difference);
-        s2.borrow_mut().parent = Rc::downgrade(&difference);
+        s1.lock().unwrap().parent = Arc::downgrade(&difference);
+        s2.lock().unwrap().parent = Arc::downgrade(&difference);
 
         // Set the type to a difference of the two shapes, then return it..
-        difference.borrow_mut().ty = ShapeType::Difference(s1, s2);
+        difference.lock().unwrap().ty = ShapeType::Difference(s1, s2);
         difference 
     }
 
@@ -466,7 +290,7 @@ impl ShapeNode {
     /// Panics if `self` is not a CSG operator (types `Union`, `Intersection`
     /// and `Difference`).
     pub fn csg_left(&self) -> ShapePtr {
-        Rc::clone(
+        Arc::clone(
             match self.ty {
                 ShapeType::Union(ref l, _) => l,
                 ShapeType::Intersection(ref l, _) => l,
@@ -481,7 +305,7 @@ impl ShapeNode {
     /// Panics if `self` is not a CSG operator (types `Union`, `Intersection`
     /// and `Difference`).
     pub fn csg_right(&self) -> ShapePtr {
-        Rc::clone(
+        Arc::clone(
             match self.ty {
                 ShapeType::Union(_, ref r) => r,
                 ShapeType::Intersection(_, ref r) => r,
@@ -494,7 +318,7 @@ impl ShapeNode {
     /// Deduces whether a shape includes another shape.
     ///
     /// If `self` is a `Group`, then this function will return true if any
-    /// child of the `Group` satisfies `child.borrow().includes(other)`.
+    /// child of the `Group` satisfies `child.lock().unwrap().includes(other)`.
     ///
     /// If `self` is a CSG object (e.g. `Union`, `Intersection`), this function
     /// will return if either child of `self` includes `other`.
@@ -505,18 +329,18 @@ impl ShapeNode {
         match self.ty {
             // Groups
             ShapeType::Group(ref children)
-                => children.iter().any(|c| c.borrow().includes(other)),
+                => children.iter().any(|c| c.lock().unwrap().includes(other)),
 
             // CSG operations
             ShapeType::Union(ref left, ref right)
-                => left.borrow().includes(other)
-                    || right.borrow().includes(other),
+                => left.lock().unwrap().includes(other)
+                    || right.lock().unwrap().includes(other),
             ShapeType::Intersection(ref left, ref right)
-                => left.borrow().includes(other)
-                    || right.borrow().includes(other),
+                => left.lock().unwrap().includes(other)
+                    || right.lock().unwrap().includes(other),
             ShapeType::Difference(ref left, ref right)
-                => left.borrow().includes(other)
-                    || right.borrow().includes(other),
+                => left.lock().unwrap().includes(other)
+                    || right.lock().unwrap().includes(other),
 
             // Other objects
             _ => self == other,
@@ -561,7 +385,7 @@ impl ShapeNode {
                 // Collect the bounds of each child.
                 let child_bounds: Vec<Bounds> = children.iter().map(|child|
                     // Transform each child bounds into group space.
-                    child.borrow().bounds().transform(&self.transform)
+                    child.lock().unwrap().bounds().transform(&self.transform)
                 ).collect();
 
                 let mut min_x = std::f64::INFINITY;
@@ -637,7 +461,7 @@ impl ShapeNode {
         // If the current object has a parent, convert the parent point to
         // object space first.
         if let Some(parent) = self.parent.upgrade() {
-            point = parent.borrow().world_to_object(point);
+            point = parent.lock().unwrap().world_to_object(point);
         }
 
         let trans_inv = self.transform.inverse().expect(
@@ -660,7 +484,7 @@ impl ShapeNode {
         // If the current object has a parent, convert the normal to the
         // parent's world space.
         if let Some(parent) = self.parent.upgrade() {
-            normal = parent.borrow().normal_to_world(normal);
+            normal = parent.lock().unwrap().normal_to_world(normal);
         }
 
         normal
@@ -683,8 +507,7 @@ impl ShapeNode {
         }
     }
 
-    pub fn local_normal_at<'a>(&self, at: &Tuple4D, hit: &Intersection<'a>)
-        -> Tuple4D {
+    pub fn local_normal_at(&self, at: &Tuple4D, hit: &Intersection) -> Tuple4D {
         match self.ty {
             ShapeType::Empty => Tuple4D { w: 0.0, ..*at },
             ShapeType::Sphere => self.normal_at_sphere(at),
@@ -1033,7 +856,7 @@ impl ShapeNode {
         }
     }
 
-    fn intersect_group(&self, ray: &Ray4D) -> Intersections {
+    fn intersect_group<'a>(&'a self, ray: &Ray4D) -> Intersections<'a> {
         let children = match self.ty {
             ShapeType::Group(ref c) => c,
             _ => unreachable!(),
@@ -1067,18 +890,11 @@ impl ShapeNode {
             return Intersections::new()
         }
 
-        let children_refs: Vec<_> = children.iter().map(
-            // Leak the child reference--we are *certain* that it will persist.
-            // As an aside, I'm not super familiar with what Ref::leak()
-            // really does, so this may need to be substituted later.
-            |child| Ref::leak(child.borrow())
-        ).collect();
-
         // Otherwise, for each child, collect its intersections and aggregate.
         let mut all_intersections = Vec::new();
-        for cr in children_refs.iter() {
+        for child in children.iter() {
             // Use regular intersect, otherwise transforms won't be applied
-            let is = intersect(cr, *ray);
+            let is = intersect(&child.lock().unwrap(), *ray);
             all_intersections.push(is)
         }
 
@@ -1175,8 +991,8 @@ impl ShapeNode {
         }
     }
 
-    fn normal_at_smooth_triangle<'a>(&self, _at: &Tuple4D,
-        hit: &Intersection<'a>) -> Tuple4D {
+    fn normal_at_smooth_triangle(&self, _at: &Tuple4D, hit: &Intersection)
+        -> Tuple4D {
         let smooth_triangle_info = match self.ty {
             ShapeType::SmoothTriangle(ref sti) => sti,
             _ => unreachable!(),
@@ -1204,12 +1020,9 @@ impl ShapeNode {
             _ => unreachable!(),
         };
 
-        // TODO: fix ref leaking, only needs to occur due to temporary
-        // (not really temporary) pointer resultant of .borrow()
-        let left_csg_ptr = left_csg.borrow();
-        let right_csg_ptr = right_csg.borrow();
-        let left_is = intersect(Ref::leak(left_csg_ptr), *ray);
-        let right_is = intersect(Ref::leak(right_csg_ptr), *ray);
+        // Get the intersection of the left/right children
+        let left_is = intersect(&left_csg.lock().unwrap(), *ray);
+        let right_is = intersect(&right_csg.lock().unwrap(), *ray);
 
         // Function aggregate sorts all intersections provided.
         let all_is = Intersections::aggregate(vec![left_is, right_is]);
@@ -1284,6 +1097,7 @@ impl ShapeNode {
 
     fn intersect_cone_caps<'a>(&'a self, ray: &Ray4D,
         is: &mut Intersections<'a>) {
+
         let (minimum, maximum, closed) = match self.ty {
             ShapeType::Cone(min, max, c) => (min, max, c),
             _ => unreachable!(),
@@ -1315,16 +1129,14 @@ impl ShapeNode {
     }
 }
 
-pub fn add_child_to_group(group: Rc<RefCell<ShapeNode>>,
-    child: Rc<RefCell<ShapeNode>>) {
-
-    let mut gb = group.borrow_mut();
+pub fn add_child_to_group(group: ShapePtr, child: ShapePtr) {
+    let mut gb = group.lock().unwrap();
     let children = match gb.ty {
         ShapeType::Group(ref mut c) => c,
         _ => panic!("Cannot add child to non-group shape."),
     };
 
-    child.borrow_mut().parent = Rc::downgrade(&group);
+    child.lock().unwrap().parent = Arc::downgrade(&group);
     children.push(child);
 }
 
@@ -1346,9 +1158,8 @@ pub fn intersect(s: &ShapeNode, r: Ray4D) -> Intersections {
     s.local_intersect(&transformed_ray)
 }
 
-pub fn normal_at<'a>(s: &ShapeNode, world_point: Tuple4D,
-    hit: &Intersection<'a>) -> Tuple4D {
-
+pub fn normal_at(s: &ShapeNode, world_point: Tuple4D, hit: &Intersection)
+    -> Tuple4D {
     let local_point = s.world_to_object(world_point);
     let local_normal = s.local_normal_at(&local_point, hit);
     s.normal_to_world(local_normal)
@@ -1685,12 +1496,12 @@ fn shape_has_parent_attribute() {
 
 #[test]
 fn adding_a_child_to_a_shape_group() {
-    let g = Rc::new(RefCell::new(ShapeNode::group()));
-    let s = Rc::new(RefCell::new(ShapeNode::empty()));
+    let g = Arc::new(Mutex::new(ShapeNode::group()));
+    let s = Arc::new(Mutex::new(ShapeNode::empty()));
 
-    add_child_to_group(Rc::clone(&g), Rc::clone(&s));
+    add_child_to_group(Arc::clone(&g), Arc::clone(&s));
 
-    let gb = g.borrow();
+    let gb = g.lock().unwrap();
     let children = match gb.ty {
         ShapeType::Group(ref c) => c,
         _ => unreachable!(),
@@ -1703,7 +1514,7 @@ fn adding_a_child_to_a_shape_group() {
     assert!(Rc::ptr_eq(&s, &children[0]));
 
     // Check that the child points to the parent Group.
-    assert!(Weak::ptr_eq(&s.borrow().parent, &Rc::downgrade(&g)));
+    assert!(Weak::ptr_eq(&s.lock().unwrap().parent, &Arc::downgrade(&g)));
 }
 
 #[test]
@@ -1720,47 +1531,47 @@ fn intersecting_ray_with_empty_group() {
 
 #[test]
 fn intersecting_ray_with_nonempty_group() {
-    let g = Rc::new(RefCell::new(ShapeNode::group()));
-    let s1 = Rc::new(RefCell::new(ShapeNode::sphere()));
-    let s2 = Rc::new(RefCell::new(ShapeNode::sphere()));
-    s2.borrow_mut().transform = Matrix4D::translation(0.0, 0.0, -3.0);
-    let s3 = Rc::new(RefCell::new(ShapeNode::sphere()));
-    s3.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
+    let g = Arc::new(Mutex::new(ShapeNode::group()));
+    let s1 = Arc::new(Mutex::new(ShapeNode::sphere()));
+    let s2 = Arc::new(Mutex::new(ShapeNode::sphere()));
+    s2.lock().unwrap().transform = Matrix4D::translation(0.0, 0.0, -3.0);
+    let s3 = Arc::new(Mutex::new(ShapeNode::sphere()));
+    s3.lock().unwrap().transform = Matrix4D::translation(5.0, 0.0, 0.0);
 
-    add_child_to_group(Rc::clone(&g), Rc::clone(&s1));
-    add_child_to_group(Rc::clone(&g), Rc::clone(&s2));
-    add_child_to_group(Rc::clone(&g), Rc::clone(&s3));
+    add_child_to_group(Arc::clone(&g), Arc::clone(&s1));
+    add_child_to_group(Arc::clone(&g), Arc::clone(&s2));
+    add_child_to_group(Arc::clone(&g), Arc::clone(&s3));
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -5.0),
         Tuple4D::vector(0.0, 0.0, 1.0)
     );
 
-    let gb = g.borrow();
+    let gb = g.lock().unwrap();
     let is = gb.local_intersect(&r);
     assert_eq!(is.intersections.len(), 4);
-    assert!(std::ptr::eq(is.intersections[0].what, Ref::leak(s2.borrow())));
-    assert!(std::ptr::eq(is.intersections[1].what, Ref::leak(s2.borrow())));
-    assert!(std::ptr::eq(is.intersections[2].what, Ref::leak(s1.borrow())));
-    assert!(std::ptr::eq(is.intersections[3].what, Ref::leak(s1.borrow())));
+    assert!(std::ptr::eq(is.intersections[0].what, Ref::leak(s2.lock().unwrap())));
+    assert!(std::ptr::eq(is.intersections[1].what, Ref::leak(s2.lock().unwrap())));
+    assert!(std::ptr::eq(is.intersections[2].what, Ref::leak(s1.lock().unwrap())));
+    assert!(std::ptr::eq(is.intersections[3].what, Ref::leak(s1.lock().unwrap())));
 }
 
 #[test]
 fn intersecting_a_transformed_group() {
-    let g = Rc::new(RefCell::new(ShapeNode::group()));
-    g.borrow_mut().transform = Matrix4D::scaling(2.0, 2.0, 2.0);
+    let g = Arc::new(Mutex::new(ShapeNode::group()));
+    g.lock().unwrap().transform = Matrix4D::scaling(2.0, 2.0, 2.0);
 
-    let s1 = Rc::new(RefCell::new(ShapeNode::sphere()));
-    s1.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
+    let s1 = Arc::new(Mutex::new(ShapeNode::sphere()));
+    s1.lock().unwrap().transform = Matrix4D::translation(5.0, 0.0, 0.0);
 
-    add_child_to_group(Rc::clone(&g), Rc::clone(&s1));
+    add_child_to_group(Arc::clone(&g), Arc::clone(&s1));
 
     let r = Ray4D::new(
         Tuple4D::point(10.0, 0.0, -10.0),
         Tuple4D::vector(0.0, 0.0, 1.0)
     );
 
-    let gb = g.borrow();
+    let gb = g.lock().unwrap();
     let is = intersect(&gb, r);
 
     assert_eq!(is.intersections.len(), 2);
@@ -1768,43 +1579,43 @@ fn intersecting_a_transformed_group() {
 
 #[test]
 fn converting_a_point_from_world_to_object_space() {
-    let g1 = Rc::new(RefCell::new(ShapeNode::group()));
-    g1.borrow_mut().transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.);
+    let g1 = Arc::new(Mutex::new(ShapeNode::group()));
+    g1.lock().unwrap().transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.);
 
-    let g2 = Rc::new(RefCell::new(ShapeNode::group()));
-    g2.borrow_mut().transform = Matrix4D::scaling(2.0, 2.0, 2.0);
+    let g2 = Arc::new(Mutex::new(ShapeNode::group()));
+    g2.lock().unwrap().transform = Matrix4D::scaling(2.0, 2.0, 2.0);
 
     // Group g2 is a child of group g1.
-    add_child_to_group(Rc::clone(&g1), Rc::clone(&g2));
+    add_child_to_group(Arc::clone(&g1), Arc::clone(&g2));
 
-    let s = Rc::new(RefCell::new(ShapeNode::sphere()));
-    s.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
+    let s = Arc::new(Mutex::new(ShapeNode::sphere()));
+    s.lock().unwrap().transform = Matrix4D::translation(5.0, 0.0, 0.0);
 
     // Sphere s is a child of group g2.
-    add_child_to_group(Rc::clone(&g2), Rc::clone(&s));
+    add_child_to_group(Arc::clone(&g2), Arc::clone(&s));
 
-    let p = s.borrow().world_to_object(Tuple4D::point(-2.0, 0.0, -10.0));
+    let p = s.lock().unwrap().world_to_object(Tuple4D::point(-2.0, 0.0, -10.0));
     assert_eq!(p, Tuple4D::point(0.0, 0.0, -1.0));
 }
 
 #[test]
 fn converting_a_normal_from_object_to_world_space() {
-    let g1 = Rc::new(RefCell::new(ShapeNode::group()));
-    g1.borrow_mut().transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.);
+    let g1 = Arc::new(Mutex::new(ShapeNode::group()));
+    g1.lock().unwrap().transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.);
 
-    let g2 = Rc::new(RefCell::new(ShapeNode::group()));
-    g2.borrow_mut().transform = Matrix4D::scaling(1.0, 2.0, 3.0);
+    let g2 = Arc::new(Mutex::new(ShapeNode::group()));
+    g2.lock().unwrap().transform = Matrix4D::scaling(1.0, 2.0, 3.0);
 
     // Group g2 is a child of group g1.
-    add_child_to_group(Rc::clone(&g1), Rc::clone(&g2));
+    add_child_to_group(Arc::clone(&g1), Arc::clone(&g2));
 
-    let s = Rc::new(RefCell::new(ShapeNode::sphere()));
-    s.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
+    let s = Arc::new(Mutex::new(ShapeNode::sphere()));
+    s.lock().unwrap().transform = Matrix4D::translation(5.0, 0.0, 0.0);
 
     // Sphere s is a child of group g2.
-    add_child_to_group(Rc::clone(&g2), Rc::clone(&s));
+    add_child_to_group(Arc::clone(&g2), Arc::clone(&s));
 
-    let normal = s.borrow().normal_to_world(Tuple4D::vector(
+    let normal = s.lock().unwrap().normal_to_world(Tuple4D::vector(
         3.0f64.sqrt() / 3.0, 3.0f64.sqrt() / 3.0, 3.0f64.sqrt() / 3.0
     ));
 
@@ -1813,23 +1624,23 @@ fn converting_a_normal_from_object_to_world_space() {
 
 #[test]
 fn finding_the_normal_on_a_child_object() {
-    let g1 = Rc::new(RefCell::new(ShapeNode::group()));
-    g1.borrow_mut().transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.);
+    let g1 = Arc::new(Mutex::new(ShapeNode::group()));
+    g1.lock().unwrap().transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.);
 
-    let g2 = Rc::new(RefCell::new(ShapeNode::group()));
-    g2.borrow_mut().transform = Matrix4D::scaling(1.0, 2.0, 3.0);
+    let g2 = Arc::new(Mutex::new(ShapeNode::group()));
+    g2.lock().unwrap().transform = Matrix4D::scaling(1.0, 2.0, 3.0);
 
     // Group g2 is a child of group g1.
-    add_child_to_group(Rc::clone(&g1), Rc::clone(&g2));
+    add_child_to_group(Arc::clone(&g1), Arc::clone(&g2));
 
-    let s = Rc::new(RefCell::new(ShapeNode::sphere()));
-    s.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
+    let s = Arc::new(Mutex::new(ShapeNode::sphere()));
+    s.lock().unwrap().transform = Matrix4D::translation(5.0, 0.0, 0.0);
 
     // Sphere s is a child of group g2.
-    add_child_to_group(Rc::clone(&g2), Rc::clone(&s));
+    add_child_to_group(Arc::clone(&g2), Arc::clone(&s));
 
     let normal = normal_at(
-        &s.borrow(),
+        &s.lock().unwrap(),
         Tuple4D::point(1.7321, 1.1547, -5.5774),
         &Intersection::new(0.0, &ShapeNode::sphere())
     );
@@ -2045,23 +1856,23 @@ fn a_smooth_triangle_uses_uv_to_interpolate_the_normal() {
 
 #[test]
 fn csg_is_created_with_an_operation_and_two_shapes() {
-    let s1 = Rc::new(RefCell::new(ShapeNode::sphere()));
-    let s2 = Rc::new(RefCell::new(ShapeNode::cube()));
+    let s1 = Arc::new(Mutex::new(ShapeNode::sphere()));
+    let s2 = Arc::new(Mutex::new(ShapeNode::cube()));
 
-    let c = ShapeNode::csg_union(Rc::clone(&s1), Rc::clone(&s2));
-    let c_ref = c.borrow();
+    let c = ShapeNode::csg_union(Arc::clone(&s1), Arc::clone(&s2));
+    let c_ref = c.lock().unwrap();
     if let ShapeType::Union(ref s1_ptr, ref s2_ptr) = c_ref.ty {
         assert!(Rc::ptr_eq(s1_ptr, &s1));
         assert!(Rc::ptr_eq(s2_ptr, &s2));
-        assert!(Weak::ptr_eq(&Rc::downgrade(&c), &s1.borrow().parent));
-        assert!(Weak::ptr_eq(&Rc::downgrade(&c), &s2.borrow().parent));
+        assert!(Weak::ptr_eq(&Arc::downgrade(&c), &s1.lock().unwrap().parent));
+        assert!(Weak::ptr_eq(&Arc::downgrade(&c), &s2.lock().unwrap().parent));
     }
 }
 
 #[test]
 fn a_ray_misses_a_csg_object() {
-    let s1 = Rc::new(RefCell::new(ShapeNode::sphere()));
-    let s2 = Rc::new(RefCell::new(ShapeNode::cube()));
+    let s1 = Arc::new(Mutex::new(ShapeNode::sphere()));
+    let s2 = Arc::new(Mutex::new(ShapeNode::cube()));
     let c = ShapeNode::csg_union(s1, s2);
 
     let r = Ray4D::new(
@@ -2069,7 +1880,7 @@ fn a_ray_misses_a_csg_object() {
         Tuple4D::vector(0.0, 0.0, 1.0)
     );
 
-    let c_ref = c.borrow();
+    let c_ref = c.lock().unwrap();
     let is = c_ref.local_intersect(&r);
     assert!(is.intersections.is_empty());
 }
@@ -2078,23 +1889,23 @@ fn a_ray_misses_a_csg_object() {
 fn a_ray_hits_a_csg_object() {
     use crate::feq;
 
-    let s1 = Rc::new(RefCell::new(ShapeNode::sphere()));
-    let s2 = Rc::new(RefCell::new(ShapeNode::sphere()));
-    s2.borrow_mut().transform = Matrix4D::translation(0.0, 0.0, 0.5);
+    let s1 = Arc::new(Mutex::new(ShapeNode::sphere()));
+    let s2 = Arc::new(Mutex::new(ShapeNode::sphere()));
+    s2.lock().unwrap().transform = Matrix4D::translation(0.0, 0.0, 0.5);
 
-    let c = ShapeNode::csg_union(Rc::clone(&s1), Rc::clone(&s2));
+    let c = ShapeNode::csg_union(Arc::clone(&s1), Arc::clone(&s2));
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -5.0),
         Tuple4D::vector(0.0, 0.0, 1.0)
     );
 
-    let c_ref = c.borrow();
+    let c_ref = c.lock().unwrap();
     let is = c_ref.local_intersect(&r);
 
     assert_eq!(is.intersections.len(), 2);
     assert!(feq(is.intersections[0].t, 4.0));
-    assert!(std::ptr::eq(is.intersections[0].what, Ref::leak(s1.borrow())));
+    assert!(std::ptr::eq(is.intersections[0].what, Ref::leak(s1.lock().unwrap())));
     assert!(feq(is.intersections[1].t, 6.5));
-    assert!(std::ptr::eq(is.intersections[1].what, Ref::leak(s2.borrow())));
+    assert!(std::ptr::eq(is.intersections[1].what, Ref::leak(s2.lock().unwrap())));
 }
