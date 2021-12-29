@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::consts::FEQ_EPSILON;
 use crate::tuple::Tuple4D;
 use crate::ray::Ray4D;
-use crate::shape::{ ShapePtr, ShapeNode, ShapeType, normal_at };
+use crate::shape::{ Shape, ShapePtr, ShapeType, normal_at };
 
 /// An intersection.
 ///
@@ -153,7 +153,9 @@ impl IntersectionComputation {
         let obj = hit.what;
         let point = r.position(t);
         let eyev = -r.direction;
-        let mut normalv = normal_at(obj, point, hit);
+        let mut normalv = normal_at(
+            &Shape { root: Arc::clone(&obj) }, point, hit
+        );
 
         let inside = if normalv.dot(&eyev) < 0.0 {
             normalv = -normalv;
@@ -196,13 +198,14 @@ impl IntersectionComputation {
                 if containers.is_empty() {
                     n1 = 1.0; 
                 } else {
-                    n1 = containers.last().unwrap().material().refractive_index;
+                    n1 = containers.last().unwrap()
+                        .lock().unwrap().material().refractive_index;
                 }
             }
 
             // If object `i.what` is in `containers`, remove it.
             if let Some(j) 
-                = containers.iter().position(|&x| std::ptr::eq(x, i.what)) {
+                = containers.iter().position(|&x| Arc::ptr_eq(&x, &i.what)) {
                 containers.remove(j);
             }
             // Otherwise, add the object to `containers`.
@@ -214,7 +217,8 @@ impl IntersectionComputation {
                 if containers.is_empty() {
                     n2 = 1.0;
                 } else {
-                    n2 = containers.last().unwrap().material().refractive_index;
+                    n2 = containers.last().unwrap()
+                        .lock().unwrap().material().refractive_index;
                 }
 
                 // TODO: refactor this to be more Rust-idiomatic; the hanging
@@ -270,9 +274,9 @@ impl IntersectionComputation {
 /// right shape.
 ///
 /// This function returns whether an intersection is allowed for the CSG node.
-pub fn intersection_allowed(op: &ShapeNode, which_hit: bool, inside_left: bool,
+pub fn intersection_allowed(op: ShapePtr, which_hit: bool, inside_left: bool,
     inside_right: bool) -> bool {
-    match op.ty {
+    match op.lock().unwrap().ty  {
         ShapeType::Union(_, _) =>
             (which_hit && !inside_right) || (!which_hit && !inside_left),
         ShapeType::Intersection(_, _) =>
@@ -284,7 +288,7 @@ pub fn intersection_allowed(op: &ShapeNode, which_hit: bool, inside_left: bool,
     }
 }
 
-pub fn filter_intersections(op: &ShapeNode, is: &Intersections)
+pub fn filter_intersections(op: ShapePtr, is: &Intersections)
     -> Intersections {
     // Start outside of both child pointers
     let mut inside_left = false;
@@ -294,10 +298,14 @@ pub fn filter_intersections(op: &ShapeNode, is: &Intersections)
     let mut res_is = Intersections::new();
 
     for i in is.intersections.iter() {
-        // If i.what is part of the left child, which_hit is true (for left)
-        let which_hit = op.csg_left().lock().unwrap().includes(i.what);
+        let left_csg = op.lock().unwrap().csg_left().lock().unwrap();
+        let right_csg = op.lock().unwrap().csg_right().lock().unwrap();
 
-        if intersection_allowed(op, which_hit, inside_left, inside_right) {
+        // If i.what is part of the left child, which_hit is true (for left)
+        let which_hit = left_csg.includes(&i.what.lock().unwrap());
+
+        if intersection_allowed(Arc::clone(&op), which_hit,
+                inside_left, inside_right) {
             res_is.intersections.push(i.clone());
         }
 

@@ -127,156 +127,7 @@ impl PartialEq for ShapeNode {
     }
 }
 
-pub struct Shape {
-    root: ShapePtr,
-}
-
-macro_rules! shape_constructor {
-    ( $s:ident, $ty:expr ) => {
-        pub fn $s() -> Shape {
-            let shape = ShapeNode {
-                ty: $ty,
-                ..Default::default()
-            };
-
-            Shape {
-                root: Arc::new(Mutex::new(shape))
-            }
-        }
-    };
-}
-
-// TODO: Figure out which methods work better with ShapeNode, and which work
-// better with Shape (ideally we shouldn't have to lock/unlock the Mutex
-// over and over).
-
-impl Shape {
-    // Creates an empty shape which does nothing. Mostly for testing.
-    shape_constructor!(empty, ShapeType::Empty);
-
-    // Creates a unit sphere with identity transform and default material.
-    shape_constructor!(sphere, ShapeType::Sphere);
-
-    // Creates a plane with a normal pointing up along the Y axis.
-    shape_constructor!(plane, ShapeType::Plane(Tuple4D::vector(0.0, 1.0, 0.0)));
-
-    // Creates a unit cube with identity transform and default material.
-    shape_constructor!(cube, ShapeType::Cube);
-
-    // Creates an infinitely long cylinder with no end caps.
-    shape_constructor!(cylinder,
-        ShapeType::Cylinder(
-            -1.0 * std::f64::INFINITY,
-            std::f64::INFINITY,
-            false
-        )
-    );
-
-    // Creates a bounded cylinder without caps.
-    shape_constructor!(bounded_cylinder,
-        ShapeType::Cylinder(-1.0, 1.0, false));
-
-    // Creates a bounded cylinder with caps.
-    shape_constructor!(capped_cylinder,
-        ShapeType::Cylinder(-1.0, 1.0, true));
-
-    // Creates an bounded double-napped cone with no end caps.
-    shape_constructor!(bounded_cone,
-        ShapeType::Cone(-1.0, 1.0, false));
-
-    // Creates a double-napped cone with end caps.
-    shape_constructor!(capped_cone,
-        ShapeType::Cone(-1.0, 1.0, true));
-
-    /// Creates a triangle, defined by three points in space.
-    pub fn triangle(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D) -> Shape {
-        let shape = ShapeNode {
-            ty: ShapeType::Triangle(TriangleInfo::new(p1, p2, p3)),
-            ..Default::default()
-        };
-
-        Shape { root: Arc::new(Mutex::new(shape)) }
-    }
-
-    /// Creates a "smooth" triangle with normals at each vertex.
-    pub fn smooth_triangle(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D,
-        n1: Tuple4D, n2: Tuple4D, n3: Tuple4D) -> Shape {
-        let shape = ShapeNode {
-            ty: ShapeType::SmoothTriangle(
-                SmoothTriangleInfo::new(p1, p2, p3, n1, n2, n3)
-            ),
-            ..Default::default()
-        };
-
-        Shape { root: Arc::new(Mutex::new(shape)) }
-    }
-
-    /// Creates a group, which holds a list of other shapes (possibly groups).
-    pub fn group() -> Shape {
-        let shape = ShapeNode {
-            ty: ShapeType::Group(Vec::new()),
-            ..Default::default()
-        };
-
-        Shape { root: Arc::new(Mutex::new(shape)) }
-    }
-
-    pub fn csg_union(s1: Shape, s2: Shape) -> Shape {
-        let union_shape = Arc::new(Mutex::new(
-            ShapeNode {
-                // Temporarily set type to empty so that child shapes can have
-                // some parent to refer to.
-                ty: ShapeType::Empty,
-                ..Default::default()
-            }
-        ));
-
-        s1.root.lock().unwrap().parent = Arc::downgrade(&union_shape);
-        s2.root.lock().unwrap().parent = Arc::downgrade(&union_shape);
-
-        // Set the type to a union of the two shapes, then return the union.
-        union_shape.lock().unwrap().ty = ShapeType::Union(s1.root, s2.root);
-        Shape { root: union_shape }
-    }
-
-    pub fn csg_intersection(s1: Shape, s2: Shape) -> Shape {
-        let intersection = Arc::new(Mutex::new(
-            ShapeNode {
-                // Temporarily set type to empty so that child shapes can have
-                // some parent to refer to.
-                ty: ShapeType::Empty,
-                ..Default::default()
-            }
-        ));
-
-        s1.root.lock().unwrap().parent = Arc::downgrade(&intersection);
-        s2.root.lock().unwrap().parent = Arc::downgrade(&intersection);
-
-        // Set the type to a intersection of the two shapes, then return it..
-        intersection.lock().unwrap().ty
-            = ShapeType::Intersection(s1.root, s2.root);
-
-        Shape { root: intersection }
-    }
-
-    pub fn csg_difference(s1: Shape, s2: Shape) -> Shape {
-        let difference = Arc::new(Mutex::new(
-            ShapeNode {
-                // Temporarily set type to empty so that child shapes can have
-                // some parent to refer to.
-                ty: ShapeType::Empty,
-                ..Default::default()
-            }
-        ));
-
-        s1.root.lock().unwrap().parent = Arc::downgrade(&difference);
-        s2.root.lock().unwrap().parent = Arc::downgrade(&difference);
-
-        // Set the type to a difference of the two shapes, then return it..
-        difference.lock().unwrap().ty = ShapeType::Difference(s1.root, s2.root);
-        Shape { root: difference }
-    }
-
+impl ShapeNode {
     /// Gets the left operand of a CSG operator.
     ///
     /// Panics if `self` is not a CSG operator (types `Union`, `Intersection`
@@ -481,9 +332,160 @@ impl Shape {
 
         normal
     }
+}
+
+pub struct Shape {
+    root: ShapePtr,
+}
+
+macro_rules! shape_constructor {
+    ( $s:ident, $ty:expr ) => {
+        pub fn $s() -> Shape {
+            let shape = ShapeNode {
+                ty: $ty,
+                ..Default::default()
+            };
+
+            Shape {
+                root: Arc::new(Mutex::new(shape))
+            }
+        }
+    };
+}
+
+// TODO: Figure out which methods work better with ShapeNode, and which work
+// better with Shape (ideally we shouldn't have to lock/unlock the Mutex
+// over and over).
+
+impl Shape {
+    // Creates an empty shape which does nothing. Mostly for testing.
+    shape_constructor!(empty, ShapeType::Empty);
+
+    // Creates a unit sphere with identity transform and default material.
+    shape_constructor!(sphere, ShapeType::Sphere);
+
+    // Creates a plane with a normal pointing up along the Y axis.
+    shape_constructor!(plane, ShapeType::Plane(Tuple4D::vector(0.0, 1.0, 0.0)));
+
+    // Creates a unit cube with identity transform and default material.
+    shape_constructor!(cube, ShapeType::Cube);
+
+    // Creates an infinitely long cylinder with no end caps.
+    shape_constructor!(cylinder,
+        ShapeType::Cylinder(
+            -1.0 * std::f64::INFINITY,
+            std::f64::INFINITY,
+            false
+        )
+    );
+
+    // Creates a bounded cylinder without caps.
+    shape_constructor!(bounded_cylinder,
+        ShapeType::Cylinder(-1.0, 1.0, false));
+
+    // Creates a bounded cylinder with caps.
+    shape_constructor!(capped_cylinder,
+        ShapeType::Cylinder(-1.0, 1.0, true));
+
+    // Creates an bounded double-napped cone with no end caps.
+    shape_constructor!(bounded_cone,
+        ShapeType::Cone(-1.0, 1.0, false));
+
+    // Creates a double-napped cone with end caps.
+    shape_constructor!(capped_cone,
+        ShapeType::Cone(-1.0, 1.0, true));
+
+    /// Creates a triangle, defined by three points in space.
+    pub fn triangle(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D) -> Shape {
+        let shape = ShapeNode {
+            ty: ShapeType::Triangle(TriangleInfo::new(p1, p2, p3)),
+            ..Default::default()
+        };
+
+        Shape { root: Arc::new(Mutex::new(shape)) }
+    }
+
+    /// Creates a "smooth" triangle with normals at each vertex.
+    pub fn smooth_triangle(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D,
+        n1: Tuple4D, n2: Tuple4D, n3: Tuple4D) -> Shape {
+        let shape = ShapeNode {
+            ty: ShapeType::SmoothTriangle(
+                SmoothTriangleInfo::new(p1, p2, p3, n1, n2, n3)
+            ),
+            ..Default::default()
+        };
+
+        Shape { root: Arc::new(Mutex::new(shape)) }
+    }
+
+    /// Creates a group, which holds a list of other shapes (possibly groups).
+    pub fn group() -> Shape {
+        let shape = ShapeNode {
+            ty: ShapeType::Group(Vec::new()),
+            ..Default::default()
+        };
+
+        Shape { root: Arc::new(Mutex::new(shape)) }
+    }
+
+    pub fn csg_union(s1: Shape, s2: Shape) -> Shape {
+        let union_shape = Arc::new(Mutex::new(
+            ShapeNode {
+                // Temporarily set type to empty so that child shapes can have
+                // some parent to refer to.
+                ty: ShapeType::Empty,
+                ..Default::default()
+            }
+        ));
+
+        s1.root.lock().unwrap().parent = Arc::downgrade(&union_shape);
+        s2.root.lock().unwrap().parent = Arc::downgrade(&union_shape);
+
+        // Set the type to a union of the two shapes, then return the union.
+        union_shape.lock().unwrap().ty = ShapeType::Union(s1.root, s2.root);
+        Shape { root: union_shape }
+    }
+
+    pub fn csg_intersection(s1: Shape, s2: Shape) -> Shape {
+        let intersection = Arc::new(Mutex::new(
+            ShapeNode {
+                // Temporarily set type to empty so that child shapes can have
+                // some parent to refer to.
+                ty: ShapeType::Empty,
+                ..Default::default()
+            }
+        ));
+
+        s1.root.lock().unwrap().parent = Arc::downgrade(&intersection);
+        s2.root.lock().unwrap().parent = Arc::downgrade(&intersection);
+
+        // Set the type to a intersection of the two shapes, then return it..
+        intersection.lock().unwrap().ty
+            = ShapeType::Intersection(s1.root, s2.root);
+
+        Shape { root: intersection }
+    }
+
+    pub fn csg_difference(s1: Shape, s2: Shape) -> Shape {
+        let difference = Arc::new(Mutex::new(
+            ShapeNode {
+                // Temporarily set type to empty so that child shapes can have
+                // some parent to refer to.
+                ty: ShapeType::Empty,
+                ..Default::default()
+            }
+        ));
+
+        s1.root.lock().unwrap().parent = Arc::downgrade(&difference);
+        s2.root.lock().unwrap().parent = Arc::downgrade(&difference);
+
+        // Set the type to a difference of the two shapes, then return it..
+        difference.lock().unwrap().ty = ShapeType::Difference(s1.root, s2.root);
+        Shape { root: difference }
+    }
 
     pub fn local_intersect(&self, ray: &Ray4D) -> Intersections {
-        match self.ty {
+        match self.root.lock().unwrap().ty {
             ShapeType::Empty => Intersections::new(),
             ShapeType::Sphere => self.intersect_sphere(ray),
             ShapeType::Plane(_) => self.intersect_plane(ray),
@@ -500,7 +502,7 @@ impl Shape {
     }
 
     pub fn local_normal_at(&self, at: &Tuple4D, hit: &Intersection) -> Tuple4D {
-        match self.ty {
+        match self.root.lock().unwrap().ty {
             ShapeType::Empty => Tuple4D { w: 0.0, ..*at },
             ShapeType::Sphere => self.normal_at_sphere(at),
             ShapeType::Plane(_) => self.normal_at_plane(at),
@@ -534,7 +536,7 @@ impl Shape {
     /// size-two vector should be equal.
     fn intersect_sphere(&self, ray: &Ray4D) -> Intersections {
         // Panic if intersect_sphere is being called on a non-sphere.
-        match self.ty {
+        match self.root.lock().unwrap().ty {
             ShapeType::Sphere => (),
             _ => unreachable!(),
         }
@@ -556,8 +558,8 @@ impl Shape {
         let t1 = (-b - discriminant.sqrt()) / (2.0 * a);
         let t2 = (-b + discriminant.sqrt()) / (2.0 * a);
 
-        let i1 = Intersection::new(t1, self);
-        let i2 = Intersection::new(t2, self);
+        let i1 = Intersection::new(t1, Arc::clone(&self.root));
+        let i2 = Intersection::new(t2, Arc::clone(&self.root));
         Intersections { intersections: vec![i1, i2] }
     }
 
@@ -575,7 +577,7 @@ impl Shape {
     /// a vector.
     fn normal_at_sphere(&self, at: &Tuple4D) -> Tuple4D {
         // Panic if normal_at_sphere is being called on a non-sphere.
-        match self.ty {
+        match self.root.lock().unwrap().ty {
             ShapeType::Sphere => (),
             _ => unreachable!(),
         }
@@ -585,7 +587,7 @@ impl Shape {
 
     fn intersect_plane(&self, ray: &Ray4D) -> Intersections {
         // Extract plane normal, panic if this isn't a plane.
-        let _normal = match self.ty {
+        let _normal = match self.root.lock().unwrap().ty {
             ShapeType::Plane(n) => n,
             _ => unreachable!(),
         };
@@ -597,14 +599,14 @@ impl Shape {
 
         // Calculate the offset of the ray with its Y component.
         let t = -ray.origin.y / ray.direction.y;
-        let i = Intersection::new(t, self);
+        let i = Intersection::new(t, Arc::clone(&self.root));
 
         Intersections { intersections: vec![i] }
     }
 
     fn normal_at_plane(&self, _at: &Tuple4D) -> Tuple4D {
         // Extract plane normal, panic if this isn't a plane.
-        match self.ty {
+        match self.root.lock().unwrap().ty {
             ShapeType::Plane(n) => n.clone(),
             _ => unreachable!(),
         }
@@ -612,7 +614,7 @@ impl Shape {
 
     fn intersect_cube(&self, ray: &Ray4D) -> Intersections {
         // Panic if this isn't a cube.
-        match self.ty {
+        match self.root.lock().unwrap().ty {
             ShapeType::Cube => (),
             _ => unreachable!(),
         }
@@ -634,15 +636,15 @@ impl Shape {
 
         Intersections {
             intersections: vec![
-                Intersection::new(tmin, self),
-                Intersection::new(tmax, self) 
+                Intersection::new(tmin, Arc::clone(&self.root)),
+                Intersection::new(tmax, Arc::clone(&self.root)) 
             ]
         }
     }
 
     fn normal_at_cube(&self, p: &Tuple4D) -> Tuple4D {
         // Panic if this isn't a cube.
-        match self.ty {
+        match self.root.lock().unwrap().ty {
             ShapeType::Cube => (),
             _ => unreachable!(),
         }
@@ -662,7 +664,7 @@ impl Shape {
     }
 
     fn intersect_cylinder(&self, ray: &Ray4D) -> Intersections {
-        let (minimum, maximum) = match self.ty {
+        let (minimum, maximum) = match self.root.lock().unwrap().ty {
             ShapeType::Cylinder(min, max, _) => (min, max),
             _ => unreachable!(),
         };
@@ -703,7 +705,7 @@ impl Shape {
         let y0 = ray.origin.y + t0 * ray.direction.y;
         if minimum < y0 && y0 < maximum {
             is.intersections.push(
-                Intersection::new(t0, self)
+                Intersection::new(t0, Arc::clone(&self.root))
             );
         }
 
@@ -711,7 +713,7 @@ impl Shape {
         let y1 = ray.origin.y + t1 * ray.direction.y;
         if minimum < y1 && y1 < maximum {
             is.intersections.push(
-                Intersection::new(t1, self)
+                Intersection::new(t1, Arc::clone(&self.root))
             );
         }
 
@@ -723,7 +725,7 @@ impl Shape {
     }
 
     fn normal_at_cylinder(&self, at: &Tuple4D) -> Tuple4D {
-        let (minimum, maximum) = match self.ty {
+        let (minimum, maximum) = match self.root.lock().unwrap().ty {
             ShapeType::Cylinder(min, max, _) => (min, max),
             _ => unreachable!(),
         };
@@ -746,7 +748,7 @@ impl Shape {
     }
 
     fn intersect_cone(&self, ray: &Ray4D) -> Intersections {
-        let (minimum, maximum) = match self.ty {
+        let (minimum, maximum) = match self.root.lock().unwrap().ty {
             ShapeType::Cone(min, max, _) => (min, max),
             _ => unreachable!(),
         };
@@ -774,7 +776,9 @@ impl Shape {
             // If only a is 0, then there's a single point of intersection.
             else {
                 let t = -c / (2.0 * b);
-                is.intersections.push(Intersection::new(t, self));
+                is.intersections.push(
+                    Intersection::new(t, Arc::clone(&self.root))
+                );
                 return is;
             }
         }
@@ -801,7 +805,7 @@ impl Shape {
         let y0 = ray.origin.y + t0 * ray.direction.y;
         if minimum < y0 && y0 < maximum {
             is.intersections.push(
-                Intersection::new(t0, self)
+                Intersection::new(t0, Arc::clone(&self.root))
             );
         }
 
@@ -809,7 +813,7 @@ impl Shape {
         let y1 = ray.origin.y + t1 * ray.direction.y;
         if minimum < y1 && y1 < maximum {
             is.intersections.push(
-                Intersection::new(t1, self)
+                Intersection::new(t1, Arc::clone(&self.root))
             );
         }
 
@@ -821,7 +825,7 @@ impl Shape {
     }
 
     fn normal_at_cone(&self, at: &Tuple4D) -> Tuple4D {
-        let (minimum, maximum) = match self.ty {
+        let (minimum, maximum) = match self.root.lock().unwrap().ty {
             ShapeType::Cone(min, max, _) => (min, max),
             _ => unreachable!(),
         };
@@ -849,7 +853,7 @@ impl Shape {
     }
 
     fn intersect_group(&self, ray: &Ray4D) -> Intersections {
-        let children = match self.ty {
+        let children = match self.root.lock().unwrap().ty {
             ShapeType::Group(ref c) => c,
             _ => unreachable!(),
         };
@@ -860,7 +864,7 @@ impl Shape {
         }
 
         // Get the bounds to see if anything in this group will be intersected.
-        let bounds = self.bounds();
+        let bounds = self.root.lock().unwrap().bounds();
 
         let (xtmin, xtmax) = Bounds::check_axis(
             bounds.minimum.x, bounds.maximum.x, ray.origin.x, ray.direction.x
@@ -886,7 +890,7 @@ impl Shape {
         let mut all_intersections = Vec::new();
         for child in children.iter() {
             // Use regular intersect, otherwise transforms won't be applied
-            let is = intersect(&child.lock().unwrap(), *ray);
+            let is = intersect(self, *ray);
             all_intersections.push(is)
         }
 
@@ -894,7 +898,7 @@ impl Shape {
     }
 
     fn intersect_triangle(&self, ray: &Ray4D) -> Intersections {
-        let triangle_info = match self.ty {
+        let triangle_info = match self.root.lock().unwrap().ty {
             ShapeType::Triangle(ref ti) => ti,
             _ => unreachable!(),
         };
@@ -925,13 +929,13 @@ impl Shape {
         let t = f * triangle_info.e2.dot(&origin_cross_e1);
         Intersections {
             intersections: vec![
-                Intersection::new(t, &self)
+                Intersection::new(t, Arc::clone(&self.root))
             ],
         }
     }
 
     fn normal_at_triangle(&self, _at: &Tuple4D) -> Tuple4D {
-        let triangle_info = match self.ty {
+        let triangle_info = match self.root.lock().unwrap().ty {
             ShapeType::Triangle(ref ti) => ti,
             _ => unreachable!(),
         };
@@ -942,7 +946,7 @@ impl Shape {
     fn intersect_smooth_triangle(&self, ray: &Ray4D) -> Intersections {
         // TODO reduce code duplication with `intersect_triangle`
 
-        let smooth_triangle_info = match self.ty {
+        let smooth_triangle_info = match self.root.lock().unwrap().ty {
             ShapeType::SmoothTriangle(ref sti) => sti,
             _ => unreachable!(),
         };
@@ -978,14 +982,14 @@ impl Shape {
         let t = f * smooth_triangle_info.triangle_info.e2.dot(&origin_cross_e1);
         Intersections {
             intersections: vec![
-                Intersection::new_uv(t, &self, u, v)
+                Intersection::new_uv(t, Arc::clone(&self.root), u, v)
             ],
         }
     }
 
     fn normal_at_smooth_triangle(&self, _at: &Tuple4D, hit: &Intersection)
         -> Tuple4D {
-        let smooth_triangle_info = match self.ty {
+        let smooth_triangle_info = match self.root.lock().unwrap().ty {
             ShapeType::SmoothTriangle(ref sti) => sti,
             _ => unreachable!(),
         };
@@ -1005,7 +1009,7 @@ impl Shape {
     /// some child shapes. These shapes are coalesced as expected through each
     /// CSG operation.
     fn intersect_csg(&self, ray: &Ray4D) -> Intersections {
-        let (left_csg, right_csg) = match self.ty {
+        let (left_csg, right_csg) = match self.root.lock().unwrap().ty {
             ShapeType::Union(ref lc, ref rc) => (lc, rc),
             ShapeType::Intersection(ref lc, ref rc) => (lc, rc),
             ShapeType::Difference(ref lc, ref rc) => (lc, rc),
@@ -1013,13 +1017,13 @@ impl Shape {
         };
 
         // Get the intersection of the left/right children
-        let left_is = intersect(&left_csg.lock().unwrap(), *ray);
-        let right_is = intersect(&right_csg.lock().unwrap(), *ray);
+        let left_is = intersect(&Shape { root: Arc::clone(&left_csg) }, *ray);
+        let right_is = intersect(&Shape { root: Arc::clone(&right_csg) }, *ray);
 
         // Function aggregate sorts all intersections provided.
         let all_is = Intersections::aggregate(vec![left_is, right_is]);
 
-        filter_intersections(self, &all_is) 
+        filter_intersections(Arc::clone(&self.root), &all_is) 
     }
 
     /// Gets the min and max intersection offsets along an axis of a cube.
@@ -1054,7 +1058,7 @@ impl Shape {
     }
 
     fn intersect_cylinder_caps(&self, ray: &Ray4D, is: &mut Intersections) {
-        let (minimum, maximum, closed) = match self.ty {
+        let (minimum, maximum, closed) = match self.root.lock().unwrap().ty {
             ShapeType::Cylinder(min, max, c) => (min, max, c),
             _ => unreachable!(),
         };
@@ -1067,13 +1071,17 @@ impl Shape {
         // Check for an intersection with the lower end cap.
         let tl = (minimum - ray.origin.y) / ray.direction.y;
         if Self::check_cylinder_cap(ray, tl) {
-            is.intersections.push(Intersection::new(tl, self));
+            is.intersections.push(
+                Intersection::new(tl, Arc::clone(&self.root))
+            );
         }
 
         // Check for an intersection with the upper end cap.
         let tu = (maximum - ray.origin.y) / ray.direction.y;
         if Self::check_cylinder_cap(ray, tu) {
-            is.intersections.push(Intersection::new(tu, self));
+            is.intersections.push(
+                Intersection::new(tu, Arc::clone(&self.root))
+            );
         }
     }
 
@@ -1087,7 +1095,7 @@ impl Shape {
     }
 
     fn intersect_cone_caps(&self, ray: &Ray4D, is: &mut Intersections) {
-        let (minimum, maximum, closed) = match self.ty {
+        let (minimum, maximum, closed) = match self.root.lock().unwrap().ty {
             ShapeType::Cone(min, max, c) => (min, max, c),
             _ => unreachable!(),
         };
@@ -1100,13 +1108,17 @@ impl Shape {
         // Check for an intersection with the lower end cap.
         let tl = (minimum - ray.origin.y) / ray.direction.y;
         if Self::check_cone_cap(ray, tl, minimum) {
-            is.intersections.push(Intersection::new(tl, self));
+            is.intersections.push(
+                Intersection::new(tl, Arc::clone(&self.root))
+            );
         }
 
         // Check for an intersection with the upper end cap.
         let tu = (maximum - ray.origin.y) / ray.direction.y;
         if Self::check_cone_cap(ray, tu, maximum) {
-            is.intersections.push(Intersection::new(tu, self));
+            is.intersections.push(
+                Intersection::new(tu, Arc::clone(&self.root))
+            );
         }
     }
 
@@ -1138,8 +1150,8 @@ pub fn add_child_to_group(group: ShapePtr, child: ShapePtr) {
 ///
 /// Intersections are technically calculated in local space; these local-space
 /// intersections are returned in an `Intersections` record.
-pub fn intersect(s: &ShapeNode, r: Ray4D) -> Intersections {
-    let inverse_transform = s.transform().inverse().expect(
+pub fn intersect(s: &Shape, r: Ray4D) -> Intersections {
+    let inverse_transform = s.root.lock().unwrap().transform().inverse().expect(
         "Transformation matrix on shape should be invertible."
     );
 
@@ -1147,11 +1159,11 @@ pub fn intersect(s: &ShapeNode, r: Ray4D) -> Intersections {
     s.local_intersect(&transformed_ray)
 }
 
-pub fn normal_at(s: &ShapeNode, world_point: Tuple4D, hit: &Intersection)
+pub fn normal_at(s: &Shape, world_point: Tuple4D, hit: &Intersection)
     -> Tuple4D {
-    let local_point = s.world_to_object(world_point);
+    let local_point = s.root.lock().unwrap().world_to_object(world_point);
     let local_normal = s.local_normal_at(&local_point, hit);
-    s.normal_to_world(local_normal)
+    s.root.lock().unwrap().normal_to_world(local_normal)
 }
 
 #[test]
