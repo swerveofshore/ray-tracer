@@ -139,7 +139,9 @@ macro_rules! shape_constructor {
                 ..Default::default()
             };
 
-            Arc::new(Mutex::new(shape))
+            Shape {
+                root: Arc::new(Mutex::new(shape))
+            }
         }
     };
 }
@@ -152,7 +154,7 @@ impl Shape {
     shape_constructor!(sphere, ShapeType::Sphere);
 
     // Creates a plane with a normal pointing up along the Y axis.
-    shape_constructor!(plane, ShapeType::Plane(Tuple4D::new(0.0, 1.0, 0.0)));
+    shape_constructor!(plane, ShapeType::Plane(Tuple4D::vector(0.0, 1.0, 0.0)));
 
     // Creates a unit cube with identity transform and default material.
     shape_constructor!(cube, ShapeType::Cube);
