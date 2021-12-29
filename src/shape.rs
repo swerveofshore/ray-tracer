@@ -7,184 +7,9 @@ use crate::ray::Ray4D;
 use crate::light::Material;
 use crate::matrix::Matrix4D;
 use crate::intersect::{ Intersection, Intersections, filter_intersections };
+use crate::geometry:: { TriangleInfo, SmoothTriangleInfo, Bounds };
 
-/// A pointer to a ShapeNode cell. Effectively a shape.
-pub type ShapePtr = Rc<RefCell<ShapeNode>>;
-
-/// Info associated with a Triangle shape.
-///
-/// Fields `p1`, `p2` and `p3` define the points of the `Triangle` in space.
-/// These fields are supplied by the entity instantiating the `Triangle`.
-///
-/// Fields `e1`, `e2` and `normal` are calculated on instantiation. The `e1`
-/// and `e2  fields are edges of the triangle, and `normal` is normal to the
-/// face of the triangle.
-#[derive(Debug, PartialEq)]
-pub struct TriangleInfo {
-    pub p1: Tuple4D,
-    pub p2: Tuple4D,
-    pub p3: Tuple4D,
-
-    e1: Tuple4D,
-    e2: Tuple4D,
-    normal: Tuple4D,
-}
-
-impl TriangleInfo {
-    fn new(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D) -> TriangleInfo {
-        let e1 = p2 - p1;
-        let e2 = p3 - p1;
-        let normal = e2.cross(&e1).normalize();
-        TriangleInfo { p1, p2, p3, e1, e2, normal }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct SmoothTriangleInfo {
-    pub triangle_info: TriangleInfo,
-
-    pub n1: Tuple4D,
-    pub n2: Tuple4D,
-    pub n3: Tuple4D,
-}
-
-impl SmoothTriangleInfo {
-    fn new(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D,
-        n1: Tuple4D, n2: Tuple4D, n3: Tuple4D) -> SmoothTriangleInfo {
-
-        SmoothTriangleInfo {
-            triangle_info: TriangleInfo::new(p1, p2, p3),
-            n1, n2, n3
-        }
-    }
-}
-
-/// A bounding box for a shape.
-///
-/// Helps prevent unnecessary intersection calculations by immediately telling
-/// a ray that it lies outside of a valid intersection region.
-///
-/// For example, imagine a scene with a single sphere (nothing else). Without 
-/// bounding boxes, rays would attempt to intersect every pixel in the scene,
-/// even though only one sphere is provided. With bounding boxes, rays would
-/// terminate intersection calculations immediately if they are unable to find a
-/// bounding box.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Bounds {
-    minimum: Tuple4D,
-    maximum: Tuple4D,
-}
-
-impl Bounds {
-    pub fn new(min_x: f64, min_y: f64, min_z: f64,
-        max_x: f64, max_y: f64, max_z: f64) -> Bounds {
-        Bounds {
-            minimum: Tuple4D::point(min_x, min_y, min_z),
-            maximum: Tuple4D::point(max_x, max_y, max_z)
-        }
-    }
-
-    /// Creates bounds which encapsulate nothing.
-    pub fn empty() -> Bounds {
-        Bounds {
-            minimum: Tuple4D::point(0.0, 0.0, 0.0),
-            maximum: Tuple4D::point(0.0, 0.0, 0.0)
-        }
-    }
-
-    /// Creates bounds which encapsulate everything.
-    pub fn infinite() -> Bounds {
-        let inf = std::f64::INFINITY;
-        Bounds {
-            minimum: Tuple4D::point(-inf, -inf, -inf),
-            maximum: Tuple4D::point( inf,  inf,  inf)
-        }
-    }
-
-    /// Transforms a bounding box.
-    ///
-    /// Certain transformations (e.g. rotations) can cause the bounding box to
-    /// expand, as we want the box to be aligned to axis.
-    ///
-    /// As a result, this function not only transforms the corners of the
-    /// existing bounds (represented by `self`), but it also selects the minimum
-    /// and maximum components of the transformed corners, producing new bounds.
-    pub fn transform(&self, m: &Matrix4D) -> Bounds {
-        let corners = [
-            *m * self.minimum,
-            *m * Tuple4D::point(self.minimum.x, self.minimum.y, self.maximum.z),
-            *m * Tuple4D::point(self.minimum.x, self.maximum.y, self.minimum.z),
-            *m * Tuple4D::point(self.minimum.x, self.maximum.y, self.maximum.z),
-            *m * Tuple4D::point(self.maximum.x, self.minimum.y, self.minimum.z),
-            *m * Tuple4D::point(self.maximum.x, self.minimum.y, self.maximum.z),
-            *m * Tuple4D::point(self.maximum.x, self.maximum.y, self.minimum.z),
-            *m * self.maximum,
-        ];
-
-        let mut min_x = std::f64::INFINITY;
-        let mut min_y = std::f64::INFINITY;
-        let mut min_z = std::f64::INFINITY;
-        let mut max_x = -1.0 * std::f64::INFINITY;
-        let mut max_y = -1.0 * std::f64::INFINITY;
-        let mut max_z = -1.0 * std::f64::INFINITY;
-
-        for corner in corners.iter() {
-            min_x = min_x.min(corner.x);
-            min_y = min_y.min(corner.y);
-            min_z = min_z.min(corner.z);
-            max_x = max_x.max(corner.x);
-            max_y = max_y.max(corner.y);
-            max_z = max_z.max(corner.z);
-        }
-
-        Bounds {
-            minimum: Tuple4D::point(min_x, min_y, min_z),
-            maximum: Tuple4D::point(max_x, max_y, max_z)
-        }
-    }
-
-    /// Gets the min and max intersection offsets along an axis of a bound.
-    ///
-    /// No particular axis is specified; this function takes a component from
-    /// the `origin` and `direction` fields of a `Ray4D` (e.g. `origin.x` and
-    /// `direction.x`) and returns where the `Ray4D` intersects planes on a cube
-    /// for a single axis.
-    ///
-    /// The smaller `t` is first in the tuple, the larger `t` is second.
-    pub fn check_axis(min: f64, max: f64, origin: f64, direction: f64)
-        -> (f64, f64) {
-        let tmin_numerator = min - origin;
-        let tmax_numerator = max - origin;
-
-        // Make sure that the direction is non-zero. If it is, assign INFINITY.
-        let (tmin, tmax) = if direction.abs() >= FEQ_EPSILON {
-            (tmin_numerator / direction, tmax_numerator / direction) 
-        } else {
-            (tmin_numerator * std::f64::INFINITY,
-             tmax_numerator * std::f64::INFINITY)
-        };
-
-        // If tmin is actually greater than tmax, return tmax first.
-        if tmin > tmax {
-            (tmax, tmin)
-        } else {
-            (tmin, tmax)
-        }
-    }
-}
-
-/// The default bounding box should encompass everything.
-impl Default for Bounds {
-    fn default() -> Bounds {
-        let neg_inf = -1.0 * std::f64::INFINITY;
-        let pos_inf = std::f64::INFINITY;
-
-        Bounds {
-            minimum: Tuple4D::point(neg_inf, neg_inf, neg_inf),
-            maximum: Tuple4D::point(pos_inf, pos_inf, pos_inf)
-        }
-    }
-}
+pub type ShapePtr = Rc<RefCell<Shape>>;
 
 #[derive(Debug)]
 pub enum ShapeType {
@@ -268,18 +93,18 @@ impl PartialEq for ShapeType {
 }
 
 #[derive(Debug)]
-pub struct ShapeNode {
+pub struct Shape {
     pub ty: ShapeType, 
-    parent: Weak<RefCell<ShapeNode>>,
+    parent: Weak<RefCell<Shape>>,
 
     pub transform: Matrix4D,
     pub material: Material,
     saved_bounds: Option<Bounds>,
 }
 
-impl Default for ShapeNode {
-    fn default() -> ShapeNode {
-        ShapeNode {
+impl Default for Shape {
+    fn default() -> Shape {
+        Shape {
             ty: ShapeType::Empty,
             parent: Weak::new(),
             transform: Matrix4D::identity(),
@@ -289,13 +114,13 @@ impl Default for ShapeNode {
     }
 }
 
-/// Checks that two ShapeNodes are equal.
+/// Checks that two Shapes are equal.
 ///
 /// Note that the `parent` field is not checked for equality; two equivalent
 /// shapes can have different parents.
 ///
 /// This may be fixed in a later commit.
-impl PartialEq for ShapeNode {
+impl PartialEq for Shape {
     fn eq(&self, other: &Self) -> bool {
         self.ty == other.ty
             && self.transform == other.transform
@@ -303,42 +128,42 @@ impl PartialEq for ShapeNode {
     }
 }
 
-impl ShapeNode {
+impl Shape {
     /// Creates an empty shape which does nothing. Mostly for testing.
-    pub fn empty() -> ShapeNode {
-        ShapeNode {
+    pub fn empty() -> Shape {
+        Shape {
             ty: ShapeType::Empty,
             ..Default::default()
         }
     }
 
     /// Creates a unit sphere with identity transform and default material.
-    pub fn sphere() -> ShapeNode {
-        ShapeNode {
+    pub fn sphere() -> Shape {
+        Shape {
             ty: ShapeType::Sphere,
             ..Default::default()
         }
     }
 
     /// Creates a plane with a normal pointing up along the Y axis.
-    pub fn plane() -> ShapeNode {
-        ShapeNode {
+    pub fn plane() -> Shape {
+        Shape {
             ty: ShapeType::Plane(Tuple4D::vector(0.0, 1.0, 0.0)),
             ..Default::default()
         }
     }
 
     /// Creates a unit cube with identity transform and default material.
-    pub fn cube() -> ShapeNode {
-        ShapeNode {
+    pub fn cube() -> Shape {
+        Shape {
             ty: ShapeType::Cube,
             ..Default::default()
         }
     }
 
     /// Creates an infinitely long cylinder with no end caps.
-    pub fn cylinder() -> ShapeNode {
-        ShapeNode {
+    pub fn cylinder() -> Shape {
+        Shape {
             ty: ShapeType::Cylinder(
                     -1.0 * std::f64::INFINITY,
                     std::f64::INFINITY,
@@ -349,40 +174,40 @@ impl ShapeNode {
     }
 
     /// Creates a bounded cylinder without caps.
-    pub fn bounded_cylinder(minimum: f64, maximum: f64) -> ShapeNode {
-         ShapeNode {
+    pub fn bounded_cylinder(minimum: f64, maximum: f64) -> Shape {
+         Shape {
             ty: ShapeType::Cylinder(minimum, maximum, false),
             ..Default::default()
          }
     }
 
     /// Creates a bounded cylinder with caps.
-    pub fn capped_cylinder(minimum: f64, maximum: f64) -> ShapeNode {
-         ShapeNode {
+    pub fn capped_cylinder(minimum: f64, maximum: f64) -> Shape {
+         Shape {
             ty: ShapeType::Cylinder(minimum, maximum, true),
             ..Default::default()
          }
     }
 
     /// Creates an bounded double-napped cone with no end caps.
-    pub fn bounded_cone(minimum: f64, maximum: f64) -> ShapeNode {
-        ShapeNode {
+    pub fn bounded_cone(minimum: f64, maximum: f64) -> Shape {
+        Shape {
             ty: ShapeType::Cone(minimum, maximum, false),
             ..Default::default()
         }
     }
 
     /// Creates a double-napped cone with end caps.
-    pub fn capped_cone(minimum: f64, maximum: f64) -> ShapeNode {
-        ShapeNode {
+    pub fn capped_cone(minimum: f64, maximum: f64) -> Shape {
+        Shape {
             ty: ShapeType::Cone(minimum, maximum, true),
             ..Default::default()
         }
     }
 
     /// Creates a triangle, defined by three points in space.
-    pub fn triangle(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D) -> ShapeNode {
-        ShapeNode {
+    pub fn triangle(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D) -> Shape {
+        Shape {
             ty: ShapeType::Triangle(TriangleInfo::new(p1, p2, p3)),
             ..Default::default()
         }
@@ -390,8 +215,8 @@ impl ShapeNode {
 
     /// Creates a "smooth" triangle with normals at each vertex.
     pub fn smooth_triangle(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D,
-        n1: Tuple4D, n2: Tuple4D, n3: Tuple4D) -> ShapeNode {
-        ShapeNode {
+        n1: Tuple4D, n2: Tuple4D, n3: Tuple4D) -> Shape {
+        Shape {
             ty: ShapeType::SmoothTriangle(
                 SmoothTriangleInfo::new(p1, p2, p3, n1, n2, n3)
             ),
@@ -400,8 +225,8 @@ impl ShapeNode {
     }
 
     /// Creates a group, which holds a list of other shapes (possibly groups).
-    pub fn group() -> ShapeNode {
-        ShapeNode {
+    pub fn group() -> Shape {
+        Shape {
             ty: ShapeType::Group(Vec::new()),
             ..Default::default()
         }
@@ -409,7 +234,7 @@ impl ShapeNode {
 
     pub fn csg_union(s1: ShapePtr, s2: ShapePtr) -> ShapePtr {
         let union_shape = Rc::new(RefCell::new(
-            ShapeNode {
+            Shape {
                 // Temporarily set type to empty so that child shapes can have
                 // some parent to refer to.
                 ty: ShapeType::Empty,
@@ -427,7 +252,7 @@ impl ShapeNode {
 
     pub fn csg_intersection(s1: ShapePtr, s2: ShapePtr) -> ShapePtr {
         let intersection = Rc::new(RefCell::new(
-            ShapeNode {
+            Shape {
                 // Temporarily set type to empty so that child shapes can have
                 // some parent to refer to.
                 ty: ShapeType::Empty,
@@ -445,7 +270,7 @@ impl ShapeNode {
 
     pub fn csg_difference(s1: ShapePtr, s2: ShapePtr) -> ShapePtr {
         let difference = Rc::new(RefCell::new(
-            ShapeNode {
+            Shape {
                 // Temporarily set type to empty so that child shapes can have
                 // some parent to refer to.
                 ty: ShapeType::Empty,
@@ -591,7 +416,7 @@ impl ShapeNode {
         }
     }
 
-    /// Returns a reference to a list of child `ShapeNode`s if this is a group.
+    /// Returns a reference to a list of child `Shape`s if this is a group.
     pub fn children(&self) -> Option<&Vec<ShapePtr>> {
         if let ShapeType::Group(ref children) = self.ty {
             Some(children)
@@ -641,7 +466,7 @@ impl ShapeNode {
         }
 
         let trans_inv = self.transform.inverse().expect(
-            "ShapeNode transform should be invertible."
+            "Shape transform should be invertible."
         );
 
         // Then, convert the leaf (youngest child) point to object space.
@@ -650,7 +475,7 @@ impl ShapeNode {
 
     pub fn normal_to_world(&self, mut normal: Tuple4D) -> Tuple4D {
         let trans_inv = self.transform.inverse().expect(
-            "ShapeNode transform should be invertible."
+            "Shape transform should be invertible."
         );
 
         normal = trans_inv.transposition() * normal;
@@ -1315,8 +1140,8 @@ impl ShapeNode {
     }
 }
 
-pub fn add_child_to_group(group: Rc<RefCell<ShapeNode>>,
-    child: Rc<RefCell<ShapeNode>>) {
+pub fn add_child_to_group(group: Rc<RefCell<Shape>>,
+    child: Rc<RefCell<Shape>>) {
 
     let mut gb = group.borrow_mut();
     let children = match gb.ty {
@@ -1328,16 +1153,16 @@ pub fn add_child_to_group(group: Rc<RefCell<ShapeNode>>,
     children.push(child);
 }
 
-/// Intersects a ray with a `ShapeNode`.
+/// Intersects a ray with a `Shape`.
 ///
 /// Each shape implements `local_intersect`, which calculates intersections of a
 /// shape in *normal* space. This function uses the `transform` associated with
-/// each `ShapeNode`, and converts the ray to object space before calculating
+/// each `Shape`, and converts the ray to object space before calculating
 /// intersections.
 ///
 /// Intersections are technically calculated in local space; these local-space
 /// intersections are returned in an `Intersections` record.
-pub fn intersect(s: &ShapeNode, r: Ray4D) -> Intersections {
+pub fn intersect(s: &Shape, r: Ray4D) -> Intersections {
     let inverse_transform = s.transform().inverse().expect(
         "Transformation matrix on shape should be invertible."
     );
@@ -1346,7 +1171,7 @@ pub fn intersect(s: &ShapeNode, r: Ray4D) -> Intersections {
     s.local_intersect(&transformed_ray)
 }
 
-pub fn normal_at<'a>(s: &ShapeNode, world_point: Tuple4D,
+pub fn normal_at<'a>(s: &Shape, world_point: Tuple4D,
     hit: &Intersection<'a>) -> Tuple4D {
 
     let local_point = s.world_to_object(world_point);
@@ -1356,7 +1181,7 @@ pub fn normal_at<'a>(s: &ShapeNode, world_point: Tuple4D,
 
 #[test]
 fn compute_normal_on_translated_sphere() {
-    let mut s = ShapeNode::sphere();
+    let mut s = Shape::sphere();
     s.transform = Matrix4D::translation(0.0, 1.0, 0.0);
 
     let p = Tuple4D::point(0.0, 1.70711, -0.70711);
@@ -1367,7 +1192,7 @@ fn compute_normal_on_translated_sphere() {
 
 #[test]
 fn compute_normal_on_transformed_sphere() {
-    let mut s = ShapeNode::sphere();
+    let mut s = Shape::sphere();
     s.transform = Matrix4D::scaling(1.0, 0.5, 1.0)
         * Matrix4D::rotation_z(std::f64::consts::PI / 5.0);
     
@@ -1379,7 +1204,7 @@ fn compute_normal_on_transformed_sphere() {
 
 #[test]
 fn normal_on_plane() {
-    let p = ShapeNode::plane();
+    let p = Shape::plane();
 
     let n1 = p.local_normal_at(
         &Tuple4D::point(0.0, 0.0, 0.0),
@@ -1401,7 +1226,7 @@ fn normal_on_plane() {
 
 #[test]
 fn ray_intersecting_plane_from_above() {
-    let p = ShapeNode::plane();
+    let p = Shape::plane();
     let r = Ray4D::new(
         Tuple4D::point(0.0, 1.0, 0.0),
         Tuple4D::vector(0.0, -1.0, 0.0)
@@ -1415,7 +1240,7 @@ fn ray_intersecting_plane_from_above() {
 
 #[test]
 fn ray_intersecting_plane_from_below() {
-    let p = ShapeNode::plane();
+    let p = Shape::plane();
     let r = Ray4D::new(
         Tuple4D::point(0.0, -1.0, 0.0),
         Tuple4D::vector(0.0, 1.0, 0.0)
@@ -1433,7 +1258,7 @@ fn ray_is_tangent_to_sphere() {
         Tuple4D::point(0.0, 1.0, -5.0),
         Tuple4D::vector(0.0, 0.0, 1.0)
     );
-    let s = ShapeNode::sphere();
+    let s = Shape::sphere();
     let xs = intersect(&s, r);
 
     assert_eq!(xs.intersections.len(), 2);
@@ -1448,7 +1273,7 @@ fn ray_is_inside_sphere() {
         Tuple4D::vector(0.0, 0.0, 1.0)
     );
 
-    let s = ShapeNode::sphere();
+    let s = Shape::sphere();
 
     let xs = s.intersect_sphere(&r);
     assert_eq!(xs.intersections.len(), 2);
@@ -1460,7 +1285,7 @@ fn ray_is_inside_sphere() {
 fn sphere_is_behind_ray() {
     let r = Ray4D::new(Tuple4D::point(0.0, 0.0, 5.0),
                        Tuple4D::vector(0.0, 0.0, 1.0));
-    let s = ShapeNode::sphere();
+    let s = Shape::sphere();
     let xs = intersect(&s, r);
 
     assert_eq!(xs.intersections.len(), 2);
@@ -1470,7 +1295,7 @@ fn sphere_is_behind_ray() {
 
 #[test]
 fn hit_with_all_positive() {
-    let s  = ShapeNode::sphere();
+    let s  = Shape::sphere();
     let i1 = Intersection::new(1.0, &s); 
     let i2 = Intersection::new(2.0, &s);
     let mut is = Intersections { intersections: vec![i1, i2] };
@@ -1480,7 +1305,7 @@ fn hit_with_all_positive() {
 
 #[test]
 fn hit_with_some_negative() {
-    let s  = ShapeNode::sphere();
+    let s  = Shape::sphere();
     let i1 = Intersection::new(-1.0, &s); 
     let i2 = Intersection::new( 1.0, &s);
     let mut is = Intersections { intersections: vec![i1, i2] };
@@ -1490,7 +1315,7 @@ fn hit_with_some_negative() {
 
 #[test]
 fn hit_with_all_negative() {
-    let s  = ShapeNode::sphere();
+    let s  = Shape::sphere();
     let i1 = Intersection::new(-2.0, &s);
     let i2 = Intersection::new(-1.0, &s);
     let mut is = Intersections { intersections: vec![i1, i2] };
@@ -1500,7 +1325,7 @@ fn hit_with_all_negative() {
 
 #[test]
 fn hit_multiple() {
-    let s  = ShapeNode::sphere();
+    let s  = Shape::sphere();
     let i1 = Intersection::new(5.0,  &s); 
     let i2 = Intersection::new(7.0,  &s);
     let i3 = Intersection::new(-3.0, &s);
@@ -1512,7 +1337,7 @@ fn hit_multiple() {
 
 #[test]
 fn normal_on_sphere_x() {
-    let s = ShapeNode::sphere();
+    let s = Shape::sphere();
     let n = normal_at(
         &s, Tuple4D::point(1.0, 0.0, 0.0), &Intersection::new(0.0, &s)
     );
@@ -1522,7 +1347,7 @@ fn normal_on_sphere_x() {
 
 #[test]
 fn normal_on_sphere_y() {
-    let s = ShapeNode::sphere();
+    let s = Shape::sphere();
     let n = normal_at(
         &s, Tuple4D::point(0.0, 1.0, 0.0), &Intersection::new(0.0, &s)
     );
@@ -1532,7 +1357,7 @@ fn normal_on_sphere_y() {
 
 #[test]
 fn normal_on_sphere_z() {
-    let s = ShapeNode::sphere();
+    let s = Shape::sphere();
     let n = normal_at(
         &s, Tuple4D::point(0.0, 0.0, 1.0), &Intersection::new(0.0, &s)
     );
@@ -1542,7 +1367,7 @@ fn normal_on_sphere_z() {
 
 #[test]
 fn normal_on_sphere_nonaxial() {
-    let s = ShapeNode::sphere();
+    let s = Shape::sphere();
     let n = normal_at(&s,
         Tuple4D::point(
             3.0f64.sqrt() / 3.0,
@@ -1563,7 +1388,7 @@ fn normal_on_sphere_nonaxial() {
 
 #[test]
 fn normal_on_sphere_translated() {
-    let mut s = ShapeNode::sphere();
+    let mut s = Shape::sphere();
     s.transform = Matrix4D::translation(0.0, 1.0, 0.0);
     let n = normal_at(
         &s, Tuple4D::point(0.0, 1.70711, -0.70711), &Intersection::new(0.0, &s)
@@ -1574,7 +1399,7 @@ fn normal_on_sphere_translated() {
 
 #[test]
 fn normal_on_sphere_transformed() {
-    let mut s = ShapeNode::sphere();
+    let mut s = Shape::sphere();
     s.transform = Matrix4D::scaling(1.0, 0.5, 1.0)
         * Matrix4D::rotation_z(std::f64::consts::PI / 5.0);
     let n = normal_at(&s,
@@ -1594,7 +1419,7 @@ fn precompute_intersection_state() {
         Tuple4D::vector(0.0, 0.0, 1.0),
     );
 
-    let shape = ShapeNode::sphere();
+    let shape = Shape::sphere();
     let i = Intersection::new(4.0, &shape);
 
     let comps = IntersectionComputation::new(&r, &i, None);
@@ -1615,7 +1440,7 @@ fn precompute_outside_intersection() {
         Tuple4D::vector(0.0, 0.0, 1.0),
     );
 
-    let shape = ShapeNode::sphere();
+    let shape = Shape::sphere();
     let i = Intersection::new(4.0, &shape);
 
     let comps = IntersectionComputation::new(&r, &i, None);
@@ -1631,7 +1456,7 @@ fn precompute_inside_intersection() {
         Tuple4D::vector(0.0, 0.0, 1.0),
     );
 
-    let shape = ShapeNode::sphere();
+    let shape = Shape::sphere();
     let i = Intersection::new(1.0, &shape);
 
     let comps = IntersectionComputation::new(&r, &i, None);
@@ -1653,7 +1478,7 @@ fn hit_should_offset_point() {
         Tuple4D::vector(0.0, 0.0, 1.0),
     );
 
-    let mut shape = ShapeNode::sphere();
+    let mut shape = Shape::sphere();
     shape.transform = Matrix4D::translation(0.0, 0.0, 1.0);
 
     let i = Intersection::new(5.0, &shape);
@@ -1665,7 +1490,7 @@ fn hit_should_offset_point() {
 
 #[test]
 fn creating_a_shape_group() {
-    let g = ShapeNode::group();
+    let g = Shape::group();
     let children = match g.ty {
         ShapeType::Group(ref c) => c,
         _ => unreachable!(),
@@ -1677,7 +1502,7 @@ fn creating_a_shape_group() {
 
 #[test]
 fn shape_has_parent_attribute() {
-    let s = ShapeNode::empty();
+    let s = Shape::empty();
     let parent = s.parent.upgrade();
 
     assert!(parent.is_none());
@@ -1685,8 +1510,8 @@ fn shape_has_parent_attribute() {
 
 #[test]
 fn adding_a_child_to_a_shape_group() {
-    let g = Rc::new(RefCell::new(ShapeNode::group()));
-    let s = Rc::new(RefCell::new(ShapeNode::empty()));
+    let g = Rc::new(RefCell::new(Shape::group()));
+    let s = Rc::new(RefCell::new(Shape::empty()));
 
     add_child_to_group(Rc::clone(&g), Rc::clone(&s));
 
@@ -1699,7 +1524,7 @@ fn adding_a_child_to_a_shape_group() {
     // Check that a child has been appended to group g.
     assert_eq!(children.len(), 1);
 
-    // Make sure that the child has the same allocation as original ShapeNode.
+    // Make sure that the child has the same allocation as original Shape.
     assert!(Rc::ptr_eq(&s, &children[0]));
 
     // Check that the child points to the parent Group.
@@ -1708,7 +1533,7 @@ fn adding_a_child_to_a_shape_group() {
 
 #[test]
 fn intersecting_ray_with_empty_group() {
-    let g = ShapeNode::group();
+    let g = Shape::group();
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, 0.0),
         Tuple4D::vector(0.0, 0.0, 1.0)
@@ -1720,11 +1545,11 @@ fn intersecting_ray_with_empty_group() {
 
 #[test]
 fn intersecting_ray_with_nonempty_group() {
-    let g = Rc::new(RefCell::new(ShapeNode::group()));
-    let s1 = Rc::new(RefCell::new(ShapeNode::sphere()));
-    let s2 = Rc::new(RefCell::new(ShapeNode::sphere()));
+    let g = Rc::new(RefCell::new(Shape::group()));
+    let s1 = Rc::new(RefCell::new(Shape::sphere()));
+    let s2 = Rc::new(RefCell::new(Shape::sphere()));
     s2.borrow_mut().transform = Matrix4D::translation(0.0, 0.0, -3.0);
-    let s3 = Rc::new(RefCell::new(ShapeNode::sphere()));
+    let s3 = Rc::new(RefCell::new(Shape::sphere()));
     s3.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
 
     add_child_to_group(Rc::clone(&g), Rc::clone(&s1));
@@ -1747,10 +1572,10 @@ fn intersecting_ray_with_nonempty_group() {
 
 #[test]
 fn intersecting_a_transformed_group() {
-    let g = Rc::new(RefCell::new(ShapeNode::group()));
+    let g = Rc::new(RefCell::new(Shape::group()));
     g.borrow_mut().transform = Matrix4D::scaling(2.0, 2.0, 2.0);
 
-    let s1 = Rc::new(RefCell::new(ShapeNode::sphere()));
+    let s1 = Rc::new(RefCell::new(Shape::sphere()));
     s1.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
 
     add_child_to_group(Rc::clone(&g), Rc::clone(&s1));
@@ -1768,16 +1593,16 @@ fn intersecting_a_transformed_group() {
 
 #[test]
 fn converting_a_point_from_world_to_object_space() {
-    let g1 = Rc::new(RefCell::new(ShapeNode::group()));
+    let g1 = Rc::new(RefCell::new(Shape::group()));
     g1.borrow_mut().transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.);
 
-    let g2 = Rc::new(RefCell::new(ShapeNode::group()));
+    let g2 = Rc::new(RefCell::new(Shape::group()));
     g2.borrow_mut().transform = Matrix4D::scaling(2.0, 2.0, 2.0);
 
     // Group g2 is a child of group g1.
     add_child_to_group(Rc::clone(&g1), Rc::clone(&g2));
 
-    let s = Rc::new(RefCell::new(ShapeNode::sphere()));
+    let s = Rc::new(RefCell::new(Shape::sphere()));
     s.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
 
     // Sphere s is a child of group g2.
@@ -1789,16 +1614,16 @@ fn converting_a_point_from_world_to_object_space() {
 
 #[test]
 fn converting_a_normal_from_object_to_world_space() {
-    let g1 = Rc::new(RefCell::new(ShapeNode::group()));
+    let g1 = Rc::new(RefCell::new(Shape::group()));
     g1.borrow_mut().transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.);
 
-    let g2 = Rc::new(RefCell::new(ShapeNode::group()));
+    let g2 = Rc::new(RefCell::new(Shape::group()));
     g2.borrow_mut().transform = Matrix4D::scaling(1.0, 2.0, 3.0);
 
     // Group g2 is a child of group g1.
     add_child_to_group(Rc::clone(&g1), Rc::clone(&g2));
 
-    let s = Rc::new(RefCell::new(ShapeNode::sphere()));
+    let s = Rc::new(RefCell::new(Shape::sphere()));
     s.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
 
     // Sphere s is a child of group g2.
@@ -1813,16 +1638,16 @@ fn converting_a_normal_from_object_to_world_space() {
 
 #[test]
 fn finding_the_normal_on_a_child_object() {
-    let g1 = Rc::new(RefCell::new(ShapeNode::group()));
+    let g1 = Rc::new(RefCell::new(Shape::group()));
     g1.borrow_mut().transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.);
 
-    let g2 = Rc::new(RefCell::new(ShapeNode::group()));
+    let g2 = Rc::new(RefCell::new(Shape::group()));
     g2.borrow_mut().transform = Matrix4D::scaling(1.0, 2.0, 3.0);
 
     // Group g2 is a child of group g1.
     add_child_to_group(Rc::clone(&g1), Rc::clone(&g2));
 
-    let s = Rc::new(RefCell::new(ShapeNode::sphere()));
+    let s = Rc::new(RefCell::new(Shape::sphere()));
     s.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
 
     // Sphere s is a child of group g2.
@@ -1831,7 +1656,7 @@ fn finding_the_normal_on_a_child_object() {
     let normal = normal_at(
         &s.borrow(),
         Tuple4D::point(1.7321, 1.1547, -5.5774),
-        &Intersection::new(0.0, &ShapeNode::sphere())
+        &Intersection::new(0.0, &Shape::sphere())
     );
     assert_eq!(normal, Tuple4D::vector(0.2857, 0.4286, -0.8571));
 }
@@ -1841,7 +1666,7 @@ fn constructing_a_triangle() {
     let p1 = Tuple4D::point(0.0, 1.0, 0.0);
     let p2 = Tuple4D::point(-1.0, 0.0, 0.0);
     let p3 = Tuple4D::point(1.0, 0.0, 0.0);
-    let t = ShapeNode::triangle(p1, p2, p3);
+    let t = Shape::triangle(p1, p2, p3);
 
     if let ShapeType::Triangle(ti) = t.ty {
         assert_eq!(ti.p1, p1);
@@ -1860,7 +1685,7 @@ fn finding_the_normal_on_a_triangle() {
     let p1 = Tuple4D::point(0.0, 1.0, 0.0);
     let p2 = Tuple4D::point(-1.0, 0.0, 0.0);
     let p3 = Tuple4D::point(1.0, 0.0, 0.0);
-    let t = ShapeNode::triangle(p1, p2, p3);
+    let t = Shape::triangle(p1, p2, p3);
 
     let i = Intersection::new(0.0, &t);
     if let ShapeType::Triangle(ref ti) = t.ty {
@@ -1880,7 +1705,7 @@ fn intersecting_a_ray_parallel_to_a_triangle() {
     let p1 = Tuple4D::point(0.0, 1.0, 0.0);
     let p2 = Tuple4D::point(-1.0, 0.0, 0.0);
     let p3 = Tuple4D::point(1.0, 0.0, 0.0);
-    let t = ShapeNode::triangle(p1, p2, p3);
+    let t = Shape::triangle(p1, p2, p3);
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, -1.0, -2.0),
@@ -1896,7 +1721,7 @@ fn a_ray_misses_the_p1_p3_edge() {
     let p1 = Tuple4D::point(0.0, 1.0, 0.0);
     let p2 = Tuple4D::point(-1.0, 0.0, 0.0);
     let p3 = Tuple4D::point(1.0, 0.0, 0.0);
-    let t = ShapeNode::triangle(p1, p2, p3);   
+    let t = Shape::triangle(p1, p2, p3);   
 
     let r = Ray4D::new(
         Tuple4D::point(1.0, 1.0, -2.0),
@@ -1912,7 +1737,7 @@ fn a_ray_misses_the_p1_p2_edge() {
     let p1 = Tuple4D::point(0.0, 1.0, 0.0);
     let p2 = Tuple4D::point(-1.0, 0.0, 0.0);
     let p3 = Tuple4D::point(1.0, 0.0, 0.0);
-    let t = ShapeNode::triangle(p1, p2, p3);   
+    let t = Shape::triangle(p1, p2, p3);   
 
     let r = Ray4D::new(
         Tuple4D::point(-1.0, 1.0, -2.0),
@@ -1928,7 +1753,7 @@ fn a_ray_misses_the_p2_p3_edge() {
     let p1 = Tuple4D::point(0.0, 1.0, 0.0);
     let p2 = Tuple4D::point(-1.0, 0.0, 0.0);
     let p3 = Tuple4D::point(1.0, 0.0, 0.0);
-    let t = ShapeNode::triangle(p1, p2, p3);   
+    let t = Shape::triangle(p1, p2, p3);   
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, -1.0, -2.0),
@@ -1946,7 +1771,7 @@ fn a_ray_strikes_a_triangle() {
     let p1 = Tuple4D::point(0.0, 1.0, 0.0);
     let p2 = Tuple4D::point(-1.0, 0.0, 0.0);
     let p3 = Tuple4D::point(1.0, 0.0, 0.0);
-    let t = ShapeNode::triangle(p1, p2, p3);   
+    let t = Shape::triangle(p1, p2, p3);   
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.5, -2.0),
@@ -1967,7 +1792,7 @@ fn constructing_a_smooth_triangle() {
     let n2 = Tuple4D::vector(-1.0, 0.0, 0.0);
     let n3 = Tuple4D::vector(1.0, 0.0, 0.0);
 
-    let s = ShapeNode::smooth_triangle(p1, p2, p3, n1, n2, n3);
+    let s = Shape::smooth_triangle(p1, p2, p3, n1, n2, n3);
     let smooth_triangle_info = match s.ty {
         ShapeType::SmoothTriangle(sti) => sti,
         _ => unreachable!(),
@@ -1983,7 +1808,7 @@ fn constructing_a_smooth_triangle() {
 
 #[test]
 fn an_intersection_can_encapsulate_u_and_v() {
-    let s = ShapeNode::triangle(
+    let s = Shape::triangle(
         Tuple4D::point(0.0, 1.0, 0.0),
         Tuple4D::point(-1.0, 0.0, 0.0),
         Tuple4D::point(1.0, 0.0, 0.0)
@@ -2003,7 +1828,7 @@ fn an_intersection_can_encapsulate_u_and_v() {
 fn an_intersection_with_a_smooth_triangle_stores_uv() {
     use crate::feq;
 
-    let s = ShapeNode::smooth_triangle(
+    let s = Shape::smooth_triangle(
         Tuple4D::point(0.0, 1.0, 0.0),
         Tuple4D::point(-1.0, 0.0, 0.0),
         Tuple4D::point(1.0, 0.0, 0.0),
@@ -2028,7 +1853,7 @@ fn an_intersection_with_a_smooth_triangle_stores_uv() {
 
 #[test]
 fn a_smooth_triangle_uses_uv_to_interpolate_the_normal() {
-    let s = ShapeNode::smooth_triangle(
+    let s = Shape::smooth_triangle(
         Tuple4D::point(0.0, 1.0, 0.0),
         Tuple4D::point(-1.0, 0.0, 0.0),
         Tuple4D::point(1.0, 0.0, 0.0),
@@ -2045,10 +1870,10 @@ fn a_smooth_triangle_uses_uv_to_interpolate_the_normal() {
 
 #[test]
 fn csg_is_created_with_an_operation_and_two_shapes() {
-    let s1 = Rc::new(RefCell::new(ShapeNode::sphere()));
-    let s2 = Rc::new(RefCell::new(ShapeNode::cube()));
+    let s1 = Rc::new(RefCell::new(Shape::sphere()));
+    let s2 = Rc::new(RefCell::new(Shape::cube()));
 
-    let c = ShapeNode::csg_union(Rc::clone(&s1), Rc::clone(&s2));
+    let c = Shape::csg_union(Rc::clone(&s1), Rc::clone(&s2));
     let c_ref = c.borrow();
     if let ShapeType::Union(ref s1_ptr, ref s2_ptr) = c_ref.ty {
         assert!(Rc::ptr_eq(s1_ptr, &s1));
@@ -2060,9 +1885,9 @@ fn csg_is_created_with_an_operation_and_two_shapes() {
 
 #[test]
 fn a_ray_misses_a_csg_object() {
-    let s1 = Rc::new(RefCell::new(ShapeNode::sphere()));
-    let s2 = Rc::new(RefCell::new(ShapeNode::cube()));
-    let c = ShapeNode::csg_union(s1, s2);
+    let s1 = Rc::new(RefCell::new(Shape::sphere()));
+    let s2 = Rc::new(RefCell::new(Shape::cube()));
+    let c = Shape::csg_union(s1, s2);
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 2.0, -5.0),
@@ -2078,11 +1903,11 @@ fn a_ray_misses_a_csg_object() {
 fn a_ray_hits_a_csg_object() {
     use crate::feq;
 
-    let s1 = Rc::new(RefCell::new(ShapeNode::sphere()));
-    let s2 = Rc::new(RefCell::new(ShapeNode::sphere()));
+    let s1 = Rc::new(RefCell::new(Shape::sphere()));
+    let s2 = Rc::new(RefCell::new(Shape::sphere()));
     s2.borrow_mut().transform = Matrix4D::translation(0.0, 0.0, 0.5);
 
-    let c = ShapeNode::csg_union(Rc::clone(&s1), Rc::clone(&s2));
+    let c = Shape::csg_union(Rc::clone(&s1), Rc::clone(&s2));
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -5.0),

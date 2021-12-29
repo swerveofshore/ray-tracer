@@ -2,10 +2,10 @@
 
 pub mod tuple;
 pub mod matrix;
-
 pub mod ray;
 pub mod shape;
 pub mod intersect;
+pub mod geometry;
 
 pub mod light;
 pub mod color;
