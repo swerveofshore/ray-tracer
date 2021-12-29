@@ -34,7 +34,6 @@ impl Environment {
     }
 }
 
-/*
 pub fn hexagon_corner() -> ShapeNode {
     let mut corner = ShapeNode::sphere();
     corner.transform = Matrix4D::translation(0.0, 0.0, -1.0)
@@ -87,4 +86,3 @@ pub fn hexagon() -> ShapePtr {
 
     hex
 }
-*/

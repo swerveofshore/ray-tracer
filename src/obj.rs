@@ -1,8 +1,10 @@
 use std::io::{ self, prelude::* };
 use std::path::{ Path, PathBuf };
 use std::fs::File;
+use std::rc::Rc;
+use std::cell::RefCell;
+
 use std::collections::BTreeMap;
-use std::sync::{ Arc, Mutex };
 
 use crate::tuple::Tuple4D;
 use crate::shape::{ ShapeNode, ShapePtr, add_child_to_group };
@@ -23,7 +25,7 @@ pub struct ObjParser {
 impl ObjParser {
     pub fn new(path_str: &str) -> ObjParser {
         let mut groups = BTreeMap::new();
-        groups.insert("".into(), Arc::new(Mutex::new(ShapeNode::group())));
+        groups.insert("".into(), Rc::new(RefCell::new(ShapeNode::group())));
 
         ObjParser {
             path: Path::new(path_str).into(),
@@ -159,8 +161,8 @@ impl ObjParser {
             let triangles = self.fan_triangulation(&face);
             for triangle in triangles {
                 if let Some(group) = self.groups.get(current_group) {
-                    let child = Arc::new(Mutex::new(triangle));
-                    add_child_to_group(Arc::clone(&group), Arc::clone(&child));
+                    let child = Rc::new(RefCell::new(triangle));
+                    add_child_to_group(Rc::clone(&group), Rc::clone(&child));
                 } else {
                     panic!("OBJ group should be instantiated.");
                 }
@@ -181,7 +183,7 @@ impl ObjParser {
             else {
                 self.groups.insert(
                     params[1].into(),
-                    Arc::new(Mutex::new(ShapeNode::group()))
+                    Rc::new(RefCell::new(ShapeNode::group()))
                 );
 
                 *current_group = params[1].into();

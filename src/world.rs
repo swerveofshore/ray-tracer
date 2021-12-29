@@ -1,4 +1,5 @@
-use std::sync::{ Arc, Mutex };
+use std::rc::Rc;
+use std::cell::{ Ref, RefCell };
 
 use crate::feq;
 use crate::ray::Ray4D;
@@ -21,11 +22,6 @@ pub struct World {
     pub light_source: PointLight,
 }
 
-// TODO: Neither of these are preferable. They're a workaround for parallelism,
-// as a World should *never* be updated after being passed to a thread.
-// unsafe impl Send for World { }
-// unsafe impl Sync for World { }
-
 impl Default for World {
     fn default() -> World {
         let light_source = PointLight::new(
@@ -45,8 +41,8 @@ impl Default for World {
 
         World {
             objects: vec![
-                Arc::new(Mutex::new(s1)),
-                Arc::new(Mutex::new(s2))
+                Rc::new(RefCell::new(s1)),
+                Rc::new(RefCell::new(s2))
             ],
             light_source
         }
@@ -67,7 +63,7 @@ impl World {
     /// Gets a reference to the first object in a world.
     pub fn first(&self) -> Option<ShapePtr> {
         if self.objects.len() > 0 {
-            Some(Arc::clone(&self.objects[0]))
+            Some(Rc::clone(&self.objects[0]))
         } else {
             None
         }
@@ -76,7 +72,7 @@ impl World {
     /// Gets a reference to the second object in a world.
     pub fn second(&self) -> Option<ShapePtr> {
         if self.objects.len() > 1 {
-            Some(Arc::clone(&self.objects[1]))
+            Some(Rc::clone(&self.objects[1]))
         } else {
             None
         }
@@ -91,7 +87,7 @@ impl World {
         let mut intersections: Intersections = Intersections::new();
         for obj in self.objects.iter() {
             // Note: leak has to occur here due to lifetime on Ref struct.
-            let mut is: Intersections = intersect(&obj.lock().unwrap(), r);
+            let mut is: Intersections = intersect(Ref::leak(obj.borrow()), r);
             intersections.intersections.append(&mut is.intersections);
         }
 
