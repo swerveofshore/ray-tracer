@@ -1,7 +1,9 @@
+use std::sync::Arc;
+
 use crate::consts::FEQ_EPSILON;
 use crate::tuple::Tuple4D;
 use crate::ray::Ray4D;
-use crate::shape::{ ShapeNode, ShapeType, normal_at };
+use crate::shape::{ ShapePtr, ShapeNode, ShapeType, normal_at };
 
 /// An intersection.
 ///
@@ -12,20 +14,19 @@ use crate::shape::{ ShapeNode, ShapeType, normal_at };
 /// A trait object is used because there can be many unique objects (sphere,
 /// cube, plane, etc.) which are intersectable.
 #[derive(Copy, Clone, Debug)]
-pub struct Intersection<'a> {
+pub struct Intersection {
     pub t: f64,
-    pub what: &'a ShapeNode,
+    pub what: ShapePtr,
 
     pub uv: Option<(f64, f64)>,
 }
 
-impl<'a> Intersection<'a> {
-    pub fn new(t: f64, what: &'a ShapeNode) -> Intersection<'a> {
+impl Intersection {
+    pub fn new(t: f64, what: ShapePtr) -> Intersection {
         Intersection { t, what, uv: None }
     }
 
-    pub fn new_uv(t: f64, what: &'a ShapeNode, u: f64, v: f64)
-        -> Intersection<'a> {
+    pub fn new_uv(t: f64, what: ShapeNode, u: f64, v: f64) -> Intersection {
         Intersection { t, what, uv: Some((u, v)) }
     }
 }
@@ -35,9 +36,9 @@ impl<'a> Intersection<'a> {
 /// Two Intersection structures are equal if the offsets `t` of the
 /// intersections are equivalent, and if the underlying *pointers* of the
 /// intersections are equivalent.
-impl<'a> PartialEq for Intersection<'a> {
-    fn eq(&self, other: &Intersection<'a>) -> bool {
-        self.t == other.t && std::ptr::eq(self.what, other.what)
+impl PartialEq for Intersection {
+    fn eq(&self, other: &Intersection) -> bool {
+        self.t == other.t && Arc::ptr_eq(&self.what, &other.what)
     }
 }
 
@@ -46,13 +47,13 @@ impl<'a> PartialEq for Intersection<'a> {
 /// Mostly a wrapper for a vector of `Intersection` objects. See the
 /// `Intersection` documentation for more information.
 #[derive(Clone, Debug, Default)]
-pub struct Intersections<'a> {
-    pub intersections: Vec<Intersection<'a>>,
+pub struct Intersections {
+    pub intersections: Vec<Intersection>,
 }
 
-impl<'a> Intersections<'a> {
+impl Intersections {
     /// Creates a new list of intersections.
-    pub fn new() -> Intersections<'a> {
+    pub fn new() -> Intersections {
         Intersections { intersections: Vec::new() }
     }
 
@@ -66,7 +67,7 @@ impl<'a> Intersections<'a> {
     /// As a note, this function sorts the `intersections` field on every call.
     /// This is because the `Intersection` with the lowest `t` is chosen. A more
     /// optimal implementation is likely possible.
-    pub fn hit<'b>(&'b mut self) -> Option<Intersection<'a>> {
+    pub fn hit(&mut self) -> Option<Intersection> {
         self.intersections.retain(|i| i.t.is_finite());
         self.sort();
 
@@ -89,8 +90,7 @@ impl<'a> Intersections<'a> {
     /// Aggregates several Intersections together.
     ///
     /// Sorts the combined intersections.
-    pub fn aggregate<'b>(mut multi_is: Vec<Intersections<'b>>)
-        -> Intersections<'b> {
+    pub fn aggregate(mut multi_is: Vec<Intersections>) -> Intersections {
         let mut combined_is = Intersections::new();
         for is in multi_is.iter_mut() {
             combined_is.intersections.append(&mut is.intersections);
@@ -105,12 +105,12 @@ impl<'a> Intersections<'a> {
 ///
 /// Mostly a superset of an `Intersection`.
 #[derive(Clone, Debug)]
-pub struct IntersectionComputation<'a> {
+pub struct IntersectionComputation {
     /// The "time" of the ray intersection.
     pub t: f64,
 
     /// The object being intersected.
-    pub obj: &'a ShapeNode,
+    pub obj: ShapePtr,
 
     /// The point where the intersection occurs.
     pub point: Tuple4D,
@@ -142,13 +142,13 @@ pub struct IntersectionComputation<'a> {
     pub n2: f64,
 }
 
-impl<'a> IntersectionComputation<'a> {
+impl IntersectionComputation {
     /// Creates a new intersection computation, given a ray and intersection.
     ///
     /// The `is` parameter is a collection of intersections. If provided,
     /// refraction indices will be calculated.
-    pub fn new(r: &Ray4D, hit: &'a Intersection, is: Option<&Intersections<'a>>)
-        -> IntersectionComputation<'a> {
+    pub fn new(r: &Ray4D, hit: &Intersection, is: Option<&Intersections>)
+        -> IntersectionComputation {
         let t = hit.t;
         let obj = hit.what;
         let point = r.position(t);
@@ -181,7 +181,7 @@ impl<'a> IntersectionComputation<'a> {
         }
     }
 
-    fn refraction_indices(hit: &'a Intersection, is: &Intersections<'a>)
+    fn refraction_indices(hit: &Intersection, is: &Intersections)
         -> (f64, f64) {
         // The exiting and entering refractive indices, respectively.
         let mut n1 = 1.0;
@@ -189,7 +189,7 @@ impl<'a> IntersectionComputation<'a> {
 
         // Contains all objects which have been encountered, but not yet exited
         // by the refracting ray.
-        let mut containers: Vec<&'a ShapeNode> = Vec::new();
+        let mut containers: Vec<ShapePtr> = Vec::new();
 
         for i in is.intersections.iter() {
             if i == hit {
@@ -284,8 +284,8 @@ pub fn intersection_allowed(op: &ShapeNode, which_hit: bool, inside_left: bool,
     }
 }
 
-pub fn filter_intersections<'a>(op: &ShapeNode, is: &Intersections<'a>)
-    -> Intersections<'a> {
+pub fn filter_intersections(op: &ShapeNode, is: &Intersections)
+    -> Intersections {
     // Start outside of both child pointers
     let mut inside_left = false;
     let mut inside_right = false;
