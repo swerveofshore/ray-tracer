@@ -13,7 +13,7 @@ use crate::shape::{ ShapePtr, ShapeNode, ShapeType, normal_at };
 /// The `what` parameter is a reference to an `IntersectableDebug` trait object.
 /// A trait object is used because there can be many unique objects (sphere,
 /// cube, plane, etc.) which are intersectable.
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Intersection {
     pub t: f64,
     pub what: ShapePtr,
@@ -26,7 +26,7 @@ impl Intersection {
         Intersection { t, what, uv: None }
     }
 
-    pub fn new_uv(t: f64, what: ShapeNode, u: f64, v: f64) -> Intersection {
+    pub fn new_uv(t: f64, what: ShapePtr, u: f64, v: f64) -> Intersection {
         Intersection { t, what, uv: Some((u, v)) }
     }
 }
