@@ -8,10 +8,10 @@ use crate::matrix::Matrix4D;
 use crate::intersect::{ Intersection, Intersections, filter_intersections };
 use crate::geometry::{ TriangleInfo, SmoothTriangleInfo, Bounds };
 
-pub type ShapePtr = Arc<Mutex<ShapeNode>>;
+pub(crate) type ShapePtr = Arc<Mutex<ShapeNode>>;
 
 #[derive(Debug)]
-pub enum ShapeType {
+pub(crate) enum ShapeType {
     /// An empty shape which does nothing. Mostly for testing.
     Empty,
 
@@ -92,7 +92,7 @@ impl PartialEq for ShapeType {
 }
 
 #[derive(Debug)]
-pub struct ShapeNode {
+pub(crate) struct ShapeNode {
     pub ty: ShapeType, 
     parent: Weak<Mutex<ShapeNode>>,
 
@@ -127,82 +127,60 @@ impl PartialEq for ShapeNode {
     }
 }
 
-impl ShapeNode {
-    /// Creates an empty shape which does nothing. Mostly for testing.
-    pub fn empty() -> ShapeNode {
-        ShapeNode {
-            ty: ShapeType::Empty,
-            ..Default::default()
+pub struct Shape {
+    root: ShapePtr,
+}
+
+macro_rules! shape_constructor {
+    ( $s:ident, $ty:expr ) => {
+        pub fn $s() -> Shape {
+            let shape = ShapeNode {
+                ty: $ty,
+                ..Default::default()
+            };
+
+            Arc::new(Mutex::new(shape))
         }
-    }
+    };
+}
 
-    /// Creates a unit sphere with identity transform and default material.
-    pub fn sphere() -> ShapeNode {
-        ShapeNode {
-            ty: ShapeType::Sphere,
-            ..Default::default()
-        }
-    }
+impl Shape {
+    // Creates an empty shape which does nothing. Mostly for testing.
+    shape_constructor!(empty, ShapeType::Empty);
 
-    /// Creates a plane with a normal pointing up along the Y axis.
-    pub fn plane() -> ShapeNode {
-        ShapeNode {
-            ty: ShapeType::Plane(Tuple4D::vector(0.0, 1.0, 0.0)),
-            ..Default::default()
-        }
-    }
+    // Creates a unit sphere with identity transform and default material.
+    shape_constructor!(sphere, ShapeType::Sphere);
 
-    /// Creates a unit cube with identity transform and default material.
-    pub fn cube() -> ShapeNode {
-        ShapeNode {
-            ty: ShapeType::Cube,
-            ..Default::default()
-        }
-    }
+    // Creates a plane with a normal pointing up along the Y axis.
+    shape_constructor!(plane, ShapeType::Plane(Tuple4D::new(0.0, 1.0, 0.0)));
 
-    /// Creates an infinitely long cylinder with no end caps.
-    pub fn cylinder() -> ShapeNode {
-        ShapeNode {
-            ty: ShapeType::Cylinder(
-                    -1.0 * std::f64::INFINITY,
-                    std::f64::INFINITY,
-                    false
-                ),
-            ..Default::default()
-        }
-    }
+    // Creates a unit cube with identity transform and default material.
+    shape_constructor!(cube, ShapeType::Cube);
 
-    /// Creates a bounded cylinder without caps.
-    pub fn bounded_cylinder(minimum: f64, maximum: f64) -> ShapeNode {
-         ShapeNode {
-            ty: ShapeType::Cylinder(minimum, maximum, false),
-            ..Default::default()
-         }
-    }
+    // Creates an infinitely long cylinder with no end caps.
+    shape_constructor!(cylinder,
+        ShapeType::Cylinder(
+            -1.0 * std::f64::INFINITY,
+            std::f64::INFINITY,
+            false
+        )
+    );
 
-    /// Creates a bounded cylinder with caps.
-    pub fn capped_cylinder(minimum: f64, maximum: f64) -> ShapeNode {
-         ShapeNode {
-            ty: ShapeType::Cylinder(minimum, maximum, true),
-            ..Default::default()
-         }
-    }
+    // Creates a bounded cylinder without caps.
+    shape_constructor!(bounded_cylinder,
+        ShapeType::Cylinder(-1.0, 1.0, false));
 
-    /// Creates an bounded double-napped cone with no end caps.
-    pub fn bounded_cone(minimum: f64, maximum: f64) -> ShapeNode {
-        ShapeNode {
-            ty: ShapeType::Cone(minimum, maximum, false),
-            ..Default::default()
-        }
-    }
+    // Creates a bounded cylinder with caps.
+    shape_constructor!(capped_cylinder,
+        ShapeType::Cylinder(-1.0, 1.0, true));
 
-    /// Creates a double-napped cone with end caps.
-    pub fn capped_cone(minimum: f64, maximum: f64) -> ShapeNode {
-        ShapeNode {
-            ty: ShapeType::Cone(minimum, maximum, true),
-            ..Default::default()
-        }
-    }
+    // Creates an bounded double-napped cone with no end caps.
+    shape_constructor!(bounded_cone,
+        ShapeType::Cone(-1.0, 1.0, false));
+
+    // Creates a double-napped cone with end caps.
+    shape_constructor!(capped_cone,
+        ShapeType::Cone(-1.0, 1.0, true));
 
     /// Creates a triangle, defined by three points in space.
     pub fn triangle(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D) -> ShapeNode {
@@ -856,7 +834,7 @@ impl ShapeNode {
         }
     }
 
-    fn intersect_group<'a>(&'a self, ray: &Ray4D) -> Intersections<'a> {
+    fn intersect_group(&self, ray: &Ray4D) -> Intersections {
         let children = match self.ty {
             ShapeType::Group(ref c) => c,
             _ => unreachable!(),
