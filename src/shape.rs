@@ -1039,8 +1039,7 @@ impl Shape {
         }
     }
 
-    fn intersect_cylinder_caps<'a>(&'a self, ray: &Ray4D,
-        is: &mut Intersections<'a>) {
+    fn intersect_cylinder_caps(&self, ray: &Ray4D, is: &mut Intersections) {
         let (minimum, maximum, closed) = match self.ty {
             ShapeType::Cylinder(min, max, c) => (min, max, c),
             _ => unreachable!(),
@@ -1073,9 +1072,7 @@ impl Shape {
         (x.powi(2) + z.powi(2)) <= 1.0
     }
 
-    fn intersect_cone_caps<'a>(&'a self, ray: &Ray4D,
-        is: &mut Intersections<'a>) {
-
+    fn intersect_cone_caps(&self, ray: &Ray4D, is: &mut Intersections) {
         let (minimum, maximum, closed) = match self.ty {
             ShapeType::Cone(min, max, c) => (min, max, c),
             _ => unreachable!(),
