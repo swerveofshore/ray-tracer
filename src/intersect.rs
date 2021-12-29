@@ -1,9 +1,7 @@
-use std::sync::Arc;
-
 use crate::consts::FEQ_EPSILON;
 use crate::tuple::Tuple4D;
 use crate::ray::Ray4D;
-use crate::shape::{ Shape, ShapePtr, ShapeType, normal_at };
+use crate::shape::{ ShapeNode, ShapeType, normal_at };
 
 /// An intersection.
 ///
@@ -13,20 +11,21 @@ use crate::shape::{ Shape, ShapePtr, ShapeType, normal_at };
 /// The `what` parameter is a reference to an `IntersectableDebug` trait object.
 /// A trait object is used because there can be many unique objects (sphere,
 /// cube, plane, etc.) which are intersectable.
-#[derive(Clone, Debug)]
-pub struct Intersection {
+#[derive(Copy, Clone, Debug)]
+pub struct Intersection<'a> {
     pub t: f64,
-    pub what: ShapePtr,
+    pub what: &'a ShapeNode,
 
     pub uv: Option<(f64, f64)>,
 }
 
-impl Intersection {
-    pub fn new(t: f64, what: ShapePtr) -> Intersection {
+impl<'a> Intersection<'a> {
+    pub fn new(t: f64, what: &'a ShapeNode) -> Intersection<'a> {
         Intersection { t, what, uv: None }
     }
 
-    pub fn new_uv(t: f64, what: ShapePtr, u: f64, v: f64) -> Intersection {
+    pub fn new_uv(t: f64, what: &'a ShapeNode, u: f64, v: f64)
+        -> Intersection<'a> {
         Intersection { t, what, uv: Some((u, v)) }
     }
 }
@@ -36,9 +35,9 @@ impl Intersection {
 /// Two Intersection structures are equal if the offsets `t` of the
 /// intersections are equivalent, and if the underlying *pointers* of the
 /// intersections are equivalent.
-impl PartialEq for Intersection {
-    fn eq(&self, other: &Intersection) -> bool {
-        self.t == other.t && Arc::ptr_eq(&self.what, &other.what)
+impl<'a> PartialEq for Intersection<'a> {
+    fn eq(&self, other: &Intersection<'a>) -> bool {
+        self.t == other.t && std::ptr::eq(self.what, other.what)
     }
 }
 
@@ -47,13 +46,13 @@ impl PartialEq for Intersection {
 /// Mostly a wrapper for a vector of `Intersection` objects. See the
 /// `Intersection` documentation for more information.
 #[derive(Clone, Debug, Default)]
-pub struct Intersections {
-    pub intersections: Vec<Intersection>,
+pub struct Intersections<'a> {
+    pub intersections: Vec<Intersection<'a>>,
 }
 
-impl Intersections {
+impl<'a> Intersections<'a> {
     /// Creates a new list of intersections.
-    pub fn new() -> Intersections {
+    pub fn new() -> Intersections<'a> {
         Intersections { intersections: Vec::new() }
     }
 
@@ -67,7 +66,7 @@ impl Intersections {
     /// As a note, this function sorts the `intersections` field on every call.
     /// This is because the `Intersection` with the lowest `t` is chosen. A more
     /// optimal implementation is likely possible.
-    pub fn hit(&mut self) -> Option<Intersection> {
+    pub fn hit<'b>(&'b mut self) -> Option<Intersection<'a>> {
         self.intersections.retain(|i| i.t.is_finite());
         self.sort();
 
@@ -90,7 +89,8 @@ impl Intersections {
     /// Aggregates several Intersections together.
     ///
     /// Sorts the combined intersections.
-    pub fn aggregate(mut multi_is: Vec<Intersections>) -> Intersections {
+    pub fn aggregate<'b>(mut multi_is: Vec<Intersections<'b>>)
+        -> Intersections<'b> {
         let mut combined_is = Intersections::new();
         for is in multi_is.iter_mut() {
             combined_is.intersections.append(&mut is.intersections);
@@ -105,12 +105,12 @@ impl Intersections {
 ///
 /// Mostly a superset of an `Intersection`.
 #[derive(Clone, Debug)]
-pub struct IntersectionComputation {
+pub struct IntersectionComputation<'a> {
     /// The "time" of the ray intersection.
     pub t: f64,
 
     /// The object being intersected.
-    pub obj: ShapePtr,
+    pub obj: &'a ShapeNode,
 
     /// The point where the intersection occurs.
     pub point: Tuple4D,
@@ -142,20 +142,18 @@ pub struct IntersectionComputation {
     pub n2: f64,
 }
 
-impl IntersectionComputation {
+impl<'a> IntersectionComputation<'a> {
     /// Creates a new intersection computation, given a ray and intersection.
     ///
     /// The `is` parameter is a collection of intersections. If provided,
     /// refraction indices will be calculated.
-    pub fn new(r: &Ray4D, hit: &Intersection, is: Option<&Intersections>)
-        -> IntersectionComputation {
+    pub fn new(r: &Ray4D, hit: &'a Intersection, is: Option<&Intersections<'a>>)
+        -> IntersectionComputation<'a> {
         let t = hit.t;
         let obj = hit.what;
         let point = r.position(t);
         let eyev = -r.direction;
-        let mut normalv = normal_at(
-            &Shape { root: Arc::clone(&obj) }, point, hit
-        );
+        let mut normalv = normal_at(obj, point, hit);
 
         let inside = if normalv.dot(&eyev) < 0.0 {
             normalv = -normalv;
@@ -183,7 +181,7 @@ impl IntersectionComputation {
         }
     }
 
-    fn refraction_indices(hit: &Intersection, is: &Intersections)
+    fn refraction_indices(hit: &'a Intersection, is: &Intersections<'a>)
         -> (f64, f64) {
         // The exiting and entering refractive indices, respectively.
         let mut n1 = 1.0;
@@ -191,21 +189,20 @@ impl IntersectionComputation {
 
         // Contains all objects which have been encountered, but not yet exited
         // by the refracting ray.
-        let mut containers: Vec<ShapePtr> = Vec::new();
+        let mut containers: Vec<&'a ShapeNode> = Vec::new();
 
         for i in is.intersections.iter() {
             if i == hit {
                 if containers.is_empty() {
                     n1 = 1.0; 
                 } else {
-                    n1 = containers.last().unwrap()
-                        .lock().unwrap().material().refractive_index;
+                    n1 = containers.last().unwrap().material().refractive_index;
                 }
             }
 
             // If object `i.what` is in `containers`, remove it.
             if let Some(j) 
-                = containers.iter().position(|&x| Arc::ptr_eq(&x, &i.what)) {
+                = containers.iter().position(|&x| std::ptr::eq(x, i.what)) {
                 containers.remove(j);
             }
             // Otherwise, add the object to `containers`.
@@ -217,8 +214,7 @@ impl IntersectionComputation {
                 if containers.is_empty() {
                     n2 = 1.0;
                 } else {
-                    n2 = containers.last().unwrap()
-                        .lock().unwrap().material().refractive_index;
+                    n2 = containers.last().unwrap().material().refractive_index;
                 }
 
                 // TODO: refactor this to be more Rust-idiomatic; the hanging
@@ -274,9 +270,9 @@ impl IntersectionComputation {
 /// right shape.
 ///
 /// This function returns whether an intersection is allowed for the CSG node.
-pub fn intersection_allowed(op: ShapePtr, which_hit: bool, inside_left: bool,
+pub fn intersection_allowed(op: &ShapeNode, which_hit: bool, inside_left: bool,
     inside_right: bool) -> bool {
-    match op.lock().unwrap().ty  {
+    match op.ty {
         ShapeType::Union(_, _) =>
             (which_hit && !inside_right) || (!which_hit && !inside_left),
         ShapeType::Intersection(_, _) =>
@@ -288,8 +284,8 @@ pub fn intersection_allowed(op: ShapePtr, which_hit: bool, inside_left: bool,
     }
 }
 
-pub fn filter_intersections(op: ShapePtr, is: &Intersections)
-    -> Intersections {
+pub fn filter_intersections<'a>(op: &ShapeNode, is: &Intersections<'a>)
+    -> Intersections<'a> {
     // Start outside of both child pointers
     let mut inside_left = false;
     let mut inside_right = false;
@@ -298,14 +294,10 @@ pub fn filter_intersections(op: ShapePtr, is: &Intersections)
     let mut res_is = Intersections::new();
 
     for i in is.intersections.iter() {
-        let left_csg = op.lock().unwrap().csg_left().lock().unwrap();
-        let right_csg = op.lock().unwrap().csg_right().lock().unwrap();
-
         // If i.what is part of the left child, which_hit is true (for left)
-        let which_hit = left_csg.includes(&i.what.lock().unwrap());
+        let which_hit = op.csg_left().lock().unwrap().includes(i.what);
 
-        if intersection_allowed(Arc::clone(&op), which_hit,
-                inside_left, inside_right) {
+        if intersection_allowed(op, which_hit, inside_left, inside_right) {
             res_is.intersections.push(i.clone());
         }
 
