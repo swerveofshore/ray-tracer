@@ -146,6 +146,10 @@ macro_rules! shape_constructor {
     };
 }
 
+// TODO: Figure out which methods work better with ShapeNode, and which work
+// better with Shape (ideally we shouldn't have to lock/unlock the Mutex
+// over and over).
+
 impl Shape {
     // Creates an empty shape which does nothing. Mostly for testing.
     shape_constructor!(empty, ShapeType::Empty);
@@ -185,33 +189,39 @@ impl Shape {
         ShapeType::Cone(-1.0, 1.0, true));
 
     /// Creates a triangle, defined by three points in space.
-    pub fn triangle(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D) -> ShapeNode {
-        ShapeNode {
+    pub fn triangle(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D) -> Shape {
+        let shape = ShapeNode {
             ty: ShapeType::Triangle(TriangleInfo::new(p1, p2, p3)),
             ..Default::default()
-        }
+        };
+
+        Shape { root: Arc::new(Mutex::new(shape)) }
     }
 
     /// Creates a "smooth" triangle with normals at each vertex.
     pub fn smooth_triangle(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D,
-        n1: Tuple4D, n2: Tuple4D, n3: Tuple4D) -> ShapeNode {
-        ShapeNode {
+        n1: Tuple4D, n2: Tuple4D, n3: Tuple4D) -> Shape {
+        let shape = ShapeNode {
             ty: ShapeType::SmoothTriangle(
                 SmoothTriangleInfo::new(p1, p2, p3, n1, n2, n3)
             ),
             ..Default::default()
-        }
+        };
+
+        Shape { root: Arc::new(Mutex::new(shape)) }
     }
 
     /// Creates a group, which holds a list of other shapes (possibly groups).
-    pub fn group() -> ShapeNode {
-        ShapeNode {
+    pub fn group() -> Shape {
+        let shape = ShapeNode {
             ty: ShapeType::Group(Vec::new()),
             ..Default::default()
-        }
+        };
+
+        Shape { root: Arc::new(Mutex::new(shape)) }
     }
 
-    pub fn csg_union(s1: ShapePtr, s2: ShapePtr) -> ShapePtr {
+    pub fn csg_union(s1: Shape, s2: Shape) -> Shape {
         let union_shape = Arc::new(Mutex::new(
             ShapeNode {
                 // Temporarily set type to empty so that child shapes can have
@@ -221,15 +231,15 @@ impl Shape {
             }
         ));
 
-        s1.lock().unwrap().parent = Arc::downgrade(&union_shape);
-        s2.lock().unwrap().parent = Arc::downgrade(&union_shape);
+        s1.root.lock().unwrap().parent = Arc::downgrade(&union_shape);
+        s2.root.lock().unwrap().parent = Arc::downgrade(&union_shape);
 
         // Set the type to a union of the two shapes, then return the union.
-        union_shape.lock().unwrap().ty = ShapeType::Union(s1, s2);
-        union_shape
+        union_shape.lock().unwrap().ty = ShapeType::Union(s1.root, s2.root);
+        Shape { root: union_shape }
     }
 
-    pub fn csg_intersection(s1: ShapePtr, s2: ShapePtr) -> ShapePtr {
+    pub fn csg_intersection(s1: Shape, s2: Shape) -> Shape {
         let intersection = Arc::new(Mutex::new(
             ShapeNode {
                 // Temporarily set type to empty so that child shapes can have
@@ -239,15 +249,17 @@ impl Shape {
             }
         ));
 
-        s1.lock().unwrap().parent = Arc::downgrade(&intersection);
-        s2.lock().unwrap().parent = Arc::downgrade(&intersection);
+        s1.root.lock().unwrap().parent = Arc::downgrade(&intersection);
+        s2.root.lock().unwrap().parent = Arc::downgrade(&intersection);
 
         // Set the type to a intersection of the two shapes, then return it..
-        intersection.lock().unwrap().ty = ShapeType::Intersection(s1, s2);
-        intersection 
+        intersection.lock().unwrap().ty
+            = ShapeType::Intersection(s1.root, s2.root);
+
+        Shape { root: intersection }
     }
 
-    pub fn csg_difference(s1: ShapePtr, s2: ShapePtr) -> ShapePtr {
+    pub fn csg_difference(s1: Shape, s2: Shape) -> Shape {
         let difference = Arc::new(Mutex::new(
             ShapeNode {
                 // Temporarily set type to empty so that child shapes can have
@@ -257,12 +269,12 @@ impl Shape {
             }
         ));
 
-        s1.lock().unwrap().parent = Arc::downgrade(&difference);
-        s2.lock().unwrap().parent = Arc::downgrade(&difference);
+        s1.root.lock().unwrap().parent = Arc::downgrade(&difference);
+        s2.root.lock().unwrap().parent = Arc::downgrade(&difference);
 
         // Set the type to a difference of the two shapes, then return it..
-        difference.lock().unwrap().ty = ShapeType::Difference(s1, s2);
-        difference 
+        difference.lock().unwrap().ty = ShapeType::Difference(s1.root, s2.root);
+        Shape { root: difference }
     }
 
     /// Gets the left operand of a CSG operator.
