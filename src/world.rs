@@ -5,7 +5,7 @@ use crate::feq;
 use crate::ray::Ray4D;
 use crate::tuple::Tuple4D;
 use crate::color::Color;
-use crate::shape::{ ShapePtr, ShapeNode };
+use crate::shape::{ ShapePtr, Shape };
 use crate::matrix::Matrix4D;
 use crate::light::{ PointLight, Material, lighting };
 use crate::intersect::{ Intersections, IntersectionComputation };
@@ -29,14 +29,14 @@ impl Default for World {
             Tuple4D::point(-10.0, 10.0, -10.0)
         );
 
-        let mut s1 = ShapeNode::sphere();
+        let mut s1 = Shape::sphere();
         let mut m1: Material = Default::default();
         m1.color = Color::rgb(0.8, 1.0, 0.6);
         m1.diffuse = 0.7;
         m1.specular = 0.2;
         *s1.material_mut() = m1;
 
-        let mut s2 = ShapeNode::sphere();
+        let mut s2 = Shape::sphere();
         *s2.transform_mut() = Matrix4D::scaling(0.5, 0.5, 0.5);
 
         World {
@@ -305,10 +305,10 @@ fn shade_intersection_in_shadow() {
         Tuple4D::point(0.0, 0.0, -10.0),
     );
 
-    let s1 = ShapeNode::sphere();
+    let s1 = Shape::sphere();
     w.objects.push(Rc::new(RefCell::new(s1)));
 
-    let mut s2 = ShapeNode::sphere();
+    let mut s2 = Shape::sphere();
     s2.transform = Matrix4D::translation(0.0, 0.0, 10.0);
     w.objects.push(Rc::new(RefCell::new(s2)));
 
@@ -444,9 +444,9 @@ fn reflected_color_for_nonreflective_material() {
 fn reflected_color_for_reflective_material() {
     use crate::consts::REFLECTION_RECURSION_DEPTH;
     use crate::intersect::Intersection;
-    use crate::shape::ShapeNode;
+    use crate::shape::Shape;
 
-    let mut s = ShapeNode::plane();
+    let mut s = Shape::plane();
     s.material.reflective = 0.5;
     s.transform = Matrix4D::translation(0.0, -1.0, 0.0);
 
@@ -471,9 +471,9 @@ fn reflected_color_for_reflective_material() {
 fn shade_hit_with_reflective_material() {
     use crate::consts::REFLECTION_RECURSION_DEPTH;
     use crate::intersect::Intersection;
-    use crate::shape::ShapeNode;
+    use crate::shape::Shape;
 
-    let mut s = ShapeNode::plane();
+    let mut s = Shape::plane();
     s.material.reflective = 0.5;
     s.transform = Matrix4D::translation(0.0, -1.0, 0.0);
 
@@ -640,16 +640,16 @@ fn refracted_color_with_refracted_ray() {
 #[test]
 fn shade_hit_with_transparent_material() {
     use crate::intersect::Intersection;
-    use crate::shape::ShapeNode;
+    use crate::shape::Shape;
 
     let mut w: World = Default::default();
 
-    let mut floor = ShapeNode::plane();
+    let mut floor = Shape::plane();
     floor.transform = Matrix4D::translation(0.0, -1.0, 0.0);
     floor.material.transparency = 0.5;
     floor.material.refractive_index = 1.5;
 
-    let mut ball = ShapeNode::sphere();
+    let mut ball = Shape::sphere();
     ball.material.color = Color::red();
     ball.material.ambient = 0.5;
     ball.transform = Matrix4D::translation(0.0, -3.5, -0.5);
@@ -681,17 +681,17 @@ fn shade_hit_with_transparent_material() {
 #[test]
 fn shade_hit_with_reflective_transparent_material() {
     use crate::intersect::Intersection;
-    use crate::shape::ShapeNode;
+    use crate::shape::Shape;
 
     let mut w: World = Default::default();
 
-    let mut floor = ShapeNode::plane();
+    let mut floor = Shape::plane();
     floor.transform = Matrix4D::translation(0.0, -1.0, 0.0);
     floor.material.reflective = 0.5;
     floor.material.transparency = 0.5;
     floor.material.refractive_index = 1.5;
 
-    let mut ball = ShapeNode::sphere();
+    let mut ball = Shape::sphere();
     ball.material.color = Color::red();
     ball.material.ambient = 0.5;
     ball.transform = Matrix4D::translation(0.0, -3.5, -0.5);

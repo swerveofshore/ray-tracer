@@ -1,7 +1,7 @@
 use crate::consts::FEQ_EPSILON;
 use crate::tuple::Tuple4D;
 use crate::ray::Ray4D;
-use crate::shape::{ ShapeNode, ShapeType, normal_at };
+use crate::shape::{ Shape, ShapeType, normal_at };
 
 /// An intersection.
 ///
@@ -14,17 +14,17 @@ use crate::shape::{ ShapeNode, ShapeType, normal_at };
 #[derive(Copy, Clone, Debug)]
 pub struct Intersection<'a> {
     pub t: f64,
-    pub what: &'a ShapeNode,
+    pub what: &'a Shape,
 
     pub uv: Option<(f64, f64)>,
 }
 
 impl<'a> Intersection<'a> {
-    pub fn new(t: f64, what: &'a ShapeNode) -> Intersection<'a> {
+    pub fn new(t: f64, what: &'a Shape) -> Intersection<'a> {
         Intersection { t, what, uv: None }
     }
 
-    pub fn new_uv(t: f64, what: &'a ShapeNode, u: f64, v: f64)
+    pub fn new_uv(t: f64, what: &'a Shape, u: f64, v: f64)
         -> Intersection<'a> {
         Intersection { t, what, uv: Some((u, v)) }
     }
@@ -110,7 +110,7 @@ pub struct IntersectionComputation<'a> {
     pub t: f64,
 
     /// The object being intersected.
-    pub obj: &'a ShapeNode,
+    pub obj: &'a Shape,
 
     /// The point where the intersection occurs.
     pub point: Tuple4D,
@@ -189,7 +189,7 @@ impl<'a> IntersectionComputation<'a> {
 
         // Contains all objects which have been encountered, but not yet exited
         // by the refracting ray.
-        let mut containers: Vec<&'a ShapeNode> = Vec::new();
+        let mut containers: Vec<&'a Shape> = Vec::new();
 
         for i in is.intersections.iter() {
             if i == hit {
@@ -270,7 +270,7 @@ impl<'a> IntersectionComputation<'a> {
 /// right shape.
 ///
 /// This function returns whether an intersection is allowed for the CSG node.
-pub fn intersection_allowed(op: &ShapeNode, which_hit: bool, inside_left: bool,
+pub fn intersection_allowed(op: &Shape, which_hit: bool, inside_left: bool,
     inside_right: bool) -> bool {
     match op.ty {
         ShapeType::Union(_, _) =>
@@ -284,7 +284,7 @@ pub fn intersection_allowed(op: &ShapeNode, which_hit: bool, inside_left: bool,
     }
 }
 
-pub fn filter_intersections<'a>(op: &ShapeNode, is: &Intersections<'a>)
+pub fn filter_intersections<'a>(op: &Shape, is: &Intersections<'a>)
     -> Intersections<'a> {
     // Start outside of both child pointers
     let mut inside_left = false;
@@ -322,54 +322,54 @@ fn evaluating_rule_for_a_csg_operation() {
     use crate::shape::ShapePtr;
 
     // Dummy shapes for union CSG.
-    let s1 = Rc::new(RefCell::new(ShapeNode::empty()));
-    let s2 = Rc::new(RefCell::new(ShapeNode::empty()));
+    let s1 = Rc::new(RefCell::new(Shape::empty()));
+    let s2 = Rc::new(RefCell::new(Shape::empty()));
 
     let args: [(ShapePtr, bool, bool, bool); 24] = [
         // Unions
-        (ShapeNode::csg_union(Rc::clone(&s1),Rc::clone(&s2)),true,true,true),
-        (ShapeNode::csg_union(Rc::clone(&s1),Rc::clone(&s2)),true,true,false),
-        (ShapeNode::csg_union(Rc::clone(&s1),Rc::clone(&s2)),true,false,true),
-        (ShapeNode::csg_union(Rc::clone(&s1),Rc::clone(&s2)),true,false,false),
-        (ShapeNode::csg_union(Rc::clone(&s1),Rc::clone(&s2)),false,true,true),
-        (ShapeNode::csg_union(Rc::clone(&s1),Rc::clone(&s2)),false,true,false),
-        (ShapeNode::csg_union(Rc::clone(&s1),Rc::clone(&s2)),false,false,true),
-        (ShapeNode::csg_union(Rc::clone(&s1),Rc::clone(&s2)),false,false,false),
+        (Shape::csg_union(Rc::clone(&s1),Rc::clone(&s2)),true,true,true),
+        (Shape::csg_union(Rc::clone(&s1),Rc::clone(&s2)),true,true,false),
+        (Shape::csg_union(Rc::clone(&s1),Rc::clone(&s2)),true,false,true),
+        (Shape::csg_union(Rc::clone(&s1),Rc::clone(&s2)),true,false,false),
+        (Shape::csg_union(Rc::clone(&s1),Rc::clone(&s2)),false,true,true),
+        (Shape::csg_union(Rc::clone(&s1),Rc::clone(&s2)),false,true,false),
+        (Shape::csg_union(Rc::clone(&s1),Rc::clone(&s2)),false,false,true),
+        (Shape::csg_union(Rc::clone(&s1),Rc::clone(&s2)),false,false,false),
 
         // Intersections
-        (ShapeNode::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
+        (Shape::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
             true,true,true),
-        (ShapeNode::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
+        (Shape::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
             true,true,false),
-        (ShapeNode::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
+        (Shape::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
             true,false,true),
-        (ShapeNode::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
+        (Shape::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
             true,false,false),
-        (ShapeNode::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
+        (Shape::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
             false,true,true),
-        (ShapeNode::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
+        (Shape::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
             false,true,false),
-        (ShapeNode::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
+        (Shape::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
             false,false,true),
-        (ShapeNode::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
+        (Shape::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
             false,false,false),
 
         // Differences
-        (ShapeNode::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
+        (Shape::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
             true,true,true),
-        (ShapeNode::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
+        (Shape::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
             true,true,false),
-        (ShapeNode::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
+        (Shape::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
             true,false,true),
-        (ShapeNode::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
+        (Shape::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
             true,false,false),
-        (ShapeNode::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
+        (Shape::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
             false,true,true),
-        (ShapeNode::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
+        (Shape::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
             false,true,false),
-        (ShapeNode::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
+        (Shape::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
             false,false,true),
-        (ShapeNode::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
+        (Shape::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
             false,false,false),
     ];
 

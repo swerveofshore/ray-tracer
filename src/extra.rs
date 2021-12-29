@@ -5,7 +5,7 @@ use std::cell::RefCell;
 
 use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
-use crate::shape::{ add_child_to_group, ShapePtr, ShapeNode, ShapeType };
+use crate::shape::{ add_child_to_group, ShapePtr, Shape, ShapeType };
 
 #[derive(Copy, Clone, Default)]
 pub struct Projectile {
@@ -34,16 +34,16 @@ impl Environment {
     }
 }
 
-pub fn hexagon_corner() -> ShapeNode {
-    let mut corner = ShapeNode::sphere();
+pub fn hexagon_corner() -> Shape {
+    let mut corner = Shape::sphere();
     corner.transform = Matrix4D::translation(0.0, 0.0, -1.0)
         * Matrix4D::scaling(0.25, 0.25, 0.25);
 
     corner
 }
 
-pub fn hexagon_edge() -> ShapeNode {
-    let mut edge = ShapeNode::cylinder();
+pub fn hexagon_edge() -> Shape {
+    let mut edge = Shape::cylinder();
     if let ShapeType::Cylinder(ref mut min, ref mut max, _) = edge.ty {
         *min = 0.0;
         *max = 1.0;
@@ -58,7 +58,7 @@ pub fn hexagon_edge() -> ShapeNode {
 }
 
 pub fn hexagon_side() -> ShapePtr {
-    let side = Rc::new(RefCell::new(ShapeNode::group()));
+    let side = Rc::new(RefCell::new(Shape::group()));
 
     add_child_to_group(
         Rc::clone(&side),
@@ -74,7 +74,7 @@ pub fn hexagon_side() -> ShapePtr {
 }
 
 pub fn hexagon() -> ShapePtr {
-    let hex = Rc::new(RefCell::new(ShapeNode::group()));
+    let hex = Rc::new(RefCell::new(Shape::group()));
 
     for n in 0..=5 {
         let side = hexagon_side();

@@ -1,7 +1,7 @@
 use crate::color::Color;
 use crate::pattern::Pattern;
 use crate::tuple::Tuple4D;
-use crate::shape::ShapeNode;
+use crate::shape::Shape;
 
 /// A point light.
 ///
@@ -74,7 +74,7 @@ impl Default for Material {
 ///
 /// If this point is in a shadow (parameter `in_shadow`), only ambient light is
 /// used.
-pub fn lighting(m: &Material, obj: &ShapeNode, light: &PointLight,
+pub fn lighting(m: &Material, obj: &Shape, light: &PointLight,
     point: Tuple4D, eyev: Tuple4D, normalv: Tuple4D, in_shadow: bool) -> Color {
     // If Material m has some pattern, use that for color
     let color = if let Some(ref pat) = m.pattern {
@@ -127,11 +127,11 @@ pub fn lighting(m: &Material, obj: &ShapeNode, light: &PointLight,
 
 #[test]
 fn eye_between_light_and_surface() {
-    use crate::shape::ShapeNode;
+    use crate::shape::Shape;
 
     let m: Material = Default::default();
     let position = Tuple4D::point(0.0, 0.0, 0.0);
-    let mut s = ShapeNode::sphere();
+    let mut s = Shape::sphere();
     s.material = m;
 
     let eyev = Tuple4D::vector(0.0, 0.0, -1.0);
@@ -149,11 +149,11 @@ fn eye_between_light_and_surface() {
 
 #[test]
 fn eye_between_light_and_surface_offset_45() {
-    use crate::shape::ShapeNode;
+    use crate::shape::Shape;
 
     let m: Material = Default::default();
     let position = Tuple4D::point(0.0, 0.0, 0.0);
-    let mut s = ShapeNode::sphere();
+    let mut s = Shape::sphere();
     s.material = m;
 
     let eyev = Tuple4D::vector(0.0, 2.0f64.sqrt() / 2.0, 2.0f64.sqrt() / 2.0);
@@ -171,11 +171,11 @@ fn eye_between_light_and_surface_offset_45() {
 
 #[test]
 fn eye_opposite_from_surface_offset_45() {
-    use crate::shape::ShapeNode;
+    use crate::shape::Shape;
 
     let m: Material = Default::default();
     let position = Tuple4D::point(0.0, 0.0, 0.0);
-    let mut s = ShapeNode::sphere();
+    let mut s = Shape::sphere();
     s.material = m;
 
     let eyev = Tuple4D::vector(0.0, 0.0, -1.0);
@@ -193,11 +193,11 @@ fn eye_opposite_from_surface_offset_45() {
 
 #[test]
 fn eye_opposite_from_surface_in_reflection() {
-    use crate::shape::ShapeNode;
+    use crate::shape::Shape;
 
     let m: Material = Default::default();
     let position = Tuple4D::point(0.0, 0.0, 0.0);
-    let mut s = ShapeNode::sphere();
+    let mut s = Shape::sphere();
     s.material = m;
 
     let eyev = Tuple4D::vector(0., -(2.0f64.sqrt())/2., -(2.0f64.sqrt())/2.);
@@ -215,11 +215,11 @@ fn eye_opposite_from_surface_in_reflection() {
 
 #[test]
 fn eye_across_surface_from_light() {
-    use crate::shape::ShapeNode;
+    use crate::shape::Shape;
 
     let m: Material = Default::default();
     let position = Tuple4D::point(0.0, 0.0, 0.0);
-    let mut s = ShapeNode::sphere();
+    let mut s = Shape::sphere();
     s.material = m;
 
     let eyev = Tuple4D::vector(0.0, 0.0, -1.0);
@@ -237,7 +237,7 @@ fn eye_across_surface_from_light() {
 
 #[test]
 fn lighting_with_stripe_pattern() {
-    use crate::shape::ShapeNode;
+    use crate::shape::Shape;
 
     let m = Material {
         color: Color::rgb(0.5, 0.5, 0.5),
@@ -256,7 +256,7 @@ fn lighting_with_stripe_pattern() {
         ..Default::default()
     };
 
-    let mut s = ShapeNode::sphere();
+    let mut s = Shape::sphere();
     s.material = m;
 
     let eyev = Tuple4D::vector(0.0, 0.0, -1.0);

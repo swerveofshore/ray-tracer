@@ -6,7 +6,7 @@ use ray_tracer_challenge::matrix::Matrix4D;
 use ray_tracer_challenge::color::Color;
 use ray_tracer_challenge::light::PointLight;
 use ray_tracer_challenge::pattern::Pattern;
-use ray_tracer_challenge::shape::ShapeNode;
+use ray_tracer_challenge::shape::Shape;
 use ray_tracer_challenge::world::World;
 use ray_tracer_challenge::camera::Camera;
 use ray_tracer_challenge::obj::ObjParser;
@@ -37,26 +37,26 @@ fn main() {
     }
     */
 
-    let floor = Rc::new(RefCell::new(ShapeNode::plane()));
+    let floor = Rc::new(RefCell::new(Shape::plane()));
     floor.borrow_mut().transform
         = Matrix4D::translation(0.0, -4.0, 0.0);
     floor.borrow_mut().material.pattern
         = Some(Pattern::checker(Color::black(), Color::white()));
     floor.borrow_mut().material.reflective = 0.8;
 
-    let cube = Rc::new(RefCell::new(ShapeNode::cube()));
+    let cube = Rc::new(RefCell::new(Shape::cube()));
     cube.borrow_mut().transform = Matrix4D::scaling(1.5, 1.5, 1.5)
         * Matrix4D::rotation_y(std::f64::consts::PI / 8.0)
         * Matrix4D::rotation_z(std::f64::consts::PI / 8.0);
     cube.borrow_mut().material.color = Color::rgb(1.0, 1.0, 0.0);
 
-    let sphere = Rc::new(RefCell::new(ShapeNode::sphere()));
+    let sphere = Rc::new(RefCell::new(Shape::sphere()));
     sphere.borrow_mut().transform =
         Matrix4D::rotation_y(std::f64::consts::PI / 8.0)
         * Matrix4D::translation(0.5, 0.0, 0.0);
     sphere.borrow_mut().material.color = Color::red();
 
-    let difference = ShapeNode::csg_difference(cube, sphere);
+    let difference = Shape::csg_difference(cube, sphere);
     difference.borrow_mut().transform = Matrix4D::translation(-5.0, 0.0, 0.0);
 
     let mut world = World::empty();

@@ -7,7 +7,7 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 
 use crate::tuple::Tuple4D;
-use crate::shape::{ ShapeNode, ShapePtr, add_child_to_group };
+use crate::shape::{ Shape, ShapePtr, add_child_to_group };
 
 type ObjFace = Vec<(usize, Option<usize>, Option<usize>)>;
 
@@ -25,7 +25,7 @@ pub struct ObjParser {
 impl ObjParser {
     pub fn new(path_str: &str) -> ObjParser {
         let mut groups = BTreeMap::new();
-        groups.insert("".into(), Rc::new(RefCell::new(ShapeNode::group())));
+        groups.insert("".into(), Rc::new(RefCell::new(Shape::group())));
 
         ObjParser {
             path: Path::new(path_str).into(),
@@ -183,7 +183,7 @@ impl ObjParser {
             else {
                 self.groups.insert(
                     params[1].into(),
-                    Rc::new(RefCell::new(ShapeNode::group()))
+                    Rc::new(RefCell::new(Shape::group()))
                 );
 
                 *current_group = params[1].into();
@@ -234,7 +234,7 @@ impl ObjParser {
     /// all possible triangles from the planar form.
     ///
     /// The triangles produced via this method are returned from this function.
-    fn fan_triangulation(&self, face: &ObjFace) -> Vec<ShapeNode> {
+    fn fan_triangulation(&self, face: &ObjFace) -> Vec<Shape> {
         let mut triangles = Vec::new();
         
         // Note that the book uses one-based indexing for vertices; this
@@ -243,7 +243,7 @@ impl ObjParser {
             match (face[0].2, face[i].2, face[i+1].2) {
                 (Some(n1), Some(n2), Some(n3)) => {
                     triangles.push(
-                        ShapeNode::smooth_triangle(
+                        Shape::smooth_triangle(
                             // The face contains one-based indices into the
                             // vertices.
                             self.vertices[face[0].0   - 1],
@@ -261,7 +261,7 @@ impl ObjParser {
 
                 _ => {
                     triangles.push(
-                        ShapeNode::triangle(
+                        Shape::triangle(
                             // The face contains one-based indices into the
                             // vertices.
                             self.vertices[face[0].0   - 1],
