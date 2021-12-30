@@ -62,7 +62,7 @@ impl SmoothTriangleInfo {
 /// even though only one sphere is provided. With bounding boxes, rays would
 /// terminate intersection calculations immediately if they are unable to find a
 /// bounding box.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Bounds {
     pub minimum: Tuple4D,
     pub maximum: Tuple4D,
