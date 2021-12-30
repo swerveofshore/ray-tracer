@@ -261,7 +261,7 @@ impl Shape {
             ..Default::default()
         };
 
-        // Set the type to a difference of the two shapes, then return it..
+        // Set the type to a difference of the two shapes, then return it.
         difference.ty = ShapeType::Difference(Box::new(s1), Box::new(s2));
         difference 
     }
@@ -272,7 +272,16 @@ impl Shape {
             _ => panic!("Cannot add child to non-group shape."),
         };
 
-        child.parent_transform = Some(self.transform);
+        // Multiply by the higher parent transform if it exists.
+        let to_propogate = if let Some(parent) = self.parent_transform {
+            parent * self.transform
+        } else {
+            self.transform
+        };
+
+        // Propogates all transforms to the leaf/child object, given that
+        // the leaf/child is a group.
+        child.propogate_parent_transform(to_propogate);
         children.push(child);
     }
 
@@ -429,8 +438,72 @@ impl Shape {
         &self.transform
     }
 
-    pub fn transform_mut(&mut self) -> &mut Matrix4D {
-        &mut self.transform
+    /// Sets the transform property on a Shape.
+    pub fn set_transform(&mut self, transform: Matrix4D) {
+        // Set the current shape's transform.
+        self.transform = transform;
+
+        // If the current shape parents other shapes, propogate the newly
+        // assigned transform downwards.
+        match self.ty {
+            ShapeType::Group(ref mut children) => {
+                for child in children.iter_mut() {
+                    let to_propogate =
+                        if let Some(parent) = self.parent_transform {
+                            parent * self.transform
+                        } else {
+                            self.transform
+                        };
+
+                    child.propogate_parent_transform(to_propogate);
+                }
+            },
+
+            // TODO implement CSG functions
+            _ => (),
+        }
+    }
+
+    /// Propogates the parent transform downwards when a transform is set.
+    ///
+    /// The `parent_transform` property of `Shape` stores the product of each
+    /// `transform` matrix in a `Shape` tree. For example, if a cube was
+    /// contained in a group with transform matrix `B`, and said group was
+    /// contained in another group with transform matrix `A`, then the
+    /// `parent_transform` property of the cube would be `AB`. This would
+    /// produce a hierarchy like the following (diagram):
+    ///
+    /// ```text
+    /// Group(transform: A)
+    ///     > Group(transform: B, parent: A)
+    ///         > Cube(transform: C, parent: AB)
+    /// ```
+    ///
+    /// Where `>` can be read as "parent of."
+    ///
+    /// If `set_transform` is called on the "middle" group with transform matri
+    /// `B`, changing it to `D`, then the cube's parent should change to `AD`,
+    /// as it tracks the multiplication of all parent transforms.
+    ///
+    /// This function does exactly that; when a group is changed, this function
+    /// updates the parent properties on child objects.
+    fn propogate_parent_transform(&mut self, parent_transform: Matrix4D) {
+        // If the current shape parents other shapes, propogate the transform. 
+        match self.ty {
+            ShapeType::Group(ref mut children) => {
+                for child in children.iter_mut() {
+                    child.propogate_parent_transform(
+                        parent_transform * self.transform
+                    );
+                }
+            },
+
+            // TODO implement CSG functions
+            _ => (),
+        }
+
+        // Set the current shape's parent transform.
+        self.parent_transform = Some(parent_transform);
     }
 
     pub fn material(&self) -> &Material {
@@ -1548,6 +1621,9 @@ fn converting_a_point_from_world_to_object_space() {
 
     // Group g2 is a child of group g1.
     g1.add_child(g2);
+
+    println!("{:?}\n", g1.children().unwrap()[0]);
+    println!("{:?}", g1.children().unwrap()[0].children().unwrap()[0]);
 
     let p = g1.children().unwrap()[0].children().unwrap()[0]
         .world_to_object(Tuple4D::point(-2.0, 0.0, -10.0));

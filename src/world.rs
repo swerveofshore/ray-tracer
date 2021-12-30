@@ -34,7 +34,7 @@ impl Default for World {
         *s1.material_mut() = m1;
 
         let mut s2 = Shape::sphere();
-        *s2.transform_mut() = Matrix4D::scaling(0.5, 0.5, 0.5);
+        s2.set_transform(Matrix4D::scaling(0.5, 0.5, 0.5));
 
         World {
             objects: vec![s1, s2],
