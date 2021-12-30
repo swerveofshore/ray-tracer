@@ -293,13 +293,11 @@ fn parsing_triangle_faces() {
     let mut obj_parser = ObjParser::new("./models/vertices-and-faces.obj");
     obj_parser.parse();
 
-    let default_group = obj_parser.groups.get("").unwrap().borrow();
+    let default_group = obj_parser.groups.get("").unwrap();
     let children = default_group.children().unwrap();
 
-    let t1b = children[0].borrow();
-    let t2b = children[1].borrow();
-    let t1 = t1b.triangle_info().unwrap();
-    let t2 = t2b.triangle_info().unwrap();
+    let t1 = children[0].triangle_info().unwrap();
+    let t2 = children[1].triangle_info().unwrap();
 
     assert_eq!(t1.p1, obj_parser.vertices[0]);
     assert_eq!(t1.p2, obj_parser.vertices[1]);
@@ -314,15 +312,12 @@ fn triangulating_polygons() {
     let mut obj_parser = ObjParser::new("./models/vertices-and-polygon.obj");
     obj_parser.parse();
 
-    let default_group = obj_parser.groups.get("").unwrap().borrow();
+    let default_group = obj_parser.groups.get("").unwrap();
     let children = default_group.children().unwrap();
 
-    let t1b = children[0].borrow();
-    let t2b = children[1].borrow();
-    let t3b = children[2].borrow();
-    let t1 = t1b.triangle_info().unwrap();
-    let t2 = t2b.triangle_info().unwrap();
-    let t3 = t3b.triangle_info().unwrap();
+    let t1 = children[0].triangle_info().unwrap();
+    let t2 = children[1].triangle_info().unwrap();
+    let t3 = children[2].triangle_info().unwrap();
 
     assert_eq!(t1.p1, obj_parser.vertices[0]);
     assert_eq!(t1.p2, obj_parser.vertices[1]);
@@ -359,13 +354,11 @@ fn faces_with_normals() {
     let mut obj_parser = ObjParser::new("./models/faces-with-normals.obj");
     obj_parser.parse();
 
-    let default_group = obj_parser.groups.get("").unwrap().borrow();
+    let default_group = obj_parser.groups.get("").unwrap();
     let children = default_group.children().unwrap();
 
-    let t1b = children[0].borrow();
-    let t2b = children[1].borrow();
-    let t1 = t1b.smooth_triangle_info().unwrap();
-    let t2 = t2b.smooth_triangle_info().unwrap();
+    let t1 = children[0].smooth_triangle_info().unwrap();
+    let t2 = children[1].smooth_triangle_info().unwrap();
 
     assert_eq!(t1.triangle_info.p1, obj_parser.vertices[0]);
     assert_eq!(t1.triangle_info.p2, obj_parser.vertices[1]);

@@ -316,61 +316,40 @@ pub fn filter_intersections<'a>(op: &Shape, is: &Intersections<'a>)
 
 #[test]
 fn evaluating_rule_for_a_csg_operation() {
-    use std::rc::Rc;
-    use std::cell::RefCell;
-    
-    use crate::shape::ShapePtr;
-
     // Dummy shapes for union CSG.
-    let s1 = Rc::new(RefCell::new(Shape::empty()));
-    let s2 = Rc::new(RefCell::new(Shape::empty()));
+    let s1 = Shape::empty();
+    let s2 = Shape::empty();
 
-    let args: [(ShapePtr, bool, bool, bool); 24] = [
+    let args: [(Shape, bool, bool, bool); 24] = [
         // Unions
-        (Shape::csg_union(Rc::clone(&s1),Rc::clone(&s2)),true,true,true),
-        (Shape::csg_union(Rc::clone(&s1),Rc::clone(&s2)),true,true,false),
-        (Shape::csg_union(Rc::clone(&s1),Rc::clone(&s2)),true,false,true),
-        (Shape::csg_union(Rc::clone(&s1),Rc::clone(&s2)),true,false,false),
-        (Shape::csg_union(Rc::clone(&s1),Rc::clone(&s2)),false,true,true),
-        (Shape::csg_union(Rc::clone(&s1),Rc::clone(&s2)),false,true,false),
-        (Shape::csg_union(Rc::clone(&s1),Rc::clone(&s2)),false,false,true),
-        (Shape::csg_union(Rc::clone(&s1),Rc::clone(&s2)),false,false,false),
+        (Shape::csg_union(s1.clone(),s2.clone()),true,true,true),
+        (Shape::csg_union(s1.clone(),s2.clone()),true,true,false),
+        (Shape::csg_union(s1.clone(),s2.clone()),true,false,true),
+        (Shape::csg_union(s1.clone(),s2.clone()),true,false,false),
+        (Shape::csg_union(s1.clone(),s2.clone()),false,true,true),
+        (Shape::csg_union(s1.clone(),s2.clone()),false,true,false),
+        (Shape::csg_union(s1.clone(),s2.clone()),false,false,true),
+        (Shape::csg_union(s1.clone(),s2.clone()),false,false,false),
 
         // Intersections
-        (Shape::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
-            true,true,true),
-        (Shape::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
-            true,true,false),
-        (Shape::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
-            true,false,true),
-        (Shape::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
-            true,false,false),
-        (Shape::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
-            false,true,true),
-        (Shape::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
-            false,true,false),
-        (Shape::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
-            false,false,true),
-        (Shape::csg_intersection(Rc::clone(&s1),Rc::clone(&s2)),
-            false,false,false),
+        (Shape::csg_intersection(s1.clone(),s2.clone()), true,true,true),
+        (Shape::csg_intersection(s1.clone(),s2.clone()), true,true,false),
+        (Shape::csg_intersection(s1.clone(),s2.clone()), true,false,true),
+        (Shape::csg_intersection(s1.clone(),s2.clone()), true,false,false),
+        (Shape::csg_intersection(s1.clone(),s2.clone()), false,true,true),
+        (Shape::csg_intersection(s1.clone(),s2.clone()), false,true,false),
+        (Shape::csg_intersection(s1.clone(),s2.clone()), false,false,true),
+        (Shape::csg_intersection(s1.clone(),s2.clone()), false,false,false),
 
         // Differences
-        (Shape::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
-            true,true,true),
-        (Shape::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
-            true,true,false),
-        (Shape::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
-            true,false,true),
-        (Shape::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
-            true,false,false),
-        (Shape::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
-            false,true,true),
-        (Shape::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
-            false,true,false),
-        (Shape::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
-            false,false,true),
-        (Shape::csg_difference(Rc::clone(&s1),Rc::clone(&s2)),
-            false,false,false),
+        (Shape::csg_difference(s1.clone(),s2.clone()), true,true,true),
+        (Shape::csg_difference(s1.clone(),s2.clone()), true,true,false),
+        (Shape::csg_difference(s1.clone(),s2.clone()), true,false,true),
+        (Shape::csg_difference(s1.clone(),s2.clone()), true,false,false),
+        (Shape::csg_difference(s1.clone(),s2.clone()), false,true,true),
+        (Shape::csg_difference(s1.clone(),s2.clone()), false,true,false),
+        (Shape::csg_difference(s1.clone(),s2.clone()), false,false,true),
+        (Shape::csg_difference(s1.clone(),s2.clone()), false,false,false),
     ];
 
     let results: [bool; 24] = [
@@ -406,7 +385,6 @@ fn evaluating_rule_for_a_csg_operation() {
     ];
 
     for (arg, res) in args.iter().zip(results.iter()) {
-        assert_eq!(intersection_allowed(&arg.0.borrow(),
-            arg.1, arg.2, arg.3), *res);
+        assert_eq!(intersection_allowed(&arg.0, arg.1, arg.2, arg.3), *res);
     }
 }

@@ -1108,8 +1108,6 @@ impl Shape {
     }
 }
 
-
-
 /// Intersects a ray with a `Shape`.
 ///
 /// Each shape implements `local_intersect`, which calculates intersections of a
@@ -1458,22 +1456,13 @@ fn creating_a_shape_group() {
 }
 
 #[test]
-fn shape_has_parent_attribute() {
-    let s = Shape::empty();
-    let parent = s.parent.upgrade();
-
-    assert!(parent.is_none());
-}
-
-#[test]
 fn adding_a_child_to_a_shape_group() {
-    let g = Rc::new(RefCell::new(Shape::group()));
-    let s = Rc::new(RefCell::new(Shape::empty()));
+    let mut g = Shape::group();
+    let s = Shape::empty();
 
-    add_child_to_group(Rc::clone(&g), Rc::clone(&s));
+    g.add_child(s.clone());
 
-    let gb = g;
-    let children = match gb.ty {
+    let children = match g.ty {
         ShapeType::Group(ref c) => c,
         _ => unreachable!(),
     };
@@ -1482,10 +1471,7 @@ fn adding_a_child_to_a_shape_group() {
     assert_eq!(children.len(), 1);
 
     // Make sure that the child has the same allocation as original Shape.
-    assert!(Rc::ptr_eq(&s, &children[0]));
-
-    // Check that the child points to the parent Group.
-    assert!(Weak::ptr_eq(&s.parent, &Rc::downgrade(&g)));
+    assert_eq!(s, children[0]);
 }
 
 #[test]
@@ -1502,116 +1488,118 @@ fn intersecting_ray_with_empty_group() {
 
 #[test]
 fn intersecting_ray_with_nonempty_group() {
-    let g = Rc::new(RefCell::new(Shape::group()));
-    let s1 = Rc::new(RefCell::new(Shape::sphere()));
-    let s2 = Rc::new(RefCell::new(Shape::sphere()));
-    s2.borrow_mut().transform = Matrix4D::translation(0.0, 0.0, -3.0);
-    let s3 = Rc::new(RefCell::new(Shape::sphere()));
-    s3.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
+    let mut g = Shape::group();
+    let s1 = Shape::sphere();
+    let mut s2 = Shape::sphere();
+    s2.transform = Matrix4D::translation(0.0, 0.0, -3.0);
+    let mut s3 = Shape::sphere();
+    s3.transform = Matrix4D::translation(5.0, 0.0, 0.0);
 
-    add_child_to_group(Rc::clone(&g), Rc::clone(&s1));
-    add_child_to_group(Rc::clone(&g), Rc::clone(&s2));
-    add_child_to_group(Rc::clone(&g), Rc::clone(&s3));
+    g.add_child(s1.clone());
+    g.add_child(s2.clone());
+    g.add_child(s3.clone());
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -5.0),
         Tuple4D::vector(0.0, 0.0, 1.0)
     );
 
-    let gb = g;
-    let is = gb.local_intersect(&r);
+    let is = g.local_intersect(&r);
+    let children = g.children().unwrap();
     assert_eq!(is.intersections.len(), 4);
-    assert!(std::ptr::eq(is.intersections[0].what, Ref::leak(s2)));
-    assert!(std::ptr::eq(is.intersections[1].what, Ref::leak(s2)));
-    assert!(std::ptr::eq(is.intersections[2].what, Ref::leak(s1)));
-    assert!(std::ptr::eq(is.intersections[3].what, Ref::leak(s1)));
+    assert!(std::ptr::eq(&children[1], is.intersections[0].what));
+    assert!(std::ptr::eq(&children[1], is.intersections[1].what));
+    assert!(std::ptr::eq(&children[0], is.intersections[2].what));
+    assert!(std::ptr::eq(&children[0], is.intersections[3].what));
 }
 
 #[test]
 fn intersecting_a_transformed_group() {
-    let g = Rc::new(RefCell::new(Shape::group()));
-    g.borrow_mut().transform = Matrix4D::scaling(2.0, 2.0, 2.0);
+    let mut g = Shape::group();
+    g.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
 
-    let s1 = Rc::new(RefCell::new(Shape::sphere()));
-    s1.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
+    let mut s1 = Shape::sphere();
+    s1.transform = Matrix4D::translation(5.0, 0.0, 0.0);
 
-    add_child_to_group(Rc::clone(&g), Rc::clone(&s1));
+    g.add_child(s1);
 
     let r = Ray4D::new(
         Tuple4D::point(10.0, 0.0, -10.0),
         Tuple4D::vector(0.0, 0.0, 1.0)
     );
 
-    let gb = g;
-    let is = intersect(&gb, r);
-
+    let is = intersect(&g, r);
     assert_eq!(is.intersections.len(), 2);
 }
 
 #[test]
 fn converting_a_point_from_world_to_object_space() {
-    let g1 = Rc::new(RefCell::new(Shape::group()));
-    g1.borrow_mut().transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.);
+    let mut g1 = Shape::group();
+    g1.transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.0);
 
-    let g2 = Rc::new(RefCell::new(Shape::group()));
-    g2.borrow_mut().transform = Matrix4D::scaling(2.0, 2.0, 2.0);
+    let mut g2 = Shape::group();
+    g2.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
 
-    // Group g2 is a child of group g1.
-    add_child_to_group(Rc::clone(&g1), Rc::clone(&g2));
-
-    let s = Rc::new(RefCell::new(Shape::sphere()));
-    s.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
+    let mut s = Shape::sphere();
+    s.transform = Matrix4D::translation(5.0, 0.0, 0.0);
 
     // Sphere s is a child of group g2.
-    add_child_to_group(Rc::clone(&g2), Rc::clone(&s));
+    g2.add_child(s);
 
-    let p = s.world_to_object(Tuple4D::point(-2.0, 0.0, -10.0));
+    // Group g2 is a child of group g1.
+    g1.add_child(g2);
+
+    let p = g1.children().unwrap()[0].children().unwrap()[0]
+        .world_to_object(Tuple4D::point(-2.0, 0.0, -10.0));
     assert_eq!(p, Tuple4D::point(0.0, 0.0, -1.0));
 }
 
 #[test]
 fn converting_a_normal_from_object_to_world_space() {
-    let g1 = Rc::new(RefCell::new(Shape::group()));
-    g1.borrow_mut().transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.);
+    let mut g1 = Shape::group();
+    g1.transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.);
 
-    let g2 = Rc::new(RefCell::new(Shape::group()));
-    g2.borrow_mut().transform = Matrix4D::scaling(1.0, 2.0, 3.0);
+    let mut g2 = Shape::group();
+    g2.transform = Matrix4D::scaling(1.0, 2.0, 3.0);
 
-    // Group g2 is a child of group g1.
-    add_child_to_group(Rc::clone(&g1), Rc::clone(&g2));
-
-    let s = Rc::new(RefCell::new(Shape::sphere()));
-    s.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
+    let mut s = Shape::sphere();
+    s.transform = Matrix4D::translation(5.0, 0.0, 0.0);
 
     // Sphere s is a child of group g2.
-    add_child_to_group(Rc::clone(&g2), Rc::clone(&s));
+    g2.add_child(s);
 
-    let normal = s.normal_to_world(Tuple4D::vector(
-        3.0f64.sqrt() / 3.0, 3.0f64.sqrt() / 3.0, 3.0f64.sqrt() / 3.0
-    ));
+    // Group g2 is a child of group g1.
+    g1.add_child(g2);
+
+    let normal = g1.children().unwrap()[0].children().unwrap()[0]
+        .normal_to_world(
+            Tuple4D::vector(
+                3.0f64.sqrt() / 3.0, 3.0f64.sqrt() / 3.0, 3.0f64.sqrt() / 3.0
+            )
+        );
 
     assert_eq!(normal, Tuple4D::vector(0.2857, 0.4286, -0.8571));
 }
 
 #[test]
 fn finding_the_normal_on_a_child_object() {
-    let g1 = Rc::new(RefCell::new(Shape::group()));
-    g1.borrow_mut().transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.);
+    let mut g1 = Shape::group();
+    g1.transform = Matrix4D::rotation_y(std::f64::consts::PI / 2.0);
 
-    let g2 = Rc::new(RefCell::new(Shape::group()));
-    g2.borrow_mut().transform = Matrix4D::scaling(1.0, 2.0, 3.0);
+    let mut g2 = Shape::group();
+    g2.transform = Matrix4D::scaling(1.0, 2.0, 3.0);
 
-    // Group g2 is a child of group g1.
-    add_child_to_group(Rc::clone(&g1), Rc::clone(&g2));
-
-    let s = Rc::new(RefCell::new(Shape::sphere()));
-    s.borrow_mut().transform = Matrix4D::translation(5.0, 0.0, 0.0);
+    let mut s = Shape::sphere();
+    s.transform = Matrix4D::translation(5.0, 0.0, 0.0);
 
     // Sphere s is a child of group g2.
-    add_child_to_group(Rc::clone(&g2), Rc::clone(&s));
+    g2.add_child(s);
+
+    // Group g2 is a child of group g1.
+    g1.add_child(g2);
 
     let normal = normal_at(
-        &s,
+        &g1.children().unwrap()[0].children().unwrap()[0],
         Tuple4D::point(1.7321, 1.1547, -5.5774),
         &Intersection::new(0.0, &Shape::sphere())
     );
@@ -1827,23 +1815,20 @@ fn a_smooth_triangle_uses_uv_to_interpolate_the_normal() {
 
 #[test]
 fn csg_is_created_with_an_operation_and_two_shapes() {
-    let s1 = Rc::new(RefCell::new(Shape::sphere()));
-    let s2 = Rc::new(RefCell::new(Shape::cube()));
+    let s1 = Shape::sphere();
+    let s2 = Shape::cube();
 
-    let c = Shape::csg_union(Rc::clone(&s1), Rc::clone(&s2));
-    let c_ref = c;
-    if let ShapeType::Union(ref s1_ptr, ref s2_ptr) = c_ref.ty {
-        assert!(Rc::ptr_eq(s1_ptr, &s1));
-        assert!(Rc::ptr_eq(s2_ptr, &s2));
-        assert!(Weak::ptr_eq(&Rc::downgrade(&c), &s1.parent));
-        assert!(Weak::ptr_eq(&Rc::downgrade(&c), &s2.parent));
+    let c = Shape::csg_union(s1.clone(), s2.clone());
+    if let ShapeType::Union(ref s1_ptr, ref s2_ptr) = c.ty {
+        assert_eq!(**s1_ptr, s1);
+        assert_eq!(**s2_ptr, s2);
     }
 }
 
 #[test]
 fn a_ray_misses_a_csg_object() {
-    let s1 = Rc::new(RefCell::new(Shape::sphere()));
-    let s2 = Rc::new(RefCell::new(Shape::cube()));
+    let s1 = Shape::sphere();
+    let s2 = Shape::cube();
     let c = Shape::csg_union(s1, s2);
 
     let r = Ray4D::new(
@@ -1860,11 +1845,11 @@ fn a_ray_misses_a_csg_object() {
 fn a_ray_hits_a_csg_object() {
     use crate::feq;
 
-    let s1 = Rc::new(RefCell::new(Shape::sphere()));
-    let s2 = Rc::new(RefCell::new(Shape::sphere()));
-    s2.borrow_mut().transform = Matrix4D::translation(0.0, 0.0, 0.5);
+    let s1 = Shape::sphere();
+    let mut s2 = Shape::sphere();
+    s2.transform = Matrix4D::translation(0.0, 0.0, 0.5);
 
-    let c = Shape::csg_union(Rc::clone(&s1), Rc::clone(&s2));
+    let c = Shape::csg_union(s1.clone(), s2.clone());
 
     let r = Ray4D::new(
         Tuple4D::point(0.0, 0.0, -5.0),
@@ -1876,7 +1861,7 @@ fn a_ray_hits_a_csg_object() {
 
     assert_eq!(is.intersections.len(), 2);
     assert!(feq(is.intersections[0].t, 4.0));
-    assert!(std::ptr::eq(is.intersections[0].what, Ref::leak(s1)));
+    assert_eq!(*is.intersections[0].what, s1);
     assert!(feq(is.intersections[1].t, 6.5));
-    assert!(std::ptr::eq(is.intersections[1].what, Ref::leak(s2)));
+    assert_eq!(*is.intersections[1].what, s2);
 }
