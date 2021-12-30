@@ -36,8 +36,10 @@ impl Environment {
 
 pub fn hexagon_corner() -> Shape {
     let mut corner = Shape::sphere();
-    corner.transform = Matrix4D::translation(0.0, 0.0, -1.0)
-        * Matrix4D::scaling(0.25, 0.25, 0.25);
+    corner.set_transform(
+          Matrix4D::translation(0.0, 0.0, -1.0)
+        * Matrix4D::scaling(0.25, 0.25, 0.25)
+    );
 
     corner
 }
@@ -49,10 +51,12 @@ pub fn hexagon_edge() -> Shape {
         *max = 1.0;
     }
 
-    edge.transform = Matrix4D::translation(0.0, 0.0, -1.0)
+    edge.set_transform(
+          Matrix4D::translation(0.0, 0.0, -1.0)
         * Matrix4D::rotation_y(-std::f64::consts::PI / 6.0)
         * Matrix4D::rotation_z(-std::f64::consts::PI / 2.0)
-        * Matrix4D::scaling(0.25, 1.0, 0.25);
+        * Matrix4D::scaling(0.25, 1.0, 0.25)
+    );
 
     edge
 }

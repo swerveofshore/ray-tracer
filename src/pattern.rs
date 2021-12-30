@@ -255,7 +255,7 @@ fn stripes_on_object_transformation() {
     use crate::shape::Shape;
 
     let mut object = Shape::sphere();
-    object.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
+    object.set_transform(Matrix4D::scaling(2.0, 2.0, 2.0));
 
     let pattern = Pattern::stripe(Color::white(), Color::black());
 
@@ -281,7 +281,7 @@ fn stripes_on_object_and_pattern_transformation() {
     use crate::shape::Shape;
 
     let mut object = Shape::sphere();
-    object.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
+    object.set_transform(Matrix4D::scaling(2.0, 2.0, 2.0));
 
     let mut pattern = Pattern::stripe(Color::white(), Color::black());
     pattern.transform = Matrix4D::translation(0.5, 0.0, 0.0);
@@ -295,7 +295,7 @@ fn point_pattern_with_object_transformation() {
     use crate::shape::Shape;
 
     let mut s = Shape::sphere();
-    s.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
+    s.set_transform(Matrix4D::scaling(2.0, 2.0, 2.0));
 
     let p = Pattern::point();
     assert_eq!(p.pattern_at_object(&s, Tuple4D::point(2.0, 3.0, 4.0)),
@@ -320,7 +320,7 @@ fn point_pattern_with_object_and_pattern_transformation() {
     use crate::shape::Shape;
 
     let mut s = Shape::sphere();
-    s.transform = Matrix4D::scaling(2.0, 2.0, 2.0);
+    s.set_transform(Matrix4D::scaling(2.0, 2.0, 2.0));
 
     let mut p = Pattern::point();
     p.transform = Matrix4D::translation(0.5, 1.0, 1.5);

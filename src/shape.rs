@@ -94,8 +94,8 @@ pub struct Shape {
     pub ty: ShapeType, 
     pub material: Material,
 
-    pub transform: Matrix4D,
-    pub parent_transform: Option<Matrix4D>,
+    transform: Matrix4D,
+    parent_transform: Option<Matrix4D>,
 
     transform_inverse: Matrix4D,
     full_transform_inverse: Option<Matrix4D>,
@@ -1328,7 +1328,7 @@ pub fn normal_at<'a>(s: &Shape, world_point: Tuple4D,
 #[test]
 fn compute_normal_on_translated_sphere() {
     let mut s = Shape::sphere();
-    s.transform = Matrix4D::translation(0.0, 1.0, 0.0);
+    s.set_transform(Matrix4D::translation(0.0, 1.0, 0.0));
 
     let p = Tuple4D::point(0.0, 1.70711, -0.70711);
     let n = normal_at(&s, p, &Intersection::new(0.0, &s));
@@ -1339,8 +1339,10 @@ fn compute_normal_on_translated_sphere() {
 #[test]
 fn compute_normal_on_transformed_sphere() {
     let mut s = Shape::sphere();
-    s.transform = Matrix4D::scaling(1.0, 0.5, 1.0)
-        * Matrix4D::rotation_z(std::f64::consts::PI / 5.0);
+    s.set_transform(
+          Matrix4D::scaling(1.0, 0.5, 1.0)
+        * Matrix4D::rotation_z(std::f64::consts::PI / 5.0)
+    );
     
     let p = Tuple4D::point(0.0, 2.0f64.sqrt() / 2.0, -(2.0f64.sqrt()) / 2.0);
     let n = normal_at(&s, p, &Intersection::new(0.0, &s));
@@ -1535,7 +1537,7 @@ fn normal_on_sphere_nonaxial() {
 #[test]
 fn normal_on_sphere_translated() {
     let mut s = Shape::sphere();
-    s.transform = Matrix4D::translation(0.0, 1.0, 0.0);
+    s.set_transform(Matrix4D::translation(0.0, 1.0, 0.0));
     let n = normal_at(
         &s, Tuple4D::point(0.0, 1.70711, -0.70711), &Intersection::new(0.0, &s)
     );
@@ -1546,8 +1548,10 @@ fn normal_on_sphere_translated() {
 #[test]
 fn normal_on_sphere_transformed() {
     let mut s = Shape::sphere();
-    s.transform = Matrix4D::scaling(1.0, 0.5, 1.0)
-        * Matrix4D::rotation_z(std::f64::consts::PI / 5.0);
+    s.set_transform(
+          Matrix4D::scaling(1.0, 0.5, 1.0)
+        * Matrix4D::rotation_z(std::f64::consts::PI / 5.0)
+    );
     let n = normal_at(&s,
         Tuple4D::point(0.0, 2.0f64.sqrt() / 2.0, -(2.0f64.sqrt() / 2.0)),
         &Intersection::new(0.0, &s)
@@ -1625,7 +1629,7 @@ fn hit_should_offset_point() {
     );
 
     let mut shape = Shape::sphere();
-    shape.transform = Matrix4D::translation(0.0, 0.0, 1.0);
+    shape.set_transform(Matrix4D::translation(0.0, 0.0, 1.0));
 
     let i = Intersection::new(5.0, &shape);
     let comps = IntersectionComputation::new(&r, &i, None);
@@ -1682,9 +1686,9 @@ fn intersecting_ray_with_nonempty_group() {
     let mut g = Shape::group();
     let s1 = Shape::sphere();
     let mut s2 = Shape::sphere();
-    s2.transform = Matrix4D::translation(0.0, 0.0, -3.0);
+    s2.set_transform(Matrix4D::translation(0.0, 0.0, -3.0));
     let mut s3 = Shape::sphere();
-    s3.transform = Matrix4D::translation(5.0, 0.0, 0.0);
+    s3.set_transform(Matrix4D::translation(5.0, 0.0, 0.0));
 
     g.add_child(s1.clone());
     g.add_child(s2.clone());
@@ -2041,7 +2045,7 @@ fn a_ray_hits_a_csg_object() {
 
     let s1 = Shape::sphere();
     let mut s2 = Shape::sphere();
-    s2.transform = Matrix4D::translation(0.0, 0.0, 0.5);
+    s2.set_transform(Matrix4D::translation(0.0, 0.0, 0.5));
 
     let c = Shape::csg_union(s1.clone(), s2.clone());
 

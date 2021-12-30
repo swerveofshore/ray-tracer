@@ -321,7 +321,7 @@ fn shade_intersection_in_shadow() {
     w.objects.push(s1);
 
     let mut s2 = Shape::sphere();
-    s2.transform = Matrix4D::translation(0.0, 0.0, 10.0);
+    s2.set_transform(Matrix4D::translation(0.0, 0.0, 10.0));
     w.objects.push(s2);
 
     let r = Ray4D::new(
@@ -460,7 +460,7 @@ fn reflected_color_for_reflective_material() {
 
     let mut s = Shape::plane();
     s.material.reflective = 0.5;
-    s.transform = Matrix4D::translation(0.0, -1.0, 0.0);
+    s.set_transform(Matrix4D::translation(0.0, -1.0, 0.0));
 
     let mut w: World = Default::default();
     w.objects.push(s);
@@ -487,7 +487,7 @@ fn shade_hit_with_reflective_material() {
 
     let mut s = Shape::plane();
     s.material.reflective = 0.5;
-    s.transform = Matrix4D::translation(0.0, -1.0, 0.0);
+    s.set_transform(Matrix4D::translation(0.0, -1.0, 0.0));
 
     let mut w: World = Default::default();
     w.objects.push(s);
@@ -657,14 +657,14 @@ fn shade_hit_with_transparent_material() {
     let mut w: World = Default::default();
 
     let mut floor = Shape::plane();
-    floor.transform = Matrix4D::translation(0.0, -1.0, 0.0);
+    floor.set_transform(Matrix4D::translation(0.0, -1.0, 0.0));
     floor.material.transparency = 0.5;
     floor.material.refractive_index = 1.5;
 
     let mut ball = Shape::sphere();
     ball.material.color = Color::red();
     ball.material.ambient = 0.5;
-    ball.transform = Matrix4D::translation(0.0, -3.5, -0.5);
+    ball.set_transform(Matrix4D::translation(0.0, -3.5, -0.5));
 
     w.objects.push(floor);
     w.objects.push(ball);
@@ -698,7 +698,7 @@ fn shade_hit_with_reflective_transparent_material() {
     let mut w: World = Default::default();
 
     let mut floor = Shape::plane();
-    floor.transform = Matrix4D::translation(0.0, -1.0, 0.0);
+    floor.set_transform(Matrix4D::translation(0.0, -1.0, 0.0));
     floor.material.reflective = 0.5;
     floor.material.transparency = 0.5;
     floor.material.refractive_index = 1.5;
@@ -706,7 +706,7 @@ fn shade_hit_with_reflective_transparent_material() {
     let mut ball = Shape::sphere();
     ball.material.color = Color::red();
     ball.material.ambient = 0.5;
-    ball.transform = Matrix4D::translation(0.0, -3.5, -0.5);
+    ball.set_transform(Matrix4D::translation(0.0, -3.5, -0.5));
 
     w.objects.push(floor);
     w.objects.push(ball);
