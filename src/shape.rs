@@ -93,9 +93,13 @@ impl PartialEq for ShapeType {
 pub struct Shape {
     pub ty: ShapeType, 
     pub material: Material,
-    pub transform: Matrix4D,
 
-    parent_transform: Option<Matrix4D>,
+    pub transform: Matrix4D,
+    pub parent_transform: Option<Matrix4D>,
+
+    transform_inverse: Matrix4D,
+    full_transform_inverse: Option<Matrix4D>,
+
     saved_bounds: Cell<Option<Bounds>>,
 }
 
@@ -108,6 +112,9 @@ impl Default for Shape {
             material: Default::default(),
             transform: Matrix4D::identity(),
             parent_transform: None,
+
+            transform_inverse: Matrix4D::identity(),
+            full_transform_inverse: None,
             saved_bounds: Cell::new(None),
         }
     }
@@ -462,6 +469,11 @@ impl Shape {
         // Set the current shape's transform.
         self.transform = transform;
 
+        // Precompute the inverse.
+        self.transform_inverse = self.transform.inverse().expect(
+            "Shape transform should have an inverse."
+        );
+
         // If the current shape parents other shapes, propogate the newly
         // assigned transform downwards.
         match self.ty {
@@ -589,6 +601,14 @@ impl Shape {
 
         // Set the current shape's parent transform.
         self.parent_transform = Some(parent_transform);
+
+        // Set the current shape's full transform inverse.
+        let full_transform_inverse =
+            (parent_transform * self.transform).inverse().expect(
+                "Shape parent transform and transform should be invertible."
+            );
+
+        self.full_transform_inverse = Some(full_transform_inverse);
     }
 
     /// Returns a reference to this Shape's material.
@@ -611,17 +631,13 @@ impl Shape {
     /// The `parent_transform` property is precalculated whenever an object's
     /// `transform` property is set to prevent calculation at render time.
     pub fn world_to_object(&self, point: Tuple4D) -> Tuple4D {
-        let full_transform = match self.parent_transform {
-            Some(parent) => parent * self.transform,
-            None => self.transform,
+        let full_transform_inverse = match self.full_transform_inverse {
+            Some(fti) => fti,
+            None => self.transform_inverse,
         };
 
-        let inv = full_transform.inverse().expect(
-            "Shape transforms should be invertible."
-        );
-
         // Convert the leaf point to object space.
-        inv * point
+        full_transform_inverse * point
     }
 
     /// Converts a normal from object to world space.
@@ -633,16 +649,12 @@ impl Shape {
     ///
     /// This is done using the `parent_transform` matrix.
     pub fn normal_to_world(&self, mut normal: Tuple4D) -> Tuple4D {
-        let full_transform = match self.parent_transform {
-            Some(parent) => parent * self.transform,
-            None => self.transform,
+        let full_transform_inverse = match self.full_transform_inverse {
+            Some(fti) => fti,
+            None => self.transform_inverse,
         };
 
-        let inv = full_transform.inverse().expect(
-            "Shape transforms should be invertible."
-        );
-
-        normal = inv.transposition() * normal;
+        normal = full_transform_inverse.transposition() * normal;
         normal.w = 0.0;
         normal.normalize()
     }
@@ -1301,11 +1313,7 @@ impl Shape {
 /// Intersections are technically calculated in local space; these local-space
 /// intersections are returned in an `Intersections` record.
 pub fn intersect(s: &Shape, r: Ray4D) -> Intersections {
-    let inverse_transform = s.transform().inverse().expect(
-        "Transformation matrix on shape should be invertible."
-    );
-
-    let transformed_ray = r.transform(inverse_transform);
+    let transformed_ray = r.transform(s.transform_inverse);
     s.local_intersect(&transformed_ray)
 }
 
