@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use crate::consts::FEQ_EPSILON;
 use crate::tuple::Tuple4D;
 use crate::ray::Ray4D;
@@ -94,8 +96,10 @@ pub struct Shape {
     pub transform: Matrix4D,
 
     parent_transform: Option<Matrix4D>,
-    saved_bounds: Option<Bounds>,
+    saved_bounds: Cell<Option<Bounds>>,
 }
+
+unsafe impl Sync for Shape { }
 
 impl Default for Shape {
     fn default() -> Shape {
@@ -104,7 +108,7 @@ impl Default for Shape {
             material: Default::default(),
             transform: Matrix4D::identity(),
             parent_transform: None,
-            saved_bounds: None,
+            saved_bounds: Cell::new(None),
         }
     }
 }
@@ -342,7 +346,13 @@ impl Shape {
 
     /// Gets the bounds for different shape types.
     pub fn bounds(&self) -> Bounds {
-        match self.ty {
+        // If the bounds have already been calculated, return them.
+        if let Some(bounds) = self.saved_bounds.get() {
+            return bounds;
+        }
+
+        // Otherwise, calculate the bounds and save them.
+        let bounds = match self.ty {
             ShapeType::Empty => Bounds::empty(),
             ShapeType::Sphere => Bounds::new(-1.0, -1.0, -1.0, 1.0, 1.0, 1.0),
             ShapeType::Cube => Bounds::new(-1.0, -1.0, -1.0, 1.0, 1.0, 1.0),
@@ -405,7 +415,10 @@ impl Shape {
             // TODO: How to handle planes? Should we assume that normal always
             // points up?
             _ => Default::default(),
-        }
+        };
+
+        self.saved_bounds.set(Some(bounds));
+        bounds
     }
 
     /// Returns a reference to a list of child `Shape`s if this is a group.
