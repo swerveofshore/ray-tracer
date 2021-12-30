@@ -7,11 +7,9 @@ use ray_tracer_challenge::shape::Shape;
 use ray_tracer_challenge::world::World;
 use ray_tracer_challenge::camera::Camera;
 use ray_tracer_challenge::obj::ObjParser;
+use ray_tracer_challenge::consts::{ OUT_FILE, CANVAS_WIDTH, CANVAS_HEIGHT };
 
-const CANVAS_WIDTH: usize = 125; // * 8; // 240 * 8;
-const CANVAS_HEIGHT: usize = 100; // * 8; // 135 * 8; 
 const OBJ_FILE: &'static str = "./models/old-teapot.obj";
-const OUT_FILE: &'static str = "./out.ppm";
 
 fn main() {
     println!("Parsing OBJ file {}...", OBJ_FILE);

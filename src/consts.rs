@@ -1,3 +1,9 @@
+// Runtime parameters
+pub const NUM_THREADS: usize = 3;
+pub const CANVAS_WIDTH: usize = 125;
+pub const CANVAS_HEIGHT: usize = 100;
+pub const OUT_FILE: &'static str = "./out.ppm";
+
 // Floating point comparisons
 pub const FEQ_EPSILON: f64 = 0.0001;
 
