@@ -7,12 +7,13 @@ use ray_tracer_challenge::shape::Shape;
 use ray_tracer_challenge::world::World;
 use ray_tracer_challenge::camera::Camera;
 use ray_tracer_challenge::obj::ObjParser;
-use ray_tracer_challenge::consts::{ OUT_FILE, CANVAS_WIDTH, CANVAS_HEIGHT };
+use ray_tracer_challenge::parallel::parallel_render;
+use ray_tracer_challenge::consts::{ CANVAS_WIDTH, CANVAS_HEIGHT };
 
 const OBJ_FILE: &'static str = "./models/old-teapot.obj";
 
 fn main() {
-    println!("Parsing OBJ file {}...", OBJ_FILE);
+    println!("Parsing OBJ file {}...\n", OBJ_FILE);
     let mut obj_parser = ObjParser::new(OBJ_FILE);
     obj_parser.parse();
     println!("...done.");
@@ -63,9 +64,6 @@ fn main() {
         Tuple4D::vector(0.0, 1.0, 0.0),
     ) * Matrix4D::translation(2.0, 0.0, 12.0);
 
-    println!("Rendering...");
-    let canvas = camera.render(&mut world);
-    canvas.save(OUT_FILE).unwrap();
-    println!("...done.");
-    println!("PPM file saved to {}.", OUT_FILE);
+    // Render the world.
+    parallel_render(world, camera);
 }

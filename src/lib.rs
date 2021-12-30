@@ -18,6 +18,7 @@ pub mod canvas;
 pub mod obj;
 pub mod extra;
 pub mod consts;
+pub mod parallel;
 
 pub fn feq(left: f64, right: f64) -> bool {
     (left - right).abs() < consts::FEQ_EPSILON
