@@ -459,7 +459,43 @@ impl Shape {
                 }
             },
 
-            // TODO implement CSG functions
+            // TODO reduce code duplication over CSG constructs
+            ShapeType::Union(ref mut left, ref mut right) => {
+                let to_propogate =
+                    if let Some(parent) = self.parent_transform {
+                        parent * self.transform
+                    } else {
+                        self.transform
+                    };
+
+                left.propogate_parent_transform(to_propogate);
+                right.propogate_parent_transform(to_propogate);
+            },
+
+            ShapeType::Intersection(ref mut left, ref mut right) => {
+                let to_propogate =
+                    if let Some(parent) = self.parent_transform {
+                        parent * self.transform
+                    } else {
+                        self.transform
+                    };
+
+                left.propogate_parent_transform(to_propogate);
+                right.propogate_parent_transform(to_propogate);
+            },
+
+            ShapeType::Difference(ref mut left, ref mut right) => {
+                let to_propogate =
+                    if let Some(parent) = self.parent_transform {
+                        parent * self.transform
+                    } else {
+                        self.transform
+                    };
+
+                left.propogate_parent_transform(to_propogate);
+                right.propogate_parent_transform(to_propogate);
+            },
+
             _ => (),
         }
     }
@@ -498,7 +534,37 @@ impl Shape {
                 }
             },
 
-            // TODO implement CSG functions
+            // TODO: Reduce code duplication for CSG objects.
+            ShapeType::Union(ref mut left, ref mut right) => {
+                left.propogate_parent_transform(
+                    parent_transform * self.transform
+                );
+
+                right.propogate_parent_transform(
+                    parent_transform * self.transform
+                );
+            },
+
+            ShapeType::Intersection(ref mut left, ref mut right) => {
+                left.propogate_parent_transform(
+                    parent_transform * self.transform
+                );
+
+                right.propogate_parent_transform(
+                    parent_transform * self.transform
+                );
+            },
+
+            ShapeType::Difference(ref mut left, ref mut right) => {
+                left.propogate_parent_transform(
+                    parent_transform * self.transform
+                );
+
+                right.propogate_parent_transform(
+                    parent_transform * self.transform
+                );
+            },
+
             _ => (),
         }
 
