@@ -19,39 +19,31 @@ fn main() {
     obj_parser.parse();
     println!("...done.");
 
+    // For default group in the OBJ file:
     // let model = obj_parser.groups.get("").unwrap();
+
+    // For multiple groups in the OBJ file:
     let mut models: Vec<_> = obj_parser.groups.values().cloned().collect();
 
-    /*
-    model.borrow_mut().transform
-        = Matrix4D::rotation_y(3.0 * std::f64::consts::PI / 4.0);
-
-    for child in model.borrow().children().unwrap() {
-        child.borrow_mut().material.transparency = 0.8;
-        child.borrow_mut().material.reflective = 0.1;
-        child.borrow_mut().material.refractive_index = 1.5;
-    }
-    */
-
     let mut floor = Shape::plane();
-    floor.transform = Matrix4D::translation(0.0, -4.0, 0.0);
+    floor.set_transform(Matrix4D::translation(0.0, -4.0, 0.0));
     floor.material.pattern
         = Some(Pattern::checker(Color::black(), Color::white()));
     floor.material.reflective = 0.8;
 
     let mut cube = Shape::cube();
-    cube.transform = Matrix4D::scaling(1.5, 1.5, 1.5)
+    cube.set_transform(Matrix4D::scaling(0.75, 0.75, 0.75)
         * Matrix4D::rotation_y(std::f64::consts::PI / 8.0)
-        * Matrix4D::rotation_z(std::f64::consts::PI / 8.0);
+        * Matrix4D::rotation_z(std::f64::consts::PI / 8.0));
     cube.material.color = Color::rgb(1.0, 1.0, 0.0);
 
     let mut sphere = Shape::sphere();
-    sphere.transform = Matrix4D::rotation_y(std::f64::consts::PI / 8.0)
-        * Matrix4D::translation(0.5, 0.0, 0.0);
+    sphere.set_transform(Matrix4D::rotation_y(std::f64::consts::PI / 8.0)
+        * Matrix4D::translation(0.0, 0.0, 0.0));
     sphere.material.color = Color::red();
 
     let mut difference = Shape::csg_difference(cube, sphere);
-    difference.transform = Matrix4D::translation(-5.0, 0.0, 0.0);
+    difference.set_transform(Matrix4D::translation(-5.0, 0.0, 0.0));
 
     let mut world = World::empty();
     world.light_source = PointLight::new(
