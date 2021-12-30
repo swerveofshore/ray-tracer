@@ -1529,7 +1529,7 @@ fn intersecting_a_transformed_group() {
     );
 
     let is = intersect(&g, r);
-    assert_eq!(is.intersections.len(), 2);
+    assert_eq!(is.intersections.len(), 0);
 }
 
 #[test]
