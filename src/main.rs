@@ -1,6 +1,3 @@
-use std::rc::Rc;
-use std::cell::RefCell;
-
 use ray_tracer_challenge::tuple::Tuple4D;
 use ray_tracer_challenge::matrix::Matrix4D;
 use ray_tracer_challenge::color::Color;
@@ -23,8 +20,7 @@ fn main() {
     println!("...done.");
 
     // let model = obj_parser.groups.get("").unwrap();
-    let mut models: Vec<_> =
-        obj_parser.groups.values().map(|g| Rc::clone(&g)).collect();
+    let mut models: Vec<_> = obj_parser.groups.values().cloned().collect();
 
     /*
     model.borrow_mut().transform
@@ -37,27 +33,25 @@ fn main() {
     }
     */
 
-    let floor = Rc::new(RefCell::new(Shape::plane()));
-    floor.borrow_mut().transform
-        = Matrix4D::translation(0.0, -4.0, 0.0);
-    floor.borrow_mut().material.pattern
+    let mut floor = Shape::plane();
+    floor.transform = Matrix4D::translation(0.0, -4.0, 0.0);
+    floor.material.pattern
         = Some(Pattern::checker(Color::black(), Color::white()));
-    floor.borrow_mut().material.reflective = 0.8;
+    floor.material.reflective = 0.8;
 
-    let cube = Rc::new(RefCell::new(Shape::cube()));
-    cube.borrow_mut().transform = Matrix4D::scaling(1.5, 1.5, 1.5)
+    let mut cube = Shape::cube();
+    cube.transform = Matrix4D::scaling(1.5, 1.5, 1.5)
         * Matrix4D::rotation_y(std::f64::consts::PI / 8.0)
         * Matrix4D::rotation_z(std::f64::consts::PI / 8.0);
-    cube.borrow_mut().material.color = Color::rgb(1.0, 1.0, 0.0);
+    cube.material.color = Color::rgb(1.0, 1.0, 0.0);
 
-    let sphere = Rc::new(RefCell::new(Shape::sphere()));
-    sphere.borrow_mut().transform =
-        Matrix4D::rotation_y(std::f64::consts::PI / 8.0)
+    let mut sphere = Shape::sphere();
+    sphere.transform = Matrix4D::rotation_y(std::f64::consts::PI / 8.0)
         * Matrix4D::translation(0.5, 0.0, 0.0);
-    sphere.borrow_mut().material.color = Color::red();
+    sphere.material.color = Color::red();
 
-    let difference = Shape::csg_difference(cube, sphere);
-    difference.borrow_mut().transform = Matrix4D::translation(-5.0, 0.0, 0.0);
+    let mut difference = Shape::csg_difference(cube, sphere);
+    difference.transform = Matrix4D::translation(-5.0, 0.0, 0.0);
 
     let mut world = World::empty();
     world.light_source = PointLight::new(
@@ -66,8 +60,8 @@ fn main() {
     );
 
     world.objects = vec![
-        Rc::clone(&floor),
-        Rc::clone(&difference),
+        floor,
+        difference,
     ];
     world.objects.append(&mut models);
 

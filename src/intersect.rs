@@ -295,7 +295,7 @@ pub fn filter_intersections<'a>(op: &Shape, is: &Intersections<'a>)
 
     for i in is.intersections.iter() {
         // If i.what is part of the left child, which_hit is true (for left)
-        let which_hit = op.csg_left().borrow().includes(i.what);
+        let which_hit = op.csg_left().includes(i.what);
 
         if intersection_allowed(op, which_hit, inside_left, inside_right) {
             res_is.intersections.push(i.clone());

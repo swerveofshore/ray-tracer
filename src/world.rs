@@ -1,11 +1,8 @@
-use std::rc::Rc;
-use std::cell::{ Ref, RefCell };
-
 use crate::feq;
 use crate::ray::Ray4D;
 use crate::tuple::Tuple4D;
 use crate::color::Color;
-use crate::shape::{ ShapePtr, Shape };
+use crate::shape::Shape;
 use crate::matrix::Matrix4D;
 use crate::light::{ PointLight, Material, lighting };
 use crate::intersect::{ Intersections, IntersectionComputation };
@@ -18,7 +15,7 @@ use crate::shape::intersect;
 /// Worlds collect all objects as well as light for rendering. Most logic is
 /// performed within worlds for the ray tracer.
 pub struct World {
-    pub objects: Vec<ShapePtr>,
+    pub objects: Vec<Shape>,
     pub light_source: PointLight,
 }
 
@@ -40,10 +37,7 @@ impl Default for World {
         *s2.transform_mut() = Matrix4D::scaling(0.5, 0.5, 0.5);
 
         World {
-            objects: vec![
-                Rc::new(RefCell::new(s1)),
-                Rc::new(RefCell::new(s2))
-            ],
+            objects: vec![s1, s2],
             light_source
         }
     }
@@ -61,18 +55,18 @@ impl World {
     }
 
     /// Gets a reference to the first object in a world.
-    pub fn first(&self) -> Option<ShapePtr> {
+    pub fn first(&self) -> Option<&Shape> {
         if self.objects.len() > 0 {
-            Some(Rc::clone(&self.objects[0]))
+            Some(&self.objects[0])
         } else {
             None
         }
     }
 
     /// Gets a reference to the second object in a world.
-    pub fn second(&self) -> Option<ShapePtr> {
+    pub fn second(&self) -> Option<&Shape> {
         if self.objects.len() > 1 {
-            Some(Rc::clone(&self.objects[1]))
+            Some(&self.objects[1])
         } else {
             None
         }
@@ -87,7 +81,7 @@ impl World {
         let mut intersections: Intersections = Intersections::new();
         for obj in self.objects.iter() {
             // Note: leak has to occur here due to lifetime on Ref struct.
-            let mut is: Intersections = intersect(Ref::leak(obj.borrow()), r);
+            let mut is: Intersections = intersect(obj, r);
             intersections.intersections.append(&mut is.intersections);
         }
 

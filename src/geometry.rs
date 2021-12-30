@@ -12,7 +12,7 @@ use crate::consts::FEQ_EPSILON;
 /// Fields `e1`, `e2` and `normal` are calculated on instantiation. The `e1`
 /// and `e2  fields are edges of the triangle, and `normal` is normal to the
 /// face of the triangle.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct TriangleInfo {
     pub p1: Tuple4D,
     pub p2: Tuple4D,
@@ -32,7 +32,7 @@ impl TriangleInfo {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SmoothTriangleInfo {
     pub triangle_info: TriangleInfo,
 

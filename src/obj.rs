@@ -1,13 +1,10 @@
 use std::io::{ self, prelude::* };
 use std::path::{ Path, PathBuf };
 use std::fs::File;
-use std::rc::Rc;
-use std::cell::RefCell;
-
 use std::collections::BTreeMap;
 
 use crate::tuple::Tuple4D;
-use crate::shape::{ Shape, ShapePtr, add_child_to_group };
+use crate::shape::Shape;
 
 type ObjFace = Vec<(usize, Option<usize>, Option<usize>)>;
 
@@ -19,13 +16,13 @@ pub struct ObjParser {
     pub vertices: Vec<Tuple4D>,
     pub normals: Vec<Tuple4D>,
     pub faces: Vec<ObjFace>,
-    pub groups: BTreeMap<String, ShapePtr>,
+    pub groups: BTreeMap<String, Shape>,
 }
 
 impl ObjParser {
     pub fn new(path_str: &str) -> ObjParser {
         let mut groups = BTreeMap::new();
-        groups.insert("".into(), Rc::new(RefCell::new(Shape::group())));
+        groups.insert("".into(), Shape::group());
 
         ObjParser {
             path: Path::new(path_str).into(),
@@ -160,9 +157,8 @@ impl ObjParser {
             // currently-specified group.
             let triangles = self.fan_triangulation(&face);
             for triangle in triangles {
-                if let Some(group) = self.groups.get(current_group) {
-                    let child = Rc::new(RefCell::new(triangle));
-                    add_child_to_group(Rc::clone(&group), Rc::clone(&child));
+                if let Some(group) = self.groups.get_mut(current_group) {
+                    group.add_child(triangle);
                 } else {
                     panic!("OBJ group should be instantiated.");
                 }
@@ -181,11 +177,7 @@ impl ObjParser {
             }
             // Otherwise, create a new group with the specified name.
             else {
-                self.groups.insert(
-                    params[1].into(),
-                    Rc::new(RefCell::new(Shape::group()))
-                );
-
+                self.groups.insert(params[1].into(), Shape::group());
                 *current_group = params[1].into();
             }
         }

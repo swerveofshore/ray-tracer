@@ -5,7 +5,7 @@ use std::cell::RefCell;
 
 use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
-use crate::shape::{ add_child_to_group, ShapePtr, Shape, ShapeType };
+use crate::shape::{ Shape, ShapeType };
 
 #[derive(Copy, Clone, Default)]
 pub struct Projectile {
@@ -57,6 +57,7 @@ pub fn hexagon_edge() -> Shape {
     edge
 }
 
+/*
 pub fn hexagon_side() -> ShapePtr {
     let side = Rc::new(RefCell::new(Shape::group()));
 
@@ -86,3 +87,4 @@ pub fn hexagon() -> ShapePtr {
 
     hex
 }
+*/
