@@ -417,7 +417,7 @@ impl Shape {
         }
     }
 
-    /// Returns a reference to the `TriangleInfo` if this is a triangle.
+    /// Returns a ref. to `TriangleInfo` if this is a triangle.
     pub fn triangle_info(&self) -> Option<&TriangleInfo> {
         if let ShapeType::Triangle(ref info) = self.ty {
             Some(info)
@@ -426,6 +426,7 @@ impl Shape {
         }
     }
 
+    /// Returns a ref. to `SmoothTriangleInfo` if this is a smooth triangle.
     pub fn smooth_triangle_info(&self) -> Option<&SmoothTriangleInfo> {
         if let ShapeType::SmoothTriangle(ref smooth_info) = self.ty {
             Some(smooth_info)
@@ -434,11 +435,16 @@ impl Shape {
         }
     }
 
+    /// Returns a reference to the Shape transform.
     pub fn transform(&self) -> &Matrix4D {
         &self.transform
     }
 
     /// Sets the transform property on a Shape.
+    ///
+    /// If the current Shape is a container (Group or CSG-like variants), the
+    /// new transform is propogated to the children of that container (via
+    /// property `parent_transform`).
     pub fn set_transform(&mut self, transform: Matrix4D) {
         // Set the current shape's transform.
         self.transform = transform;
@@ -572,14 +578,25 @@ impl Shape {
         self.parent_transform = Some(parent_transform);
     }
 
+    /// Returns a reference to this Shape's material.
     pub fn material(&self) -> &Material {
         &self.material
     }
 
+    /// Returns a mutable reference to this Shape's material.
     pub fn material_mut(&mut self) -> &mut Material {
         &mut self.material
     }
 
+    /// Converts a point from world to object space.
+    ///
+    /// Note that some Shapes are groups (e.g. Group or Union). Because of this,
+    /// the `parent_transform` property is used to propogate transformations
+    /// across parent objects. The `parent_transform` matrix brings the shape
+    /// from world, to group, to group, etc., eventually to object space.
+    ///
+    /// The `parent_transform` property is precalculated whenever an object's
+    /// `transform` property is set to prevent calculation at render time.
     pub fn world_to_object(&self, point: Tuple4D) -> Tuple4D {
         let full_transform = match self.parent_transform {
             Some(parent) => parent * self.transform,
@@ -594,6 +611,14 @@ impl Shape {
         inv * point
     }
 
+    /// Converts a normal from object to world space.
+    ///
+    /// See the `world_to_object` documentation for more thorough explanation.
+    /// To summarize, Shapes exist in groups or in a `World`; when in a `Group`,
+    /// shapes must be translated from their parent object's space, eventually
+    /// reaching world space.
+    ///
+    /// This is done using the `parent_transform` matrix.
     pub fn normal_to_world(&self, mut normal: Tuple4D) -> Tuple4D {
         let full_transform = match self.parent_transform {
             Some(parent) => parent * self.transform,
@@ -609,6 +634,7 @@ impl Shape {
         normal.normalize()
     }
 
+    /// Intersect a ray with a Shape.
     pub fn local_intersect(&self, ray: &Ray4D) -> Intersections {
         match self.ty {
             ShapeType::Empty => Intersections::new(),
@@ -626,6 +652,7 @@ impl Shape {
         }
     }
 
+    /// Obtain the normal vector of a Shape at a point.
     pub fn local_normal_at<'a>(&self, at: &Tuple4D, hit: &Intersection<'a>)
         -> Tuple4D {
         match self.ty {
@@ -711,6 +738,7 @@ impl Shape {
         Tuple4D { w: 0.0, ..*at }
     }
 
+    /// Intersects a ray with a plane.
     fn intersect_plane(&self, ray: &Ray4D) -> Intersections {
         // Extract plane normal, panic if this isn't a plane.
         let _normal = match self.ty {
@@ -730,6 +758,9 @@ impl Shape {
         Intersections { intersections: vec![i] }
     }
 
+    /// Obtains the normal at a point on a plane.
+    ///
+    /// A plane has the same normal vector at all points across itself.
     fn normal_at_plane(&self, _at: &Tuple4D) -> Tuple4D {
         // Extract plane normal, panic if this isn't a plane.
         match self.ty {
