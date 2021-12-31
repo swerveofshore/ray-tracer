@@ -2,18 +2,6 @@
 
 Here are some possible enhancements for this ray tracer.
 
-    * Bounds calculations are repeated frequently, even though they could be
-      saved. How could bounds be saved without large modifications to the
-      intersection logic?
-
-    * Multithreading should be easy, but it should involve a thread pool of
-      sorts (no barriers).
-
-        * The Rust Book discusses a thread pool--perhaps this could be looked
-          at.
-
-        * Would some paradigm work better than a straightforward thread pool?
-
     * Patterns are somewhat boring.
 
         * Implement a "perturb" function which distorts existing patterns based
