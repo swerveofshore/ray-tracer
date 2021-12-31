@@ -1,5 +1,3 @@
-#![feature(cell_leak)]
-
 pub mod tuple;
 pub mod matrix;
 pub mod ray;
@@ -19,6 +17,7 @@ pub mod obj;
 pub mod extra;
 pub mod consts;
 pub mod parallel;
+pub mod scene;
 
 pub fn feq(left: f64, right: f64) -> bool {
     (left - right).abs() < consts::FEQ_EPSILON
