@@ -1,5 +1,3 @@
-// use rayon::prelude::*; 
-
 use crate::ray::Ray4D;
 use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
