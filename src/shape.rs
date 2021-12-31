@@ -105,6 +105,26 @@ pub struct Shape {
 
 unsafe impl Sync for Shape { }
 
+impl From<&str> for Shape {
+    fn from(s: &str) -> Shape {
+        match s {
+            "empty" => Shape::empty(),
+            "sphere" => Shape::sphere(),
+            "plane" => Shape::plane(),
+            "cube" => Shape::cube(),
+            "cylinder" => Shape::cylinder(),
+            "bounded_cylinder" => Shape::bounded_cylinder(-1.0, 1.0),
+            "capped_cylinder" => Shape::capped_cylinder(-1.0, 1.0),
+            "bounded_cone" => Shape::bounded_cone(-1.0, 1.0),
+            "capped_cone" => Shape::capped_cone(-1.0, 1.0),
+            "group" => Shape::group(),
+
+            // TODO come up with better defaults for different shape types
+            _ => panic!("No shape named {} exists.", s),
+        }
+    }
+}
+
 impl Default for Shape {
     fn default() -> Shape {
         Shape {
