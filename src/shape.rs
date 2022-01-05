@@ -329,6 +329,19 @@ impl Shape {
         }
     }
 
+    /// Gets a mutable reference to the left operand of a CSG operator.
+    ///
+    /// Panics if `self` is not a CSG operator (types `Union`, `Intersection`
+    /// and `Difference`).
+    pub fn csg_left_mut(&mut self) -> &mut Shape {
+        match self.ty {
+            ShapeType::Union(ref mut l, _) => l,
+            ShapeType::Intersection(ref mut l, _) => l,
+            ShapeType::Difference(ref mut l, _) => l,
+            _ => panic!("csg_left called on non-CSG type shape."),
+        }
+    }
+
     /// Gets the right operand of a CSG operator.
     ///
     /// Panics if `self` is not a CSG operator (types `Union`, `Intersection`
@@ -338,6 +351,19 @@ impl Shape {
             ShapeType::Union(_, ref r) => r,
             ShapeType::Intersection(_, ref r) => r,
             ShapeType::Difference(_, ref r) => r,
+            _ => panic!("csg_right called on non_CSG type shape."),
+        }
+    }
+
+    /// Gets the right operand of a CSG operator.
+    ///
+    /// Panics if `self` is not a CSG operator (types `Union`, `Intersection`
+    /// and `Difference`).
+    pub fn csg_right_mut(&mut self) -> &mut Shape {
+        match self.ty {
+            ShapeType::Union(_, ref mut r) => r,
+            ShapeType::Intersection(_, ref mut r) => r,
+            ShapeType::Difference(_, ref mut r) => r,
             _ => panic!("csg_right called on non_CSG type shape."),
         }
     }
@@ -448,9 +474,18 @@ impl Shape {
         bounds
     }
 
-    /// Returns a reference to a list of child `Shape`s if this is a group.
+    /// Returns a reference to child `Shape`s if this is a group.
     pub fn children(&self) -> Option<&Vec<Shape>> {
         if let ShapeType::Group(ref children) = self.ty {
+            Some(children)
+        } else {
+            None
+        }
+    }
+
+    /// Returns a mutable reference to child `Shape`s if this is a group.
+    pub fn children_mut(&mut self) -> Option<&mut Vec<Shape>> {
+        if let ShapeType::Group(ref mut children) = self.ty {
             Some(children)
         } else {
             None
