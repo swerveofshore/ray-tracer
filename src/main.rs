@@ -29,9 +29,16 @@ fn main() {
         )
         .arg(
             arg!(
-                -j --jobs <VALUE> "Sets the number of threads to be used."
+                -o --output <FILE> "Sets the output file (PPM format)."
             )
             .required(false)
+            .allow_invalid_utf8(true),
+        )
+        .arg(
+            arg!(
+                -j --jobs <VALUE> "Sets the number of threads to be used."
+            )
+            .required(false),
         )
         .get_matches();
 
