@@ -17,6 +17,17 @@ impl PartialEq for Color {
     }
 }
 
+impl From<&Vec<f64>> for Color {
+    fn from(v: &Vec<f64>) -> Color {
+        match v.len() {
+            0 => Default::default(),
+            1 => Color { r: v[0], ..Default::default() },
+            2 => Color { r: v[0], g: v[1], ..Default::default() },
+            _ => Color { r: v[0], g: v[1], b: v[2] }
+        }
+    }
+}
+
 impl Color {
     pub fn rgb(r: f64, g: f64, b: f64) -> Color {
         Color {

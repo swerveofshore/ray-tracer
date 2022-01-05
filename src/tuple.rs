@@ -35,6 +35,18 @@ impl PartialEq for Tuple4D {
     }
 }
 
+impl From<&Vec<f64>> for Tuple4D {
+    fn from(v: &Vec<f64>) -> Tuple4D {
+        match v.len() {
+            0 => Default::default(),
+            1 => Tuple4D { x: v[0], ..Default::default() },
+            2 => Tuple4D { x: v[0], y: v[1], ..Default::default() },
+            3 => Tuple4D { x: v[0], y: v[1], z: v[2], ..Default::default() },
+            _ => Tuple4D { x: v[0], y: v[1], z: v[2], w: v[3] },
+        }
+    }
+}
+
 impl Tuple4D {
     pub fn tuple(x: f64, y: f64, z: f64, w: f64) -> Tuple4D {
         Tuple4D { x, y, z, w }
