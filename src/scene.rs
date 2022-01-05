@@ -1,8 +1,9 @@
 use serde::{ Serialize, Deserialize };
 
+use crate::matrix::Matrix4D;
+use crate::shape::Shape;
 use crate::world::World;
 use crate::camera::Camera;
-use crate::shape::Shape;
 
 pub struct Scene {
     pub world: World,
@@ -11,20 +12,19 @@ pub struct Scene {
 
 impl From<SceneJson> for Scene {
     fn from(scene_json: SceneJson) -> Scene {
-        // Take the first sixteen elements of the scene_json transform vector,
-        // use them to create a Matrix4D for the camera.
-        let mut camera_transform: [f64; 16] = Default::default();
-        for (i, elem)
-            in scene_json.camera_transform.into_iter().take(16).enumerate() {
-            camera_transform[i] = elem; 
-        }
+        // Create the camera transform from the view parameters.
+        let camera_transform = Matrix4D::view_transform(
+            (&scene_json.camera_from).into(),
+            (&scene_json.camera_to).into(),
+            (&scene_json.camera_up).into()
+        );
 
         // Create the camera.
         let camera = Camera::new(
             scene_json.canvas_width,
             scene_json.canvas_height,
             scene_json.field_of_view,
-            camera_transform.into()
+            camera_transform
         );
 
         // Create the world.
@@ -40,7 +40,10 @@ pub struct SceneJson {
     canvas_width: usize,
     canvas_height: usize,
     field_of_view: f64,
-    camera_transform: Vec<f64>,
+
+    camera_from: Vec<f64>,
+    camera_to: Vec<f64>,
+    camera_up: Vec<f64>,
 
     light: LightJson,
     shapes: Vec<ShapeJson>,
@@ -61,7 +64,7 @@ struct ShapeJson {
 
 impl From<ShapeJson> for Shape {
     fn from(shape_json: ShapeJson) -> Shape {
-        match shape_json.ty.as_str() {
+        let mut shape = match shape_json.ty.as_str() {
             // Primitives
             "empty" => Shape::empty(),
             "sphere" => Shape::sphere(),
@@ -133,6 +136,9 @@ impl From<ShapeJson> for Shape {
             // Models
             // TODO
             _ => panic!("Unrecognized shape type in scene description JSON."),
-        }
+        };
+
+        // TODO convert transform
+        shape
     }
 }
