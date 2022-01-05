@@ -27,6 +27,12 @@ fn main() {
             .required(false)
             .allow_invalid_utf8(true),
         )
+        .arg(
+            arg!(
+                -j --jobs <VALUE> "Sets the number of threads to be used."
+            )
+            .required(false)
+        )
         .get_matches();
 
     if let Some(raw_scene) = matches.value_of_os("scene") {
