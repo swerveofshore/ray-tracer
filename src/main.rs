@@ -8,15 +8,11 @@ use ray_tracer_challenge::tuple::Tuple4D;
 use ray_tracer_challenge::matrix::Matrix4D;
 use ray_tracer_challenge::color::Color;
 use ray_tracer_challenge::light::PointLight;
-// use ray_tracer_challenge::pattern::Pattern;
 use ray_tracer_challenge::shape::Shape;
 use ray_tracer_challenge::world::World;
 use ray_tracer_challenge::camera::Camera;
-// use ray_tracer_challenge::obj::ObjParser;
 use ray_tracer_challenge::parallel::parallel_render;
 use ray_tracer_challenge::consts::{ CANVAS_WIDTH, CANVAS_HEIGHT };
-
-// const OBJ_FILE: &'static str = "./models/old-teapot.obj";
 
 fn main() {
     let matches = app_from_crate!()
@@ -56,16 +52,6 @@ fn main() {
         let scene: Scene = scene_json.into();
         parallel_render(scene.world, scene.camera);
     } else {
-        /*
-        println!("Parsing OBJ file {}...", OBJ_FILE);
-        let mut obj_parser = ObjParser::new(OBJ_FILE);
-        obj_parser.parse();
-        println!("...done.\n");
-
-        // For multiple groups in the OBJ file:
-        let mut models: Vec<_> = obj_parser.groups.values().cloned().collect();
-        */
-
         let sphere = Shape::sphere();
         let mut floor = Shape::plane();
         floor.set_transform(Matrix4D::translation(0.0, -4.0, 0.0));
@@ -87,7 +73,7 @@ fn main() {
             Tuple4D::point(0.0, 1.5, -5.0),
             Tuple4D::point(0.0, 1.0,  0.0),
             Tuple4D::vector(0.0, 1.0, 0.0),
-        ); // * Matrix4D::translation(2.0, 0.0, 12.0);
+        );
 
         // Render the world.
         parallel_render(world, camera);
