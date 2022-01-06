@@ -14,6 +14,7 @@ use crate::shape::intersect;
 ///
 /// Worlds collect all objects as well as light for rendering. Most logic is
 /// performed within worlds for the ray tracer.
+#[derive(Debug)]
 pub struct World {
     pub objects: Vec<Shape>,
     pub light_source: PointLight,
