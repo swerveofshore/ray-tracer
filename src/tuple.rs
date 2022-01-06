@@ -1,26 +1,5 @@
 use std::ops::{ Add, Sub, Neg, Mul };
-
 use crate::feq;
-
-/// A 3D tuple.
-///
-/// Mostly unused. See the `color` module for a further-developed
-/// three-parameter tuple.
-#[allow(unused)]
-#[derive(Debug, Default, Copy, Clone, PartialOrd)]
-pub struct Tuple3D {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64
-}
-
-impl PartialEq for Tuple3D {
-    fn eq(&self, other: &Tuple3D) -> bool {
-        feq(self.x, other.x) &&
-            feq(self.y, other.y) &&
-            feq(self.z, other.z)
-    }
-}
 
 /// A 4D tuple.
 ///
@@ -29,6 +8,14 @@ impl PartialEq for Tuple3D {
 ///
 /// If `w` is near `1.0`, a `Tuple4D` is a point. If `w` is near `0.0`, a
 /// `Tuple4D` is a vector.
+///
+/// # Examples
+///
+/// ```
+/// # #![allow(unused)]
+/// let point = Tuple4D::point(1.0, 2.0, 3.0);
+/// let vector = Tuple4D::vector(4.0, 5.0, 6.0);
+/// ```
 #[derive(Debug, Default, Copy, Clone, PartialOrd)]
 pub struct Tuple4D {
     pub x: f64,
