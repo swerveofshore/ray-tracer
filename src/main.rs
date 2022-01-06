@@ -1,4 +1,5 @@
 use std::fs;
+use std::ffi::OsStr;
 use std::path::Path;
 
 use clap::{ app_from_crate, arg };
@@ -38,6 +39,23 @@ fn main() {
         )
         .get_matches();
 
+    // Extract the number of jobs, if provided.
+    let jobs = match matches.value_of("jobs") {
+        Some(j) => j.parse().expect(
+            "-j or --jobs argument must be a positive integer."
+        ),
+        None => ray_tracer_challenge::consts::NUM_THREADS,
+    };
+
+    // Extract the output path, if provided.
+    let out = Path::new(
+        match matches.value_of_os("output") {
+            Some(o) => o,
+            None => OsStr::new(ray_tracer_challenge::consts::OUT_FILE),
+        }
+    );
+
+    // Render from a JSON scene or use a default path.
     if let Some(raw_scene) = matches.value_of_os("scene") {
         let scene_path = Path::new(raw_scene);
         let scene_str = fs::read_to_string(scene_path).expect(
@@ -50,7 +68,7 @@ fn main() {
             );
 
         let scene: Scene = scene_json.into();
-        parallel_render(scene.world, scene.camera);
+        parallel_render(scene.world, scene.camera, jobs, out);
     } else {
         let sphere = Shape::sphere();
         let mut floor = Shape::plane();
@@ -76,6 +94,6 @@ fn main() {
         );
 
         // Render the world.
-        parallel_render(world, camera);
+        parallel_render(world, camera, jobs, out);
     }
 }

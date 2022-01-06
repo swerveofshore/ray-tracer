@@ -1,11 +1,12 @@
 use std::thread;
 use std::sync::mpsc;
 use std::sync::{ Arc, Mutex };
+use std::path::Path;
 
 use crate::world::World;
 use crate::camera::Camera;
 use crate::canvas::Canvas;
-use crate::consts::{ NUM_THREADS, OUT_FILE, REFLECTION_RECURSION_DEPTH };
+use crate::consts::{ NUM_THREADS, REFLECTION_RECURSION_DEPTH };
 
 pub enum Message {
     Pixel(usize, usize),
@@ -93,12 +94,13 @@ impl Drop for ThreadPool {
     }
 }
 
-pub fn parallel_render(world: World, camera: Camera) {
+pub fn parallel_render(world: World, camera: Camera, jobs: usize, out: &Path) {
+
     let vsize = camera.vsize;
     let hsize = camera.hsize;
     let canvas = Arc::new(Mutex::new(Canvas::new(hsize, vsize)));
 
-    println!("Rendering using {} threads...", NUM_THREADS);
+    println!("Rendering using {} threads...", jobs);
     {
         let mut thread_pool = ThreadPool::new(
             NUM_THREADS, world, camera, Arc::clone(&canvas)
@@ -111,7 +113,7 @@ pub fn parallel_render(world: World, camera: Camera) {
         }
     }
 
-    canvas.lock().unwrap().save(OUT_FILE).unwrap();
+    canvas.lock().unwrap().save(out).unwrap();
     println!("...done.\n");
-    println!("Saved render to {}.", OUT_FILE);
+    println!("Saved render to {:?}.", out);
 }
