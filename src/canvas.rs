@@ -1,6 +1,7 @@
 use std::io;
 use std::io::Write;
 use std::fs::File;
+use std::path::Path;
 
 use crate::color::Color;
 
@@ -21,7 +22,7 @@ impl Canvas {
         }
     }
 
-    pub fn save(&self, path: &str) -> io::Result<()> {
+    pub fn save(&self, path: &Path) -> io::Result<()> {
         // Create a new file
         let mut out = File::create(path)?;
 
