@@ -3,8 +3,8 @@ use std::ffi::OsStr;
 use std::path::Path;
 
 use clap::{ app_from_crate, arg };
-use ray_tracer_challenge::scene::{ Scene, SceneJson };
 
+use ray_tracer_challenge::scene::{ Scene, SceneJson };
 use ray_tracer_challenge::tuple::Tuple4D;
 use ray_tracer_challenge::matrix::Matrix4D;
 use ray_tracer_challenge::color::Color;
