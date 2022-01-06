@@ -13,6 +13,7 @@ use crate::feq;
 ///
 /// ```
 /// # #![allow(unused)]
+/// # use ray_tracer_challenge::tuple::Tuple4D;
 /// let point = Tuple4D::point(1.0, 2.0, 3.0);
 /// let vector = Tuple4D::vector(4.0, 5.0, 6.0);
 /// ```
