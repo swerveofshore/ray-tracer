@@ -44,7 +44,7 @@ fn main() {
         Some(j) => j.parse().expect(
             "-j or --jobs argument must be a positive integer."
         ),
-        None => ray_tracer_challenge::consts::NUM_THREADS,
+        None => 1,
     };
 
     // Extract the output path, if provided.

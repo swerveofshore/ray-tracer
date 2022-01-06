@@ -6,7 +6,7 @@ use std::path::Path;
 use crate::world::World;
 use crate::camera::Camera;
 use crate::canvas::Canvas;
-use crate::consts::{ NUM_THREADS, REFLECTION_RECURSION_DEPTH };
+use crate::consts::REFLECTION_RECURSION_DEPTH;
 
 pub enum Message {
     Pixel(usize, usize),
@@ -103,7 +103,7 @@ pub fn parallel_render(world: World, camera: Camera, jobs: usize, out: &Path) {
     println!("Rendering using {} threads...", jobs);
     {
         let mut thread_pool = ThreadPool::new(
-            NUM_THREADS, world, camera, Arc::clone(&canvas)
+            jobs, world, camera, Arc::clone(&canvas)
         );
 
         for y in 0..vsize {

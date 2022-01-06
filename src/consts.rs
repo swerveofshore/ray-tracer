@@ -1,5 +1,4 @@
 // Runtime parameters
-pub const NUM_THREADS: usize = 3;
 pub const CANVAS_WIDTH: usize = 1920;
 pub const CANVAS_HEIGHT: usize = 1080;
 pub const OUT_FILE: &'static str = "./out.ppm";
