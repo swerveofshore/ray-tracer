@@ -2,7 +2,9 @@ use serde::{ Serialize, Deserialize };
 
 use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
+use crate::color::Color;
 use crate::light::{ PointLight, Material };
+use crate::pattern::Pattern;
 use crate::shape::Shape;
 use crate::world::World;
 use crate::camera::Camera;
@@ -72,7 +74,7 @@ impl From<LightJson> for PointLight {
 #[derive(Clone, Serialize, Deserialize)]
 struct ShapeJson {
     ty: String,
-    transform: Vec<f64>,
+    transform: Option<Vec<f64>>,
     material: Option<MaterialJson>,
     children: Option<Vec<ShapeJson>>,
 }
@@ -154,11 +156,15 @@ impl From<ShapeJson> for Shape {
         };
 
         // Set the shape transform
-        let mut shape_transform: [f64; 16] = [0.0; 16];
-        for i in 0..shape_json.transform.len() {
-            shape_transform[i] = shape_json.transform[i];
+        if let Some(trans) = shape_json.transform {
+            let mut shape_transform: [f64; 16] = [0.0; 16];
+            for i in 0..trans.len() {
+                shape_transform[i] = trans[i];
+            }
+            shape.set_transform(shape_transform.into());
+        } else {
+            shape.set_transform(Matrix4D::identity());
         }
-        shape.set_transform(shape_transform.into());
 
         // Set the shape material
         if let Some(m) = shape_json.material {
@@ -172,9 +178,7 @@ impl From<ShapeJson> for Shape {
 #[derive(Clone, Serialize, Deserialize)]
 struct MaterialJson {
     color: Vec<f64>,
-
-    // TODO handle patterns
-    // pattern: Option<PatternJson>,
+    pattern: Option<PatternJson>,
 
     ambient: Option<f64>,
     diffuse: Option<f64>,
@@ -192,6 +196,10 @@ impl From<MaterialJson> for Material {
             color: (&material_json.color).into(),
             ..Default::default()
         };
+
+        if let Some(p) = material_json.pattern {
+            material.pattern = Some(p.into());
+        }
 
         if let Some(a) = material_json.ambient {
             material.ambient = a;
@@ -222,5 +230,106 @@ impl From<MaterialJson> for Material {
         }
 
         material
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct PatternJson {
+    ty: String,
+    transform: Option<Vec<f64>>,
+    primary_color: Option<Vec<f64>>,
+    secondary_color: Option<Vec<f64>>,
+}
+
+impl From<PatternJson> for Pattern {
+    fn from(pattern_json: PatternJson) -> Pattern {
+        let mut pattern = match pattern_json.ty.as_str() {
+            "null" => Pattern::null(),
+            "point" => Pattern::point(),
+            "identity" => {
+                let primary = if let Some(pri) = pattern_json.primary_color {
+                    (&pri).into()
+                } else {
+                    Color::white()
+                };
+
+                Pattern::identity(primary)
+            },
+            "stripe" => {
+                let primary = if let Some(pri) = pattern_json.primary_color {
+                    (&pri).into()
+                } else {
+                    Color::white()
+                };
+
+                let second = if let Some(sec) = pattern_json.secondary_color {
+                    (&sec).into()
+                } else {
+                    Color::black()
+                };
+
+                Pattern::stripe(primary, second)
+            },
+            "ring" => {
+                let primary = if let Some(pri) = pattern_json.primary_color {
+                    (&pri).into()
+                } else {
+                    Color::white()
+                };
+
+                let second = if let Some(sec) = pattern_json.secondary_color {
+                    (&sec).into()
+                } else {
+                    Color::black()
+                };
+
+                Pattern::ring(primary, second)
+            },
+            "checker" => {
+                let primary = if let Some(pri) = pattern_json.primary_color {
+                    (&pri).into()
+                } else {
+                    Color::white()
+                };
+
+                let second = if let Some(sec) = pattern_json.secondary_color {
+                    (&sec).into()
+                } else {
+                    Color::black()
+                };
+
+                Pattern::checker(primary, second)
+            },
+            "gradient" => {
+                let primary = if let Some(pri) = pattern_json.primary_color {
+                    (&pri).into()
+                } else {
+                    Color::white()
+                };
+
+                let second = if let Some(sec) = pattern_json.secondary_color {
+                    (&sec).into()
+                } else {
+                    Color::black()
+                };
+
+                Pattern::gradient(primary, second)
+            },
+
+            // TODO add support for blended patterns
+            _ => panic!("Unrecognized pattern in scene description JSON."),
+        };
+
+        if let Some(trans) = pattern_json.transform {
+            let mut pattern_transform: [f64; 16] = [0.0; 16];
+            for i in 0..trans.len() {
+                pattern_transform[i] = trans[i];
+            }
+            pattern.transform = pattern_transform.into();
+        } else {
+            pattern.transform = Matrix4D::identity();
+        }
+
+        pattern
     }
 }
