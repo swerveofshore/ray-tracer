@@ -110,8 +110,8 @@ pub fn parallel_render(world: World, camera: Camera) {
             }
         }
     }
-    println!("...done.\n");
 
     canvas.lock().unwrap().save(OUT_FILE).unwrap();
+    println!("...done.\n");
     println!("Saved render to {}.", OUT_FILE);
 }
