@@ -2,6 +2,10 @@ use std::ops::{ Add, Sub, Neg, Mul };
 
 use crate::feq;
 
+/// A 3D tuple.
+///
+/// Mostly unused. See the `color` module for a further-developed
+/// three-parameter tuple.
 #[allow(unused)]
 #[derive(Debug, Default, Copy, Clone, PartialOrd)]
 pub struct Tuple3D {
@@ -18,6 +22,13 @@ impl PartialEq for Tuple3D {
     }
 }
 
+/// A 4D tuple.
+///
+/// Contains four floating-point values specifying either a point or direction
+/// in 3D space.
+///
+/// If `w` is near `1.0`, a `Tuple4D` is a point. If `w` is near `0.0`, a
+/// `Tuple4D` is a vector.
 #[derive(Debug, Default, Copy, Clone, PartialOrd)]
 pub struct Tuple4D {
     pub x: f64,
@@ -26,6 +37,11 @@ pub struct Tuple4D {
     pub w: f64
 }
 
+/// Partial equality for a `Tuple4D`.
+///
+/// Each component of the `Tuple4D` is compared with the function `feq`
+/// (floating point equality). This means that equality is calculated
+/// approximately; see the `feq` documentation for more info.
 impl PartialEq for Tuple4D {
     fn eq(&self, other: &Tuple4D) -> bool {
         feq(self.x, other.x) &&
@@ -35,6 +51,14 @@ impl PartialEq for Tuple4D {
     }
 }
 
+/// Conversion from a vector to a `Tuple4D`.
+///
+/// Takes the first `n` elements of a vector `v` and uses them as components of
+/// a `Tuple4D`. If `n == 4`, then the `Tuple4D` will be fully populated, with
+/// `x == v[0]` through `w == v[3]`.
+///
+/// If `n > 4`, elements after `v[3]` will be ignored. If `n < 4`, the `Tuple4D`
+/// component defaults are used in place.
 impl From<&Vec<f64>> for Tuple4D {
     fn from(v: &Vec<f64>) -> Tuple4D {
         match v.len() {
@@ -48,26 +72,42 @@ impl From<&Vec<f64>> for Tuple4D {
 }
 
 impl Tuple4D {
+    /// Creates a tuple with supplied parameters.
     pub fn tuple(x: f64, y: f64, z: f64, w: f64) -> Tuple4D {
         Tuple4D { x, y, z, w }
     }
 
+    /// Creates a point with supplied parameters.
+    ///
+    /// For all points, `w` is near `1.0`.
     pub fn point(x: f64, y: f64, z: f64) -> Tuple4D {
         Tuple4D { x, y, z, w: 1.0 }
     }
 
+    /// Creates a vector with supplied parameters.
+    ///
+    /// For all vectors, `w` is near `0.0`.
     pub fn vector(x: f64, y: f64, z: f64) -> Tuple4D {
         Tuple4D { x, y, z, w: 0.0 }
     }
 
+    /// Returns whether a `Tuple4D` is a point.
     pub fn is_point(&self) -> bool {
-        self.w == 1.0
+        feq(self.w, 1.0)
     }
 
+    /// Returns whether a `Tuple4D` is a vector.
     pub fn is_vector(&self) -> bool {
-        self.w == 0.0
+        feq(self.w, 0.0)
     }
 
+    /// Returns the magnitude of a `Tuple4D`.
+    ///
+    /// This includes the `w` component; the following formula is used:
+    ///
+    /// ```latex
+    /// \sqrt{x^2 + y^2 + z^2 + w^2}
+    /// ```
     pub fn magnitude(&self) -> f64 {
         f64::sqrt(
             self.x.powi(2) 
@@ -77,6 +117,12 @@ impl Tuple4D {
         )
     }
 
+    /// Returns a normalized `Tuple4D`.
+    ///
+    /// Does not modify the underlying `Tuple4D`. All components are modified,
+    /// including the `w` component. Effectively, every component is divided by
+    /// the magnitude of the existing `Tuple4D`, causing the new magnitude to
+    /// be `1.0`.
     pub fn normalize(&self) -> Tuple4D {
         let mag = self.magnitude();
 
@@ -88,6 +134,14 @@ impl Tuple4D {
         }
     }
 
+    /// Computes the dot product of two `Tuple4D`s.
+    ///
+    /// The following formula is used (let `self` be `lhs`, and the other
+    /// `Tuple4D` be `rhs`):
+    ///
+    /// ```text
+    /// (lhs.x * rhs.x) + (lhs.y * rhs.y) + (lhs.z * rhs.z) + (lhs.w * rhs.w)
+    /// ```
     pub fn dot(&self, other: &Tuple4D) -> f64 {
         self.x * other.x
             + self.y * other.y
@@ -95,6 +149,14 @@ impl Tuple4D {
             + self.w * other.w
     }
 
+    /// Computes the cross product of two `Tuple4D`s.
+    ///
+    /// The cross product returns a vector which is orthogonal to both
+    /// `Tuple4D`s. "Orthogonal" means that the dot product of the two
+    /// `Tuple4D`s  is near `0.0`.
+    ///
+    /// Note that `w` is not accounted for in this calculation; since the cross
+    /// product produces a *vector*, the resultant `w` is `0.0`.
     pub fn cross(&self, other: &Tuple4D) -> Tuple4D {
         Tuple4D {
             x: self.y * other.z - self.z * other.y,
@@ -110,6 +172,10 @@ impl Tuple4D {
     }
 }
 
+/// Adds two `Tuple4D`s together.
+///
+/// Produces a new `Tuple4D` where each component is the sum of the
+/// corresponding components of each operand.
 impl Add for Tuple4D {
     type Output = Self;
 
@@ -123,6 +189,10 @@ impl Add for Tuple4D {
     }
 }
 
+/// Subtracts one `Tuple4D` from another.
+///
+/// Produces a new `Tuple4D` where each component is the difference of the
+/// corresponding components of each operand.
 impl Sub for Tuple4D {
     type Output = Self;
 
@@ -136,6 +206,9 @@ impl Sub for Tuple4D {
     }
 }
 
+/// Negates a `Tuple4D`.
+///
+/// Each component is negated.
 impl Neg for Tuple4D {
     type Output = Self;
 
@@ -201,8 +274,6 @@ impl Mul<Tuple4D> for f64 {
     }
 }
 
-/* Tests */
-
 #[test]
 fn add_tuples() {
     let a1 = Tuple4D::tuple(3.0, -2.0, 5.0, 1.0);
@@ -212,7 +283,7 @@ fn add_tuples() {
 }
 
 #[test]
-fn sub_points() {
+fn subtract_points() {
     let p1 = Tuple4D::point(3.0, 2.0, 1.0);
     let p2 = Tuple4D::point(5.0, 6.0, 7.0);
 
@@ -220,7 +291,7 @@ fn sub_points() {
 }
 
 #[test]
-fn sub_vector_from_point() {
+fn subtract_vector_from_point() {
     let p = Tuple4D::point(3.0, 2.0, 1.0);
     let v = Tuple4D::vector(5.0, 6.0, 7.0);
 
@@ -228,7 +299,7 @@ fn sub_vector_from_point() {
 }
 
 #[test]
-fn sub_vectors() {
+fn subtract_vectors() {
     let p1 = Tuple4D::vector(3.0, 2.0, 1.0);
     let p2 = Tuple4D::vector(5.0, 6.0, 7.0);
 
@@ -236,49 +307,49 @@ fn sub_vectors() {
 }
 
 #[test]
-fn neg_tuple() {
+fn negate_tuple() {
     let a = Tuple4D::tuple(1.0, -2.0, 3.0, -4.0);
 
     assert_eq!(-a, Tuple4D::tuple(-1.0, 2.0, -3.0, 4.0));
 }
 
 #[test]
-fn mul_scalar() {
+fn multiply_by_scalar() {
     let a = Tuple4D::tuple(1.0, -2.0, 3.0, -4.0);
 
     assert_eq!(a * 3.5, Tuple4D::tuple(3.5, -7.0, 10.5, -14.0));
 }
 
 #[test]
-fn mul_fraction() {
+fn multiply_by_fraction() {
     let a = Tuple4D::tuple(1.0, -2.0, 3.0, -4.0);
 
     assert_eq!(a * 0.5, Tuple4D::tuple(0.5, -1.0, 1.5, -2.0));
 }
 
 #[test]
-fn magnitude_pos() {
+fn magnitude_of_positive_vector() {
     let v = Tuple4D::vector(1.0, 2.0, 3.0);
 
     assert_eq!(v.magnitude(), f64::sqrt(14.0));
 }
 
 #[test]
-fn magnitude_neg() {
+fn magnitude_of_negative_vector() {
     let v = Tuple4D::vector(-1.0, -2.0, -3.0);
 
     assert_eq!(v.magnitude(), f64::sqrt(14.0));
 }
 
 #[test]
-fn normalize_clean() {
+fn normalize_whole_sum() {
     let v = Tuple4D::vector(4.0, 0.0, 0.0);
 
     assert_eq!(v.normalize(), Tuple4D::vector(1.0, 0.0, 0.0));
 }
 
 #[test]
-fn normalize_dirty() {
+fn normalize_fractional_sum() {
     let v = Tuple4D::vector(1.0, 2.0, 3.0);
     let e = Tuple4D::vector(
         1.0 / f64::sqrt(14.0),
@@ -290,7 +361,7 @@ fn normalize_dirty() {
 }
 
 #[test]
-fn dot_vectors() {
+fn dot_product_of_vectors() {
     let a = Tuple4D::vector(1.0, 2.0, 3.0);
     let b = Tuple4D::vector(2.0, 3.0, 4.0);
 
@@ -298,7 +369,7 @@ fn dot_vectors() {
 }
 
 #[test]
-fn cross_vectors() {
+fn cross_product_of_vectors() {
     let a = Tuple4D::vector(1.0, 2.0, 3.0);
     let b = Tuple4D::vector(2.0, 3.0, 4.0);
 
@@ -310,7 +381,7 @@ fn cross_vectors() {
 }
 
 #[test]
-fn reflect_45() {
+fn reflect_vector_at_45_degrees() {
     let v = Tuple4D::vector(1.0, -1.0, 0.0);
     let n = Tuple4D::vector(0.0, 1.0, 0.0);
     let r = v.reflect(&n);
