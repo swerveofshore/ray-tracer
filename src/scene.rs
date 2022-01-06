@@ -8,6 +8,7 @@ use crate::pattern::Pattern;
 use crate::shape::Shape;
 use crate::world::World;
 use crate::camera::Camera;
+use crate::obj::ObjParser;
 
 #[derive(Debug)]
 pub struct Scene {
@@ -77,6 +78,7 @@ struct ShapeJson {
     transform: Option<Vec<f64>>,
     material: Option<MaterialJson>,
     children: Option<Vec<ShapeJson>>,
+    path: Option<String>
 }
 
 impl From<ShapeJson> for Shape {
@@ -151,7 +153,25 @@ impl From<ShapeJson> for Shape {
             },
 
             // Models
-            // TODO
+            "model" => {
+                let model_path = shape_json.path.expect(
+                    "Model requires a path in scene description JSON."
+                );
+
+                // Parse the OBJ file
+                let mut obj_parser = ObjParser::new(&model_path);
+                obj_parser.parse();
+                let models: Vec<_> = obj_parser.groups.values().cloned()
+                    .collect();
+
+                // Create a parent group for all the groups in the OBJ file
+                let mut model_group = Shape::group();
+                *model_group.children_mut().unwrap() = models;
+
+                // Return the resultant group
+                model_group
+            }
+
             _ => panic!("Unrecognized shape type in scene description JSON."),
         };
 
