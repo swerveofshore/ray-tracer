@@ -4,7 +4,7 @@ use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
 use crate::consts::FEQ_EPSILON;
 
-/// Info associated with a Triangle shape.
+/// Info associated with a `Triangle` shape.
 ///
 /// Fields `p1`, `p2` and `p3` define the points of the `Triangle` in space.
 /// These fields are supplied by the entity instantiating the `Triangle`.
@@ -24,6 +24,7 @@ pub struct TriangleInfo {
 }
 
 impl TriangleInfo {
+    /// Creates a new `TriangleInfo` record.
     pub(crate) fn new(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D) -> TriangleInfo {
         let e1 = p2 - p1;
         let e2 = p3 - p1;
@@ -32,6 +33,16 @@ impl TriangleInfo {
     }
 }
 
+/// Info associated with a `SmoothTriangle` shape.
+///
+/// This record builds on the `TriangleInfo` record. The `TriangleInfo` record
+/// tracks the points of the triangle, as well as the vectors which run along
+/// the edges of the triangle.
+///
+/// Instead of using the `normal` in the `TriangleInfo` record, however, this
+/// record tracks its own normals, allowing for normal interpolation on a
+/// surface. This is useful for making a triangle look "smooth" in a model, or
+/// making a model look "smooth" in general.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SmoothTriangleInfo {
     pub triangle_info: TriangleInfo,
@@ -42,6 +53,7 @@ pub struct SmoothTriangleInfo {
 }
 
 impl SmoothTriangleInfo {
+    /// Creates a new `SmoothTriangleInfo` record.
     pub(crate) fn new(p1: Tuple4D, p2: Tuple4D, p3: Tuple4D,
         n1: Tuple4D, n2: Tuple4D, n3: Tuple4D) -> SmoothTriangleInfo {
 
@@ -69,6 +81,7 @@ pub struct Bounds {
 }
 
 impl Bounds {
+    /// Creates a new bounding box.
     pub(crate) fn new(min_x: f64, min_y: f64, min_z: f64,
         max_x: f64, max_y: f64, max_z: f64) -> Bounds {
         Bounds {

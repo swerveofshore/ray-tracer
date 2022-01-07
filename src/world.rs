@@ -20,6 +20,14 @@ pub struct World {
     pub light_source: PointLight,
 }
 
+/// A default world.
+///
+/// The default world contains two spheres and a white `PointLight` in the
+/// distance. Sphere 1 is more "dull" in terms of light while sphere 2 is small,
+/// contained in the first sphere.
+///
+/// To instantiate a world without objects, see associated function
+/// `World::empty()`.
 impl Default for World {
     fn default() -> World {
         let light_source = PointLight::new(
@@ -109,7 +117,10 @@ impl World {
     }
 
     /// Determines whether a point is shadowed.
-    pub fn is_shadowed(&self, p: Tuple4D) -> bool {
+    ///
+    /// A point is shadowed if it is "behind" a shape which obscures the light
+    /// source of the `World`.
+    fn is_shadowed(&self, p: Tuple4D) -> bool {
         let v = self.light_source.position - p;
         let distance = v.magnitude();
         let direction = v.normalize();
@@ -125,7 +136,10 @@ impl World {
         }
     }
 
-    pub fn reflected_color(&self, comps: &IntersectionComputation,
+    /// Finds the reflected color given some intersection computations.
+    ///
+    /// Terminates when there are no recursive calls remaining.
+    fn reflected_color(&self, comps: &IntersectionComputation,
         remaining: usize) -> Color {
 
         // If there are no more recursive calls remaining, exit.
@@ -164,7 +178,7 @@ impl World {
     /// the angle of the ray as it leaves/re-enters the surface, is equal to the
     /// outer refraction constant divided by the first. This is used to
     /// determine whether "total internal reflection" is occurring.
-    pub fn refracted_color(&self, comps: &IntersectionComputation,
+    fn refracted_color(&self, comps: &IntersectionComputation,
         remaining: usize) -> Color {
 
         // If there are no more recursive calls remaining, exit.
@@ -201,6 +215,8 @@ impl World {
     }
 
     /// Calculates the color for a hit, based on shadows and light.
+    ///
+    /// Also handles reflections and refractions.
     pub fn shade_hit(&self, comps: &IntersectionComputation, remaining: usize)
         -> Color {
         // Color calculated from light on a surface
