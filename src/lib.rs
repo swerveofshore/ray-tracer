@@ -76,7 +76,7 @@ pub mod color;
 /// when a ray intersects points on a shape.
 pub mod pattern;
 
-/// The world which rays are traced within.
+/// Worlds which rays are traced in.
 ///
 /// Defines a container for shapes and other environmental parameters for which
 /// rays may be cast onto a "scene" (not to be confused with crate `scene`,
@@ -86,7 +86,7 @@ pub mod pattern;
 /// canvas help decide which pixels are drawn.
 pub mod world;
 
-/// A camera for generating a canvas.
+/// Cameras for generating a canvas.
 ///
 /// The camera helps define *which* pixels, or which points, are preserved in
 /// frame.
@@ -96,7 +96,7 @@ pub mod world;
 /// `parallel_render` instead.
 pub mod camera;
 
-/// A canvas.
+/// Canvases for generating output images.
 ///
 /// Handles converting the pixels rendered by the camera to a image viewable
 /// by an image viewer. As of now, only PPM images can be generated.
