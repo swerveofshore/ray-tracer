@@ -69,6 +69,30 @@ pub struct Material {
 ///
 /// The default material is non-reflective, has the refractive index of a
 /// vacuum (refraction is largely irrelevant). The material is opaque.
+///
+/// # Examples
+///
+/// Creating a default material:
+///
+/// ```
+/// # use ray_tracer_challenge::color::Color;
+/// # use ray_tracer_challenge::light::Material;
+/// let default_material: Material = Default::default();
+/// let actual_defaults = Material {
+///     color: Color::white(),
+///     pattern: None,
+///
+///     ambient: 0.1,
+///     diffuse: 0.9,
+///     specular: 0.9,
+///     shininess: 200.0,
+///
+///     reflective: 0.0,
+///     refractive_index: 1.0,
+///     transparency: 0.0
+/// };
+/// assert_eq!(default_material, actual_defaults);
+/// ```
 impl Default for Material {
     fn default() -> Material {
         Material {
