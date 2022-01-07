@@ -1,6 +1,14 @@
 use crate::tuple::Tuple4D;
 use crate::matrix::Matrix4D;
 
+/// A ray in 3D space.
+///
+/// A ray has an origin (a point with `w == 1.0`) and a direction (a vector with
+/// `w == 0.0`). In this crate, rays are primarily cast from the `Camera` onto
+/// `Shape`s in the `World` to determine the color of pixels on a `Canvas`.
+///
+/// See the module documentation for `camera`, `shape`, and `world` for more
+/// information.
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Ray4D {
     pub origin: Tuple4D,
@@ -8,6 +16,7 @@ pub struct Ray4D {
 }
 
 impl Ray4D {
+    /// Create a new ray with origin and direction.
     pub fn new(mut origin: Tuple4D, mut direction: Tuple4D) -> Ray4D {
         if !origin.is_point() {
             origin.w = 1.0;
@@ -20,10 +29,24 @@ impl Ray4D {
         Ray4D { origin, direction }
     }
 
+    /// Find the position of a ray at time `t`.
+    ///
+    /// Returns a point using the following formula:
+    ///
+    /// ```text
+    /// point = ray.origin + (t * ray.direction)
+    /// ```
+    ///
+    /// In other words, this function returns a point offset from the ray's
+    /// origin by `t` units of the ray's direction vector.
     pub fn position(&self, t: f64) -> Tuple4D {
         self.origin + (t * self.direction)
     }
 
+    /// Transforms a ray, producing a new ray.
+    ///
+    /// Applies transformation `m` to both the `origin` and `direction`
+    /// components of the ray.
     pub fn transform(&self, m: Matrix4D) -> Ray4D {
         Ray4D {
             origin: m * self.origin,

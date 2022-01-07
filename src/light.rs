@@ -32,19 +32,43 @@ impl PointLight {
 /// specular and shininess.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Material {
+    /// The inherent color of the material. Ignored if a pattern is specified.
     pub color: Color,
+
+    /// The pattern of a material. See `Pattern` for more information.
     pub pattern: Option<Pattern>,
 
+    /// The ambient light reflected by the material.
     pub ambient: f64,
+
+    /// The diffuse light reflected by the material.
     pub diffuse: f64,
+
+    /// The specular light reflected by the material.
     pub specular: f64,
+
+    /// The shininess of the material (how much white light is shown).
     pub shininess: f64,
 
+    /// The reflectivity of the material (how much light is reflected onto other
+    /// objects).
     pub reflective: f64,
+
+    /// The refractive index of the material (degree to which light changes
+    /// direction as it passes from one medium to this material).
     pub refractive_index: f64,
+
+    /// The transparency of the material.
     pub transparency: f64,
 }
 
+/// Defaults for a material.
+///
+/// By default, a material is white with no pattern. It has some ambient light,
+/// reflects almost all diffuse and specular light, and is relatively shiny.
+///
+/// The default material is non-reflective, has the refractive index of a
+/// vacuum (refraction is largely irrelevant). The material is opaque.
 impl Default for Material {
     fn default() -> Material {
         Material {
@@ -76,32 +100,32 @@ impl Default for Material {
 /// used.
 pub fn lighting(m: &Material, obj: &Shape, light: &PointLight,
     point: Tuple4D, eyev: Tuple4D, normalv: Tuple4D, in_shadow: bool) -> Color {
-    // If Material m has some pattern, use that for color
+    // If Material m has some pattern, use that for color.
     let color = if let Some(ref pat) = m.pattern {
         pat.pattern_at_object(obj, point) 
     } else {
         obj.material().color
     };
 
-    // Combine surface color with light's color
+    // Combine surface color with light's color.
     let effective_color = color * light.intensity;
 
-    // Find direction to light source
+    // Find direction to light source.
     let lightv = (light.position - point).normalize();
 
-    // Compute ambient light
+    // Compute ambient light.
     let ambient = effective_color * m.ambient;
 
-    // If the point is in a shadow, only calculate ambient light
+    // If the point is in a shadow, only calculate ambient light.
     if in_shadow {
         return ambient;
     }
 
-    // Declare diffuse and specular variables for calculating light
+    // Declare diffuse and specular variables for calculating light.
     let diffuse;
     let specular;
 
-    // For the side of the surface with no light, use only ambient light
+    // For the side of the surface with no light, use only ambient light.
     let light_dot_normal = lightv.dot(&normalv);
     if light_dot_normal < 0.0 {
         diffuse = Color::black();
@@ -112,11 +136,11 @@ pub fn lighting(m: &Material, obj: &Shape, light: &PointLight,
         let reflectv = (-lightv).reflect(&normalv);
         let reflect_dot_eye = reflectv.dot(&eyev);
 
-        // If no specular reflection, set the specular light to black 
+        // If no specular reflection, set the specular light to black.
         if reflect_dot_eye <= 0.0 {
             specular = Color::black();
         } else {
-            // Otherwise, calculate the shininess factor and apply
+            // Otherwise, calculate the shininess factor and apply.
             let factor = reflect_dot_eye.powf(m.shininess);
             specular = light.intensity * m.specular * factor;
         }
@@ -126,7 +150,7 @@ pub fn lighting(m: &Material, obj: &Shape, light: &PointLight,
 }
 
 #[test]
-fn eye_between_light_and_surface() {
+fn lighting_with_eye_between_light_and_surface() {
     use crate::shape::Shape;
 
     let m: Material = Default::default();
@@ -148,7 +172,7 @@ fn eye_between_light_and_surface() {
 }
 
 #[test]
-fn eye_between_light_and_surface_offset_45() {
+fn lighting_with_eye_between_light_and_surface_offset_45() {
     use crate::shape::Shape;
 
     let m: Material = Default::default();
@@ -170,7 +194,7 @@ fn eye_between_light_and_surface_offset_45() {
 }
 
 #[test]
-fn eye_opposite_from_surface_offset_45() {
+fn lighting_with_eye_opposite_from_surface_offset_45() {
     use crate::shape::Shape;
 
     let m: Material = Default::default();
@@ -192,7 +216,7 @@ fn eye_opposite_from_surface_offset_45() {
 }
 
 #[test]
-fn eye_opposite_from_surface_in_reflection() {
+fn lighting_with_eye_opposite_from_surface_in_reflection() {
     use crate::shape::Shape;
 
     let m: Material = Default::default();
@@ -214,7 +238,7 @@ fn eye_opposite_from_surface_in_reflection() {
 }
 
 #[test]
-fn eye_across_surface_from_light() {
+fn lighting_with_eye_across_surface_from_light() {
     use crate::shape::Shape;
 
     let m: Material = Default::default();
