@@ -20,10 +20,12 @@ pub struct Intersection<'a> {
 }
 
 impl<'a> Intersection<'a> {
+    /// Create a new intersection at `t` with shape `what`.
     pub fn new(t: f64, what: &'a Shape) -> Intersection<'a> {
         Intersection { t, what, uv: None }
     }
 
+    /// Cratea  new intersection at `t` with shape `what`, specifying UV.
     pub fn new_uv(t: f64, what: &'a Shape, u: f64, v: f64)
         -> Intersection<'a> {
         Intersection { t, what, uv: Some((u, v)) }
@@ -181,6 +183,11 @@ impl<'a> IntersectionComputation<'a> {
         }
     }
 
+    /// Find the refraction indices for a hit in a list of intersections.
+    ///
+    /// This is mostly important for objects within objects; as a ray passes
+    /// from one medium to another, different refraction indices become
+    /// relevant.
     fn refraction_indices(hit: &'a Intersection, is: &Intersections<'a>)
         -> (f64, f64) {
         // The exiting and entering refractive indices, respectively.
@@ -230,8 +237,6 @@ impl<'a> IntersectionComputation<'a> {
     ///
     /// The reflectance is a number between 0 and 1, representing what fraction
     /// of the light is reflected for the hit.
-    ///
-    /// TODO: Explain why the below calculations work.
     pub fn schlick(&self) -> f64 {
         let mut cos = self.eyev.dot(&self.normalv);
 
@@ -284,6 +289,14 @@ pub fn intersection_allowed(op: &Shape, which_hit: bool, inside_left: bool,
     }
 }
 
+/// Filter intersections based on CSG operations.
+///
+/// While all shapes in CSG operations are still intersected, technically, we
+/// only want certain shape intersections to appear in the resultant render.
+///
+/// This function removes intersections filtered by the CSG operation. This is
+/// most easily visualized with something like a `Difference` operation, which
+/// explicitly subtracts one shape from another.
 pub fn filter_intersections<'a>(op: &Shape, is: &Intersections<'a>)
     -> Intersections<'a> {
     // Start outside of both child pointers
