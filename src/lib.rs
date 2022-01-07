@@ -139,6 +139,9 @@ pub mod consts;
 
 /// Parallel execution for rendering.
 ///
+/// Most of the executable's driver code is in this module, specifically under
+/// function `parallel_render`.
+///
 /// Since each pixel can be rendered independent of one another in a ray tracer,
 /// the functions in this module do exactly that: render each pixel independent
 /// of each other in a thread pool.

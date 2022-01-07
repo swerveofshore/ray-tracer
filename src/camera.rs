@@ -30,6 +30,16 @@ pub struct Camera {
 }
 
 impl Camera {
+    /// Creates a new `Camera`.
+    ///
+    /// Parameter `hsize` is the horizontal size of the desired canvas, `vsize`
+    /// is the vertical size of the desired canvas. Parameter `field_of_view`
+    /// represents the desired FoV of the world.
+    ///
+    /// Parameter `transform` changes how the world is oriented relative to the
+    /// camera--typically, this is a view transformation. Parameter `transform`
+    /// is assiged directly to `Camera`'s `transform` field without further
+    /// modification.
     pub fn new(hsize: usize, vsize: usize, field_of_view: f64,
         transform: Matrix4D) -> Camera {
         let half_view = (field_of_view / 2.0).tan();
@@ -58,6 +68,11 @@ impl Camera {
         }
     }
 
+    /// Obtains the ray needed to determine the color of a pixel.
+    ///
+    /// This function creates the rays which are cast onto a `World`.
+    /// For each pixel on a desired `Canvas`, a ray is created in `World` space
+    /// to determine the correct color at each `Canvas` pixel.
     pub fn ray_for_pixel(&self, px: usize, py: usize) -> Ray4D {
         // Offsets from the edge of the canvas to the pixel's center
         let xoffset = (px as f64 + 0.5) * self.pixel_size;
@@ -79,7 +94,14 @@ impl Camera {
         Ray4D::new(origin, direction)
     }
 
-    pub fn render(&self, w: &mut World) -> Canvas {
+    /// Renders a `World`, yielding a `Canvas`.
+    ///
+    /// This function is private because it shouldn't be used. See function
+    /// `parallel_render` in module `parallel` for a more fully-featured
+    /// renderer. Module `parallel` contains most of the driver code for this
+    /// crate.
+    #[allow(unused)]
+    fn render(&self, w: &mut World) -> Canvas {
         let mut image = Canvas::new(self.hsize, self.vsize);
 
         for y in 0..self.vsize {
@@ -95,7 +117,7 @@ impl Camera {
 }
 
 #[test]
-fn ray_through_center() {
+fn ray_through_center_of_view() {
     let c = Camera::new(201, 101, std::f64::consts::PI / 2.0,
         Matrix4D::identity());
     let r = c.ray_for_pixel(100, 50);
@@ -105,7 +127,7 @@ fn ray_through_center() {
 }
 
 #[test]
-fn ray_through_corner() {
+fn ray_through_corner_of_view() {
     let c = Camera::new(201, 101, std::f64::consts::PI / 2.0,
         Matrix4D::identity());
     let r = c.ray_for_pixel(0, 0);
@@ -115,7 +137,7 @@ fn ray_through_corner() {
 }
 
 #[test]
-fn ray_when_camera_transformed() {
+fn ray_when_camera_is_transformed() {
     let c = Camera::new(201, 101, std::f64::consts::PI / 2.0,
         Matrix4D::rotation_y(std::f64::consts::PI / 4.0)
             * Matrix4D::translation(0.0, -2.0, 5.0));
@@ -127,7 +149,7 @@ fn ray_when_camera_transformed() {
 }
 
 #[test]
-fn render_world_with_camera() {
+fn camera_can_render_world() {
     use crate::color::Color;
 
     let mut w: World = Default::default();
