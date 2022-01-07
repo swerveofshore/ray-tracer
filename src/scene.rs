@@ -10,6 +10,12 @@ use crate::world::World;
 use crate::camera::Camera;
 use crate::obj::ObjParser;
 
+/// A scene.
+///
+/// A scene is defined by a `World`, which contains all loaded objects, and a
+/// `Camera`, which views the loaded objects.
+///
+/// This record is mostly used by rendering functions for producing a render.
 #[derive(Debug)]
 pub struct Scene {
     pub world: World,
@@ -43,6 +49,11 @@ impl From<SceneJson> for Scene {
     }
 }
 
+/// The JSON description for a scene.
+///
+/// The user provides JSON in a file which describes the scene. With that
+/// description, a render can be produced. See the `scenes` directory included
+/// with this project for some example JSON scene descriptions.
 #[derive(Serialize, Deserialize)]
 pub struct SceneJson {
     canvas_width: usize,

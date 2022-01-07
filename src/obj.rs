@@ -6,8 +6,10 @@ use std::collections::BTreeMap;
 use crate::tuple::Tuple4D;
 use crate::shape::Shape;
 
+/// A face in an OBJ file.
 type ObjFace = Vec<(usize, Option<usize>, Option<usize>)>;
 
+/// A parser for OBJ files.
 #[derive(Clone, Debug)]
 pub struct ObjParser {
     pub path: PathBuf,
@@ -20,6 +22,7 @@ pub struct ObjParser {
 }
 
 impl ObjParser {
+    /// Creates a new `ObjParser` to parse the OBJ file at `path_str`.
     pub fn new(path_str: &str) -> ObjParser {
         let mut groups = BTreeMap::new();
         groups.insert("".into(), Shape::group());
@@ -35,6 +38,10 @@ impl ObjParser {
         }
     }
 
+    /// Parses an OBJ file.
+    ///
+    /// Unsupported commands are ignored. Each ignored command increments value
+    /// `ignored_lines` by 1.
     pub fn parse(&mut self) {
         let obj_file = File::open(&self.path)
             .expect(&format!("Failed to open file {:?}.", self.path));

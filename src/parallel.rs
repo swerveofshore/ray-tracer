@@ -8,16 +8,31 @@ use crate::camera::Camera;
 use crate::canvas::Canvas;
 use crate::consts::REFLECTION_RECURSION_DEPTH;
 
+/// A message sent between threads.
+///
+/// A message can either be a pixel to be rendered in a `Scene`, or a signal
+/// to terminate the completed rendering thread.
 pub enum Message {
     Pixel(usize, usize),
     Terminate,
 }
 
+/// A worker which holds a rendering thread.
+///
+/// Each worker runs until a `Terminate` message is sent. Basically, a worker
+/// waits for pixels to render, and once it receives a pixel, the worker renders
+/// it.
 struct Worker {
+    /// A thread for rendering pixels.
     thread: Option<thread::JoinHandle<()>>,
 }
 
 impl Worker {
+    /// Creates a new worker which immediately begins rendering.
+    ///
+    /// Once a worker begins, it does not stop until it receives a `Terminate`
+    /// message. Calling this function allocates a thread which awaits messages
+    /// until the thread terminates.
     fn new(world: Arc<World>, camera: Arc<Camera>, canvas: Arc<Mutex<Canvas>>,
         receiver: Arc<Mutex<mpsc::Receiver<Message>>>) -> Worker {
 
@@ -44,12 +59,35 @@ impl Worker {
     }
 }
 
+/// A thread pool for rendering a `Scene`.
+///
+/// Effectively, `n` threads (specified by the user) are allocated up-front as
+/// the program executes. Pixels are sent to each worker thread until the entire
+/// `Scene` is rendered.
+///
+/// When a worker finishes rendering a pixel, it awaits another pixel location
+/// to render; these locations are sent by the `sender`.
+///
+/// See function `parallel_render` for the top-level execution logic regarding
+/// the renderer.
 pub struct ThreadPool {
+    /// Workers allocated for rendering.
     workers: Vec<Worker>,
+
+    /// A sender handle for sending messages to each `Worker`.
     sender: mpsc::Sender<Message>,
 }
 
 impl ThreadPool {
+    /// Creates a new thread pool of size `size` for rendering a scene.
+    ///
+    /// Each possible pixel on the `canvas` is sent via an `mpsc` channel to
+    /// render on each worker thread. The "scene" is a combination of `world`
+    /// and `camera`, where rays are cast from the camera onto the world to
+    /// produce colors for each pixel.
+    ///
+    /// These pixels are sent using method `execute`. This function only
+    /// instantiates the threads needed for rendering.
     pub fn new(size: usize, world: World, camera: Camera,
         canvas: Arc<Mutex<Canvas>>) -> ThreadPool {
         // There should be at least one thread to run workers.
@@ -75,17 +113,26 @@ impl ThreadPool {
         ThreadPool { workers, sender }
     }
 
+    /// Send a pixel location to any listening worker to render said pixel.
     pub fn execute(&mut self, message: Message) {
         self.sender.send(message).unwrap();
     }
 }
 
+/// Custom drop implementation for `ThreadPool`.
+///
+/// When no more pixel locations are being sent to the `ThreadPool`, terminate
+/// all threads started by the `ThreadPool`.
+///
+/// This prevents the thread pool from waiting to join indefinitely.
 impl Drop for ThreadPool {
     fn drop(&mut self) {
+        // Send the terminate signal to each worker.
         for _ in &self.workers {
             self.sender.send(Message::Terminate).unwrap();
         }
 
+        // Join all of the worker threads.
         for worker in &mut self.workers {
             if let Some(thread) = worker.thread.take() {
                 thread.join().unwrap();
@@ -94,8 +141,18 @@ impl Drop for ThreadPool {
     }
 }
 
+/// Render a scene in parallel.
+///
+/// This is the primary driver code for the executable. Using a scene defined
+/// by `world` and `camera`, rays are cast by the `camera` onto the `world` to
+/// calculate the color of a pixel at each pixel location.
+///
+/// Pixel colors are stored in a `Canvas`, which is updated across all worker
+/// threads in an instantiated `ThreadPool`.
+///
+/// Once all threads finish rendering all pixel locations, the resultant render
+/// is written to file `out` via the `Canvas`.
 pub fn parallel_render(world: World, camera: Camera, jobs: usize, out: &Path) {
-
     let vsize = camera.vsize;
     let hsize = camera.hsize;
     let canvas = Arc::new(Mutex::new(Canvas::new(hsize, vsize)));
