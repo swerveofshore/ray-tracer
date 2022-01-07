@@ -11,11 +11,23 @@ use crate::feq;
 ///
 /// # Examples
 ///
+/// Creating a point and vector from `f64`s:
+///
 /// ```
 /// # #![allow(unused)]
 /// # use ray_tracer_challenge::tuple::Tuple4D;
 /// let point = Tuple4D::point(1.0, 2.0, 3.0);
 /// let vector = Tuple4D::vector(4.0, 5.0, 6.0);
+/// ```
+///
+/// Reflecting one vector about another:
+///
+/// ```
+/// # #![allow(unused)]
+/// # use ray_tracer_challenge::tuple::Tuple4D;
+/// let vector = Tuple4D::vector(3.0, 2.0, 1.0);
+/// let about = Tuple4D::vector(1.0, 0.0, 1.0).normalize();
+/// let reflection = vector.reflect(&about);
 /// ```
 #[derive(Debug, Default, Copy, Clone, PartialOrd)]
 pub struct Tuple4D {
