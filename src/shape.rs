@@ -8,6 +8,17 @@ use crate::matrix::Matrix4D;
 use crate::intersect::{ Intersection, Intersections, filter_intersections };
 use crate::geometry:: { TriangleInfo, SmoothTriangleInfo, Bounds };
 
+/// A shape type.
+///
+/// Structure `Shape` records data common to all shapes. `ShapeType`, on the
+/// other hand, records data specific to individual shape types. For instance,
+/// a "type" of shape is a `Cylinder`, which can be bounded on either side
+/// (preventing the cylinder from stretching outwards indefinitely), or can be
+/// capped (closing the cylinder on its "flat" sides).
+///
+/// `ShapeType` also represents group-like shapes, such as (trivially) `Group`,
+/// and groups which operate on shapes, such as constructive solid geometry
+/// (CSG) operations like `Union` or `Difference`.
 #[derive(Debug, Clone)]
 pub enum ShapeType {
     /// An empty shape which does nothing. Mostly for testing.
@@ -84,11 +95,40 @@ impl PartialEq for ShapeType {
                 }
             },
 
+            // TODO implement equality between CSG objects
             _ => false,
         }
     }
 }
 
+/// A shape.
+///
+/// Shapes are held by a `World`, where they are intersected by rays. Depending
+/// on the type of shape, shapes may be intersected differently, or may produce
+/// different normals. This is the entire point of having different shape types.
+///
+/// A shape can be of several different types; see `ShapeType` for the available
+/// types of shape. When using imported models, the `Triangle`, `SmoothTriangle`
+/// and `Group` types are of most importance.
+///
+/// Every shape has a type, material, transform and bounds. The type defines
+/// the physical "mold" of the shape, and the material defines the lighting
+/// properties of the shape (see the `Material` documentation for more
+/// information). The transform defines the shape's location, orientation and
+/// structure in space, and the bounds define where rays are allowed to
+/// intersect the shape (this is calculated internally and is mostly irrelevant
+/// to the user).
+///
+/// A shape can be parented by other shapes; this is the case with group-like
+/// shapes like `Group` or CSG operations such as `Union`. When a shape is
+/// parented, it has a parent transform, which brings the shape from object
+/// space to world space.
+///
+/// Transform and parent transform inverses are cached to prevent repeated
+/// inverse calculations at runtime. To that end, the `set_transform` method
+/// on `Shape` should be used whenever modifying the `transform` property, as
+/// otherwise `transform_inverse` (and friends) will not be consistent with
+/// property `transform`.
 #[derive(Debug, Clone)]
 pub struct Shape {
     pub ty: ShapeType, 
@@ -103,8 +143,18 @@ pub struct Shape {
     saved_bounds: Cell<Option<Bounds>>,
 }
 
+/// Undesirable, but this is due to the `Cell` structure on the `saved_bounds`
+/// property.
+///
+/// Mechanically, this should always be safe because `Bounds` are never updated
+/// across threads. Saved bounds are computed once per shape and aren't updated
+/// afterwards.
 unsafe impl Sync for Shape { }
 
+/// Allows default shapes to be created from strings.
+///
+/// This is mostly for JSON scene descriptions. Allows users to specify plain
+/// "cubes" or other objects which can be transformed in scene descriptions.
 impl From<&str> for Shape {
     fn from(s: &str) -> Shape {
         match s {
@@ -125,6 +175,10 @@ impl From<&str> for Shape {
     }
 }
 
+/// A default shape.
+///
+/// A default shape is empty with identity transforms and no bounds. No parent
+/// transforms are specified on default shapes.
 impl Default for Shape {
     fn default() -> Shape {
         Shape {
@@ -258,6 +312,10 @@ impl Shape {
         }
     }
 
+    /// Creates a CSG union between two shapes.
+    ///
+    /// The union of two shapes simply "glues" the two shapes together,
+    /// considering points of intersection only once in rendering.
     pub fn csg_union(s1: Shape, s2: Shape) -> Shape {
         let mut union_shape = Shape {
             // Temporarily set type to empty so that child shapes can have
@@ -271,6 +329,10 @@ impl Shape {
         union_shape
     }
 
+    /// Creates a CSG intersection between two shapes.
+    ///
+    /// The intersection of two shapes creates a new shape which only contains
+    /// points in common between the two shapes.
     pub fn csg_intersection(s1: Shape, s2: Shape) -> Shape {
         let mut intersection = Shape {
             // Temporarily set type to empty so that child shapes can have
@@ -284,6 +346,10 @@ impl Shape {
         intersection 
     }
 
+    /// Creates a CSG difference between two shapes.
+    ///
+    /// The difference of two shapes creates a new shape which contains all
+    /// points in `s1` which are not in `s2`.
     pub fn csg_difference(s1: Shape, s2: Shape) -> Shape {
         let mut difference = Shape {
             // Temporarily set type to empty so that child shapes can have
@@ -297,6 +363,9 @@ impl Shape {
         difference 
     }
 
+    /// Adds a child to a `Group` type shape.
+    ///
+    /// If this function is called on a non-`Group`, this function panics.
     pub fn add_child(&mut self, mut child: Shape) {
         let children = match self.ty {
             ShapeType::Group(ref mut c) => c,
@@ -849,6 +918,10 @@ impl Shape {
         }
     }
 
+    /// Intersects a ray with a cube.
+    ///
+    /// A cube acts like a "bounding box," and if a ray intersects that box,
+    /// an `Intersection` is created for the cube.
     fn intersect_cube(&self, ray: &Ray4D) -> Intersections {
         // Panic if this isn't a cube.
         match self.ty {
@@ -879,6 +952,10 @@ impl Shape {
         }
     }
 
+    /// Obtains the normal at a point on a cube.
+    ///
+    /// A cube naturally has six normal vectors; this function decides which
+    /// normal to return.
     fn normal_at_cube(&self, p: &Tuple4D) -> Tuple4D {
         // Panic if this isn't a cube.
         match self.ty {
@@ -900,6 +977,7 @@ impl Shape {
         }
     }
 
+    /// Intersects a ray with a cylinder.
     fn intersect_cylinder(&self, ray: &Ray4D) -> Intersections {
         let (minimum, maximum) = match self.ty {
             ShapeType::Cylinder(min, max, _) => (min, max),
@@ -961,6 +1039,11 @@ impl Shape {
         is
     }
 
+    /// Finds the normal at a point on a cylinder.
+    ///
+    /// If a point is on a "cap" of the cylinder, one of two cap normals is
+    /// returned. Otherwise, the normal is calculated on the "round" part of
+    /// the cylinder.
     fn normal_at_cylinder(&self, at: &Tuple4D) -> Tuple4D {
         let (minimum, maximum) = match self.ty {
             ShapeType::Cylinder(min, max, _) => (min, max),
@@ -984,6 +1067,7 @@ impl Shape {
         }
     }
 
+    /// Intersects a ray with a cone.
     fn intersect_cone(&self, ray: &Ray4D) -> Intersections {
         let (minimum, maximum) = match self.ty {
             ShapeType::Cone(min, max, _) => (min, max),
@@ -1059,6 +1143,7 @@ impl Shape {
         is
     }
 
+    /// Finds the normal at a point on a cone.
     fn normal_at_cone(&self, at: &Tuple4D) -> Tuple4D {
         let (minimum, maximum) = match self.ty {
             ShapeType::Cone(min, max, _) => (min, max),
@@ -1087,6 +1172,10 @@ impl Shape {
         }
     }
 
+    /// Intersects a ray and a shape group.
+    ///
+    /// Each child in the group is intersected. All intersections of child
+    /// shapes are collected and returned from this function in sorted order.
     fn intersect_group(&self, ray: &Ray4D) -> Intersections {
         let children = match self.ty {
             ShapeType::Group(ref c) => c,
@@ -1132,6 +1221,7 @@ impl Shape {
         Intersections::aggregate(all_intersections)
     }
 
+    /// Intersects a ray with a triangle.
     fn intersect_triangle(&self, ray: &Ray4D) -> Intersections {
         let triangle_info = match self.ty {
             ShapeType::Triangle(ref ti) => ti,
@@ -1169,6 +1259,7 @@ impl Shape {
         }
     }
 
+    /// Finds the normal at a point on a triangle.
     fn normal_at_triangle(&self, _at: &Tuple4D) -> Tuple4D {
         let triangle_info = match self.ty {
             ShapeType::Triangle(ref ti) => ti,
@@ -1178,6 +1269,7 @@ impl Shape {
         triangle_info.normal
     }
 
+    /// Intersects a ray with a smooth triangle.
     fn intersect_smooth_triangle(&self, ray: &Ray4D) -> Intersections {
         // TODO reduce code duplication with `intersect_triangle`
 
@@ -1222,6 +1314,7 @@ impl Shape {
         }
     }
 
+    /// Finds the normal at a point on a smooth triangle.
     fn normal_at_smooth_triangle<'a>(&self, _at: &Tuple4D,
         hit: &Intersection<'a>) -> Tuple4D {
         let smooth_triangle_info = match self.ty {
@@ -1291,6 +1384,7 @@ impl Shape {
         }
     }
 
+    /// Intersects the caps of a cylinder.
     fn intersect_cylinder_caps<'a>(&'a self, ray: &Ray4D,
         is: &mut Intersections<'a>) {
         let (minimum, maximum, closed) = match self.ty {
@@ -1325,6 +1419,7 @@ impl Shape {
         (x.powi(2) + z.powi(2)) <= 1.0
     }
 
+    /// Intersects the caps of a double-napped cone.
     fn intersect_cone_caps<'a>(&'a self, ray: &Ray4D,
         is: &mut Intersections<'a>) {
         let (minimum, maximum, closed) = match self.ty {
@@ -1350,6 +1445,8 @@ impl Shape {
         }
     }
 
+    /// Checks to see if the intersection `t` is within a radius of 1 (the
+    /// assumed radius of a cone) from the Y axis.
     fn check_cone_cap(ray: &Ray4D, t: f64, y: f64) -> bool {
         let x = ray.origin.x + t * ray.direction.x;
         let z = ray.origin.z + t * ray.direction.z;
@@ -1372,6 +1469,12 @@ pub fn intersect(s: &Shape, r: Ray4D) -> Intersections {
     s.local_intersect(&transformed_ray)
 }
 
+/// Finds the normal at a point on a `Shape`.
+///
+/// Each shape implements `local_normal_at` which calculates the normal vector
+/// of a shape in *normal* space. This function uses the `transform` associated
+/// with each `Shape`, and converts the point to object space before calculating
+/// the normal vector.
 pub fn normal_at<'a>(s: &Shape, world_point: Tuple4D,
     hit: &Intersection<'a>) -> Tuple4D {
 
