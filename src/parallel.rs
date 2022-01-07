@@ -152,6 +152,34 @@ impl Drop for ThreadPool {
 ///
 /// Once all threads finish rendering all pixel locations, the resultant render
 /// is written to file `out` via the `Canvas`.
+///
+/// # Examples
+///
+/// Render the default world with a camera distanced from the world origin:
+///
+/// ```
+/// # use ray_tracer_challenge::tuple::Tuple4D;
+/// # use ray_tracer_challenge::matrix::Matrix4D;
+/// # use ray_tracer_challenge::camera::Camera;
+/// # use ray_tracer_challenge::world::World;
+/// # use ray_tracer_challenge::parallel::parallel_render;
+/// use std::path::Path;
+/// use ray_tracer_challenge::consts::{ CANVAS_WIDTH, CANVAS_HEIGHT };
+/// 
+/// // Create the default world
+/// let world: World = Default::default();
+/// let view = Matrix4D::view_transform(
+///     Tuple4D::point(0.0, 1.5, -5.0),
+///     Tuple4D::point(0.0, 1.0, 0.0),
+///     Tuple4D::vector(0.0, 1.0, 0.0)
+/// );
+///
+/// // Create a camera for creating a canvas with dimensions 50 by 40
+/// let camera = Camera::new(50, 40, std::f64::consts::PI / 3.0, view);
+///
+/// // Execute a parallel render with two threads, save to file 'out.ppm'
+/// parallel_render(world, camera, 2, &Path::new("out.ppm"));
+/// ```
 pub fn parallel_render(world: World, camera: Camera, jobs: usize, out: &Path) {
     let vsize = camera.vsize;
     let hsize = camera.hsize;
