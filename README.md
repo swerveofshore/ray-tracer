@@ -10,15 +10,11 @@ Implemented in Rust.
 This crate implements the features in every chapter of *The Ray Tracer
 Challenge*, plus a few more. Extra features include:
 
-    * Bounding boxes for (most) primitive shapes, including triangles
-
-    * Parent transformation pre-computation on group objects
-
-    * Inverse transformation cacheing on shapes
-
-    * Multi-threaded rendering
-
-    * Mostly complete documentation of major ray tracing components
+    - Bounding boxes for (most) primitive shapes, including triangles
+    - Parent transformation pre-computation on group objects
+    - Inverse transformation cacheing on shapes
+    - Multi-threaded rendering
+    - Mostly complete documentation of major ray tracing components
 
 Parent transformations are pre-computed to avoid using a bidirectional tree to
 represent shape hierarchies. Fortunately, this also yields a performance
