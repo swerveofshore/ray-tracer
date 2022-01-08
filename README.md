@@ -114,3 +114,8 @@ recommend it.
 Credit to the [Ray Tracer Challenge
 Forum](https://forum.raytracerchallenge.com/) as well. The users of this forum
 are awesome. Super helpful for debugging and optimization help.
+
+## Contributing
+
+If you see any mistakes, or would like to add features to this project, feel
+free to create an issue or pull request.
