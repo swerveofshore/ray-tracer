@@ -1,3 +1,58 @@
+//! A ray tracer and some ray tracer helpers.
+//!
+//! This crate takes most of the pseudocode from Jamis Buck's [*Ray Tracer
+//! Challenge*](http://raytracerchallenge.com/) and implements it in Rust.
+//! Several functions and structures are exposed in case one would like to use
+//! them in other projects.
+//!
+//! This crate also doubles as an executable; after cloning the repository, one
+//! can run `cargo run --release` at the project root. A sample scene will be
+//! rendered and saved to file `out.ppm`.
+//!
+//! Some other optimizations are included, such as bounding boxes for shapes,
+//! which are mentioned but not implemented in the textbook. The biggest
+//! optimization comes from a [suggestion on the Ray Tracer Challenge Forums](https://forum.raytracerchallenge.com/thread/203/performance-tips-clarifications-book-errata)
+//! where user "garfieldnate" suggests pushing parent transformations on shape
+//! groups to group children.
+//!
+//! Moreover, in the same thread, "garfieldnate" also suggests cacheing matrix
+//! inverses, which prevents the same matrix inverses from being calculated
+//! over-and-over at render-time.
+//!
+//! I also added logic to render scenes in parallel, where each available thread
+//! renders one pixel at a time. Most of this logic is taken from the [Rust
+//! Programming Language Book](https://doc.rust-lang.org/stable/book/),
+//! specifically in Chapter 20, Part 2: "Turning Our Single-Threaded Server into
+//! a Multithreaded Server." This logic works well for rendering pixels
+//! on-demand, without requiring thread barriers (or similar constructs).
+//!
+//! # Modules Overview
+//!
+//! Most of the execution logic occurs in module `parallel`, specifically in
+//! function `parallel_render`, which accepts a `World` and a `Camera` from the
+//! `world` and `camera` modules respectively. A `Camera` spectates a `World`
+//! which contains `Shape`s. The `Camera` provides rays for each desired pixel,
+//! in which a color is calculated and written to a `Canvas` (in `canvas`). Once
+//! rendering completes, a `Canvas` can be used to store render data to a file
+//! (just PPM images for now).
+//!
+//! Modules `tuple`, `matrix`, `color` and `ray` all provided mathematical
+//! constructs for points, vectors, matrices, colors and rays, which are used
+//! frequently throughout the ray tracing logic.
+//!
+//! Modules `light` and `pattern` help define the colors produced by certain
+//! materials or patterns when associated with shapes.
+//!
+//! Modules `scene` and `obj` handle scene specification and OBJ model parsing,
+//! respectively.
+//!
+//! # Notice
+//!
+//! While I (the author of this crate) wrote all of the code in this library
+//! myself, I must assert that most of the logic in this crate was outlined in
+//! Buck's book. Buck's book was an excellent hands-on introduction to building
+//! ray tracers; I highly recommend it. A link to the book is provided above.
+
 /// Tuples and arithmetic on tuples.
 ///
 /// Structure `Tuple4D` is used frequently throughout this crate to represent
