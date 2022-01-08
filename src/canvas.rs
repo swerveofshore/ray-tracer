@@ -104,8 +104,8 @@ impl Canvas {
     /// Writing a pixel to the fourth column, second row on an 8-by-8 canvas:
     ///
     /// ```
-    /// # use ray_tracer_challenge::color::Color;
-    /// # use ray_tracer_challenge::canvas::Canvas;
+    /// # use ray_tracer::color::Color;
+    /// # use ray_tracer::canvas::Canvas;
     /// let purple = Color::rgb(1.0, 0.0, 1.0);
     /// let mut canvas = Canvas::new(8, 8);
     /// canvas.write_pixel(4, 2, &purple);

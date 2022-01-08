@@ -15,7 +15,7 @@ use crate::feq;
 ///
 /// ```
 /// # #![allow(unused)]
-/// # use ray_tracer_challenge::tuple::Tuple4D;
+/// # use ray_tracer::tuple::Tuple4D;
 /// let point = Tuple4D::point(1.0, 2.0, 3.0);
 /// let vector = Tuple4D::vector(4.0, 5.0, 6.0);
 /// ```
@@ -24,7 +24,7 @@ use crate::feq;
 ///
 /// ```
 /// # #![allow(unused)]
-/// # use ray_tracer_challenge::tuple::Tuple4D;
+/// # use ray_tracer::tuple::Tuple4D;
 /// let vector = Tuple4D::vector(3.0, 2.0, 1.0);
 /// let about = Tuple4D::vector(1.0, 0.0, 1.0).normalize();
 /// let reflection = vector.reflect(&about);
@@ -227,7 +227,7 @@ impl Neg for Tuple4D {
 /// Effectively, this looks like the following:
 ///
 /// ```
-/// use ray_tracer_challenge::tuple::Tuple4D;
+/// use ray_tracer::tuple::Tuple4D;
 ///
 /// let t = Tuple4D::tuple(1.0, 2.0, 3.0, 4.0);
 /// let s = 5.0;
@@ -253,7 +253,7 @@ impl Mul<f64> for Tuple4D {
 /// Effectively, this looks like the following:
 ///
 /// ```rust
-/// use ray_tracer_challenge::tuple::Tuple4D;
+/// use ray_tracer::tuple::Tuple4D;
 ///
 /// let t = Tuple4D::tuple(1.0, 2.0, 3.0, 4.0);
 /// let s = 5.0;

@@ -158,13 +158,13 @@ impl Drop for ThreadPool {
 /// Render the default world with a camera distanced from the world origin:
 ///
 /// ```
-/// # use ray_tracer_challenge::tuple::Tuple4D;
-/// # use ray_tracer_challenge::matrix::Matrix4D;
-/// # use ray_tracer_challenge::camera::Camera;
-/// # use ray_tracer_challenge::world::World;
-/// # use ray_tracer_challenge::parallel::parallel_render;
+/// # use ray_tracer::tuple::Tuple4D;
+/// # use ray_tracer::matrix::Matrix4D;
+/// # use ray_tracer::camera::Camera;
+/// # use ray_tracer::world::World;
+/// # use ray_tracer::parallel::parallel_render;
 /// use std::path::Path;
-/// use ray_tracer_challenge::consts::{ CANVAS_WIDTH, CANVAS_HEIGHT };
+/// use ray_tracer::consts::{ CANVAS_WIDTH, CANVAS_HEIGHT };
 /// 
 /// // Create the default world
 /// let world: World = Default::default();

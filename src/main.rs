@@ -4,16 +4,16 @@ use std::path::Path;
 
 use clap::{ app_from_crate, arg };
 
-use ray_tracer_challenge::scene::{ Scene, SceneJson };
-use ray_tracer_challenge::tuple::Tuple4D;
-use ray_tracer_challenge::matrix::Matrix4D;
-use ray_tracer_challenge::color::Color;
-use ray_tracer_challenge::light::PointLight;
-use ray_tracer_challenge::shape::Shape;
-use ray_tracer_challenge::world::World;
-use ray_tracer_challenge::camera::Camera;
-use ray_tracer_challenge::parallel::parallel_render;
-use ray_tracer_challenge::consts::{ CANVAS_WIDTH, CANVAS_HEIGHT };
+use ray_tracer::scene::{ Scene, SceneJson };
+use ray_tracer::tuple::Tuple4D;
+use ray_tracer::matrix::Matrix4D;
+use ray_tracer::color::Color;
+use ray_tracer::light::PointLight;
+use ray_tracer::shape::Shape;
+use ray_tracer::world::World;
+use ray_tracer::camera::Camera;
+use ray_tracer::parallel::parallel_render;
+use ray_tracer::consts::{ CANVAS_WIDTH, CANVAS_HEIGHT };
 
 fn main() {
     let matches = app_from_crate!()
@@ -51,7 +51,7 @@ fn main() {
     let out = Path::new(
         match matches.value_of_os("output") {
             Some(o) => o,
-            None => OsStr::new(ray_tracer_challenge::consts::OUT_FILE),
+            None => OsStr::new(ray_tracer::consts::OUT_FILE),
         }
     );
 

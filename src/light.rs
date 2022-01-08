@@ -75,8 +75,8 @@ pub struct Material {
 /// Creating a default material:
 ///
 /// ```
-/// # use ray_tracer_challenge::color::Color;
-/// # use ray_tracer_challenge::light::Material;
+/// # use ray_tracer::color::Color;
+/// # use ray_tracer::light::Material;
 /// let default_material: Material = Default::default();
 /// let actual_defaults = Material {
 ///     color: Color::white(),

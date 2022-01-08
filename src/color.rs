@@ -13,7 +13,7 @@ use crate::feq;
 ///
 /// ```
 /// # #![allow(unused)]
-/// # use ray_tracer_challenge::color::Color;
+/// # use ray_tracer::color::Color;
 /// let red = Color::red();
 /// assert_eq!(red, Color::rgb(1.0, 0.0, 0.0));
 /// ```
@@ -22,7 +22,7 @@ use crate::feq;
 ///
 /// ```
 /// # #![allow(unused)]
-/// # use ray_tracer_challenge::color::Color;
+/// # use ray_tracer::color::Color;
 /// let green = Color::green();
 /// let blue = Color::blue();
 /// let blend = Color::average(&green, &blue);
@@ -132,7 +132,7 @@ impl Color {
     /// Computing the Hadamard product between yellow and purple:
     ///
     /// ```
-    /// # use ray_tracer_challenge::color::Color;
+    /// # use ray_tracer::color::Color;
     /// let yellow = Color::rgb(1.0, 1.0, 0.0);
     /// let purple = Color::rgb(1.0, 0.0, 1.0);
     /// let product = Color::hadamard(&yellow, &purple);
@@ -160,7 +160,7 @@ impl Color {
     /// Computing the average between cyan and purple:
     ///
     /// ```
-    /// # use ray_tracer_challenge::color::Color;
+    /// # use ray_tracer::color::Color;
     /// let cyan = Color::rgb(0.0, 1.0, 1.0);
     /// let purple = Color::rgb(1.0, 0.0, 1.0);
     /// let avg = Color::average(&cyan, &purple);
@@ -244,7 +244,7 @@ impl Mul<Color> for f64 {
 /// # Examples
 ///
 /// ```
-/// # use ray_tracer_challenge::color::Color;
+/// # use ray_tracer::color::Color;
 /// let c1 = Color::red();
 /// let c2 = Color::blue();
 /// assert_eq!(c1 * c2, Color::hadamard(&c1, &c2));

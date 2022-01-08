@@ -81,7 +81,7 @@ impl IndexMut<(usize, usize)> for Matrix3D {
 ///
 /// ```
 /// # #![allow(unused)]
-/// # use ray_tracer_challenge::matrix::Matrix4D;
+/// # use ray_tracer::matrix::Matrix4D;
 /// let mat = Matrix4D::identity();
 /// assert_eq!(mat.determinant(), 1.0);
 /// ```
@@ -90,8 +90,8 @@ impl IndexMut<(usize, usize)> for Matrix3D {
 ///
 /// ```
 /// # #![allow(unused)]
-/// # use ray_tracer_challenge::tuple::Tuple4D;
-/// # use ray_tracer_challenge::matrix::Matrix4D;
+/// # use ray_tracer::tuple::Tuple4D;
+/// # use ray_tracer::matrix::Matrix4D;
 /// let from = Tuple4D::point(0.0, 0.0, 0.0);
 /// let to = Tuple4D::point(0.0, 0.0, 5.0);
 /// let up = Tuple4D::vector(0.0, 1.0, 0.0);
@@ -269,8 +269,8 @@ impl Matrix4D {
     ///
     /// ```
     /// # #![allow(unused)]
-    /// # use ray_tracer_challenge::tuple::Tuple4D;
-    /// # use ray_tracer_challenge::matrix::Matrix4D;
+    /// # use ray_tracer::tuple::Tuple4D;
+    /// # use ray_tracer::matrix::Matrix4D;
     /// let point = Tuple4D::point(0.0, 1.0, 0.0);
     /// let m = Matrix4D::rotation_x(std::f64::consts::PI / 2.0);
     /// assert_eq!(m * point, Tuple4D::point(0.0, 0.0, 1.0));
@@ -295,8 +295,8 @@ impl Matrix4D {
     ///
     /// ```
     /// # #![allow(unused)]
-    /// # use ray_tracer_challenge::tuple::Tuple4D;
-    /// # use ray_tracer_challenge::matrix::Matrix4D;
+    /// # use ray_tracer::tuple::Tuple4D;
+    /// # use ray_tracer::matrix::Matrix4D;
     /// let point = Tuple4D::point(1.0, 0.0, 0.0);
     /// let m = Matrix4D::rotation_y(std::f64::consts::PI / 2.0);
     /// assert_eq!(m * point, Tuple4D::point(0.0, 0.0, -1.0));
@@ -321,8 +321,8 @@ impl Matrix4D {
     ///
     /// ```
     /// # #![allow(unused)]
-    /// # use ray_tracer_challenge::tuple::Tuple4D;
-    /// # use ray_tracer_challenge::matrix::Matrix4D;
+    /// # use ray_tracer::tuple::Tuple4D;
+    /// # use ray_tracer::matrix::Matrix4D;
     /// let point = Tuple4D::point(0.0, 1.0, 0.0);
     /// let m = Matrix4D::rotation_z(std::f64::consts::PI / 2.0);
     /// assert_eq!(m * point, Tuple4D::point(-1.0, 0.0, 0.0));
@@ -381,8 +381,8 @@ impl Matrix4D {
     /// Shearing points along the `xy` slope (similar to the above example):
     ///
     /// ```
-    /// # use ray_tracer_challenge::tuple::Tuple4D;
-    /// # use ray_tracer_challenge::matrix::Matrix4D;
+    /// # use ray_tracer::tuple::Tuple4D;
+    /// # use ray_tracer::matrix::Matrix4D;
     /// let point = Tuple4D::point(1.0, 0.0, 0.0);
     /// let m = Matrix4D::shearing(2.0, 1.0, 1.0, 1.0, 1.0, 1.0);
     /// assert_eq!(m * point, Tuple4D::point(1.0, 1.0, 1.0));
@@ -596,7 +596,7 @@ impl IndexMut<(usize, usize)> for Matrix4D {
 /// # Examples
 ///
 /// ```
-/// # use ray_tracer_challenge::matrix::Matrix4D;
+/// # use ray_tracer::matrix::Matrix4D;
 /// let m1 = Matrix4D::scaling(2.0, 3.0, 4.0);
 /// let m2 = Matrix4D::scaling(4.0, 3.0, 2.0);
 /// assert_eq!(m1 * m2, Matrix4D::scaling(8.0, 9.0, 8.0));
@@ -629,8 +629,8 @@ impl Mul<Matrix4D> for Matrix4D {
 /// # Examples
 ///
 /// ```
-/// # use ray_tracer_challenge::tuple::Tuple4D;
-/// # use ray_tracer_challenge::matrix::Matrix4D;
+/// # use ray_tracer::tuple::Tuple4D;
+/// # use ray_tracer::matrix::Matrix4D;
 /// let v = Tuple4D::vector(1.0, 4.0, 5.0);
 /// let m = Matrix4D::scaling(2.0, 2.0, 2.0);
 /// assert_eq!(m * v, Tuple4D::vector(2.0, 8.0, 10.0));
